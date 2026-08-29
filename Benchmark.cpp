@@ -168,4 +168,5 @@ BenchmarkResult run_benchmark(
         actual_ticks,
         time_ns
     };
+    //
 }
