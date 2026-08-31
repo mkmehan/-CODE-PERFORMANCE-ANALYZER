@@ -21,15 +21,26 @@ int partition(
     int i=left;
     int j=right;
 
+
     while(i<=j){
 
-        while(i<=right && data[i]<pivot){
+        while(
+            i<=right &&
+            data[i]<pivot
+        ){
+
             i++;
         }
 
-        while(j>=left && data[j]>pivot){
+
+        while(
+            j>=left &&
+            data[j]>pivot
+        ){
+
             j--;
         }
+
 
         if(i<=j){
 
@@ -42,6 +53,7 @@ int partition(
             j--;
         }
     }
+
 
     return i;
 }
@@ -57,12 +69,14 @@ void quick_sort(
         return;
     }
 
+
     int index=
         partition(
             data,
             left,
             right
         );
+
 
     if(left<index-1){
 
@@ -72,6 +86,7 @@ void quick_sort(
             index-1
         );
     }
+
 
     if(index<right){
 
@@ -84,44 +99,47 @@ void quick_sort(
 }
 
 
-void setup_quick_sort(){
+void setup_quick_sort(size_t n){
 
-    data=get_sorting_input();
+    data=
+        get_sorting_input(n);
 }
 
 
-void run_quick_sort(){
+void run_quick_sort(size_t){
 
     if(data.empty()){
         return;
     }
 
+
     quick_sort(
+
         data,
+
         0,
-        static_cast<int>(data.size())-1
+
+        static_cast<int>(
+            data.size()
+        )-1
     );
 }
 
-
-struct QuickSortRegistration{
-
-    QuickSortRegistration(){
-
-        get_benchmark_runner().add(
-
-            "quick",
-
-            "Quick Sort",
-
-            setup_quick_sort,
-
-            run_quick_sort
-        );
-    }
-};
+}
 
 
-QuickSortRegistration registration;
+void register_quick_sort(
+    BenchmarkRunner&runner
+){
 
+    runner.add(
+
+        "quick",
+
+        "Quick Sort",
+
+        setup_quick_sort,
+
+        run_quick_sort
+    );
 }

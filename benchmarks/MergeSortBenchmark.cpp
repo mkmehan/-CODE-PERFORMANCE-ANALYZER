@@ -6,6 +6,9 @@
 
 namespace{
 
+std::vector<int>data;
+std::vector<int>temp;
+
 
 void merge_sort(
 
@@ -46,7 +49,9 @@ void merge_sort(
 
 
     int i=left;
+
     int j=mid+1;
+
     int k=left;
 
 
@@ -85,45 +90,53 @@ void merge_sort(
 }
 
 
-struct MergeSortRegistration{
+void setup_merge_sort(size_t n){
 
-    std::vector<int>data;
+    data=get_sorting_input(n);
 
-    std::vector<int>temp;
+    temp.resize(
+        data.size()
+    );
+}
 
 
-    MergeSortRegistration(){
+void run_merge_sort(size_t){
 
-        get_benchmark_runner().add(
+    if(data.empty()){
 
-            "merge",
-
-            "Merge Sort",
-
-            [this](){
-
-                data=get_sorting_input();
-
-                temp.resize(
-                    data.size()
-                );
-            },
-
-            [this](){
-
-                merge_sort(
-
-                    data,
-                    temp,
-                    0,
-                    data.size()-1
-                );
-            }
-        );
+        return;
     }
-};
 
 
-MergeSortRegistration registration;
+    merge_sort(
 
+        data,
+
+        temp,
+
+        0,
+
+        static_cast<int>(
+            data.size()
+        )-1
+    );
+}
+
+}
+
+
+void register_merge_sort(
+    BenchmarkRunner&runner
+){
+
+    runner.add(
+
+        "merge",
+
+        "Merge Sort",
+
+        setup_merge_sort,
+
+        run_merge_sort
+    );
 }

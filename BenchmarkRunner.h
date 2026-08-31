@@ -5,21 +5,7 @@
 
 #include <vector>
 #include <string>
-#include <stdint.h>
-
-
-struct BenchmarkSummary{
-
-    std::string key;
-    std::string name;
-
-    double average_ticks;
-    double median_ticks;
-
-    double average_time_ns;
-    double median_time_ns;
-};
-
+#include <cstdint>
 
 class BenchmarkRunner{
 
@@ -28,6 +14,8 @@ private:
     std::vector<Benchmark>benchmarks;
 
     std::vector<BenchmarkSummary>summaries;
+
+    std::vector<size_t>input_sizes;
 
     int warmup_runs;
     int iterations;
@@ -55,6 +43,11 @@ public:
     );
 
 
+    void set_input_sizes(
+        const std::vector<size_t>&sizes
+    );
+
+
     void run_all();
 
 
@@ -65,8 +58,5 @@ public:
 
     void list_benchmarks() const;
 };
-
-
-BenchmarkRunner&get_benchmark_runner();
 
 #endif

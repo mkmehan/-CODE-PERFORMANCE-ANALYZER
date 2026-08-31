@@ -4,29 +4,25 @@
 #include <vector>
 #include <random>
 
-inline const std::vector<int>&get_sorting_input(){
+inline std::vector<int>get_sorting_input(
+    size_t size
+){
 
-    static const std::vector<int>data=[](){
+    std::vector<int>values(size);
 
-        constexpr int INPUT_SIZE=2000;
+    std::mt19937 generator(12345);
 
-        std::vector<int>values(INPUT_SIZE);
+    std::uniform_int_distribution<int>
+        distribution(0,1000000);
 
-        std::mt19937 generator(12345);
 
-        std::uniform_int_distribution<int>
-            distribution(0,1000000);
+    for(size_t i=0;i<size;i++){
 
-        for(int i=0;i<INPUT_SIZE;i++){
+        values[i]=distribution(generator);
+    }
 
-            values[i]=distribution(generator);
-        }
 
-        return values;
-
-    }();
-
-    return data;
+    return values;
 }
 
 #endif

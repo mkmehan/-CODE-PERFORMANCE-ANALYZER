@@ -1,15 +1,25 @@
 #include "BenchmarkRunner.h"
+#include "benchmarks/RegisterBenchmarks.h"
 
 #include <iostream>
 #include <string>
 
-
 int main(int argc,char*argv[]){
 
-    BenchmarkRunner&runner=
-        get_benchmark_runner();
+    // Create runner
+    BenchmarkRunner runner(
+        10,
+        100
+    );
 
 
+    // Register all benchmarks
+    register_all_benchmarks(
+        runner
+    );
+
+
+    // No argument -> run everything
     if(argc==1){
 
         runner.run_all();
@@ -21,6 +31,7 @@ int main(int argc,char*argv[]){
     std::string argument=argv[1];
 
 
+    // Help
     if(argument=="--help"){
 
         runner.list_benchmarks();
@@ -29,6 +40,7 @@ int main(int argc,char*argv[]){
     }
 
 
+    // All
     if(argument=="--all"){
 
         runner.run_all();
@@ -37,15 +49,14 @@ int main(int argc,char*argv[]){
     }
 
 
+    // Selected benchmark
     if(argument.rfind("--",0)==0){
 
         std::string key=
             argument.substr(2);
 
 
-        if(
-            runner.run_selected(key)
-        ){
+        if(runner.run_selected(key)){
 
             return 0;
         }
@@ -59,7 +70,6 @@ int main(int argc,char*argv[]){
 
         runner.list_benchmarks();
 
-
         return 1;
     }
 
@@ -71,7 +81,6 @@ int main(int argc,char*argv[]){
 
 
     runner.list_benchmarks();
-
 
     return 1;
 }

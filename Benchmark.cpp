@@ -17,9 +17,13 @@ uint64_t measure_overhead(){
         RDTSC_Timer timer;
 
         timer.start();
+
         timer.stop();
 
-        uint64_t ticks=timer.ticks();
+
+        uint64_t ticks=
+            timer.ticks();
+
 
         if(ticks<minimum){
 
@@ -50,13 +54,15 @@ double get_tsc_frequency(){
     );
 
 
-    uint64_t start_tsc=__rdtsc();
+    uint64_t start_tsc=
+        __rdtsc();
 
 
     Sleep(200);
 
 
-    uint64_t end_tsc=__rdtsc();
+    uint64_t end_tsc=
+        __rdtsc();
 
 
     QueryPerformanceCounter(
@@ -77,7 +83,9 @@ double get_tsc_frequency(){
         /elapsed_time;
 
 
-    return tsc_frequency/1000000000.0;
+    return
+        tsc_frequency/
+        1000000000.0;
 }
 
 
@@ -85,6 +93,9 @@ BenchmarkResult run_benchmark(
 
     BenchmarkFunction setup,
     BenchmarkFunction function,
+
+    size_t input_size,
+
     uint64_t overhead
 
 ){
@@ -100,41 +111,49 @@ BenchmarkResult run_benchmark(
     );
 
 
-    // Prepare data BEFORE measurement
+    // -------------------------------
+    // Prepare the input
+    // -------------------------------
 
-    setup();
+    setup(input_size);
 
 
-    // Start high-resolution timer
+    // -------------------------------
+    // Start timing
+    // -------------------------------
 
     QueryPerformanceCounter(
         &start_time
     );
 
 
-    // Start RDTSC
-
     RDTSC_Timer timer;
 
     timer.start();
 
 
-    // Run actual benchmark
+    // -------------------------------
+    // Run actual code
+    // -------------------------------
 
-    function();
+    function(input_size);
 
 
-    // Stop RDTSC
+    // -------------------------------
+    // Stop timing
+    // -------------------------------
 
     timer.stop();
 
-
-    // Stop high-resolution timer
 
     QueryPerformanceCounter(
         &end_time
     );
 
+
+    // -------------------------------
+    // TSC result
+    // -------------------------------
 
     uint64_t measured_ticks=
         timer.ticks();
@@ -149,6 +168,10 @@ BenchmarkResult run_benchmark(
             measured_ticks-overhead;
     }
 
+
+    // -------------------------------
+    // High-resolution time
+    // -------------------------------
 
     uint64_t counter_difference=
         end_time.QuadPart-
@@ -168,5 +191,4 @@ BenchmarkResult run_benchmark(
         actual_ticks,
         time_ns
     };
-    //
 }

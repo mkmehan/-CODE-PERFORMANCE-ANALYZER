@@ -2,65 +2,66 @@
 #include "SortingData.h"
 
 #include <vector>
+#include <algorithm>
 
 
 namespace{
 
-struct SelectionSortRegistration{
-
-    std::vector<int>data;
+std::vector<int>data;
 
 
-    SelectionSortRegistration(){
+void setup_selection_sort(size_t n){
 
-        get_benchmark_runner().add(
-
-            "selection",
-
-            "Selection Sort",
-
-            [this](){
-
-                data=get_sorting_input();
-            },
-
-            [this](){
-
-                int n=data.size();
+    data=get_sorting_input(n);
+}
 
 
-                for(int i=0;i<n-1;i++){
+void run_selection_sort(size_t){
 
-                    int minimum=i;
-
-
-                    for(int j=i+1;j<n;j++){
-
-                        if(
-                            data[j]
-                            <
-                            data[minimum]
-                        ){
-
-                            minimum=j;
-                        }
-                    }
+    int n=static_cast<int>(
+        data.size()
+    );
 
 
-                    if(minimum!=i){
+    for(int i=0;i<n-1;i++){
 
-                        std::swap(
-                            data[i],
-                            data[minimum]
-                        );
-                    }
-                }
+        int minimum=i;
+
+
+        for(int j=i+1;j<n;j++){
+
+            if(data[j]<data[minimum]){
+
+                minimum=j;
             }
-        );
+        }
+
+
+        if(minimum!=i){
+
+            std::swap(
+                data[i],
+                data[minimum]
+            );
+        }
     }
-};
+}
+
+}
 
 
-SelectionSortRegistration registration;
+void register_selection_sort(
+    BenchmarkRunner&runner
+){
 
+    runner.add(
+
+        "selection",
+
+        "Selection Sort",
+
+        setup_selection_sort,
+
+        run_selection_sort
+    );
 }

@@ -1,36 +1,27 @@
 #include "../BenchmarkRunner.h"
 
-namespace{
 
-struct SumBenchmarkRegistration{
+void register_sum(
+    BenchmarkRunner&runner
+){
 
-    SumBenchmarkRegistration(){
+    runner.add(
 
-        get_benchmark_runner().add(
+        "sum",
 
-            "sum",
+        "Sum",
 
-            "Sum 1,000 numbers",
+        [](size_t){
+        },
 
-            [](){
+        [](size_t n){
 
-                // Setup
-            },
+            volatile long long sum=0;
 
-            [](){
+            for(size_t i=0;i<n;i++){
 
-                volatile long long sum=0;
-
-                for(int i=1;i<=1000;i++){
-
-                    sum+=i;
-                }
-
+                sum+=i;
             }
-        );
-    }
-};
-
-SumBenchmarkRegistration registration;
-
+        }
+    );
 }

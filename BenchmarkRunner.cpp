@@ -2,15 +2,18 @@
 #include "Statistics.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
+
 BenchmarkRunner::BenchmarkRunner(
+
     int warmup,
     int iterations
+
 ){
 
     warmup_runs=warmup;
@@ -18,6 +21,16 @@ BenchmarkRunner::BenchmarkRunner(
     this->iterations=iterations;
 
     overhead=measure_overhead();
+
+
+    // Default input sizes
+
+    input_sizes={
+        100,
+        500,
+        1000,
+        2000
+    };
 }
 
 
@@ -43,24 +56,25 @@ void BenchmarkRunner::add(
 }
 
 
-BenchmarkRunner&get_benchmark_runner(){
+void BenchmarkRunner::set_input_sizes(
 
-    static BenchmarkRunner runner(
-        10,
-        100
-    );
+    const std::vector<size_t>&sizes
 
-    return runner;
+){
+
+    input_sizes=sizes;
 }
 
 
 // ========================================
-// Run one benchmark
+// Run one benchmark for one input size
 // ========================================
 
 static BenchmarkSummary run_single_benchmark(
 
     const Benchmark&benchmark,
+
+    size_t input_size,
 
     int warmup_runs,
 
@@ -87,6 +101,8 @@ static BenchmarkSummary run_single_benchmark(
 
             benchmark.function,
 
+            input_size,
+
             overhead
         );
     }
@@ -105,6 +121,8 @@ static BenchmarkSummary run_single_benchmark(
                 benchmark.setup,
 
                 benchmark.function,
+
+                input_size,
 
                 overhead
             );
@@ -143,14 +161,18 @@ static BenchmarkSummary run_single_benchmark(
 
     double stddev_ticks=
         get_standard_deviation(
+
             tick_results,
+
             average_ticks
         );
 
 
     double stddev_time=
         get_standard_deviation(
+
             time_results,
+
             average_time
         );
 
@@ -171,17 +193,23 @@ static BenchmarkSummary run_single_benchmark(
         get_maximum(time_results);
 
 
-    // --------------------------------
-    // Detailed report
-    // --------------------------------
+    // =================================
+    // Detailed output
+    // =================================
 
     std::cout
         <<"----------------------------------------\n";
 
 
     std::cout
-        <<"Algorithm : "
+        <<"Benchmark : "
         <<benchmark.name
+        <<'\n';
+
+
+    std::cout
+        <<"Input size: "
+        <<input_size
         <<'\n';
 
 
@@ -280,36 +308,303 @@ static BenchmarkSummary run_single_benchmark(
     return{
 
         benchmark.key,
+
         benchmark.name,
 
+        input_size,
+
         average_ticks,
+
         median_ticks,
 
         average_time,
+
         median_time
+
     };
 }
 
 
 // ========================================
-// Header
+// Print comparison for one input size
 // ========================================
 
-static void print_header(
+static void print_size_comparison(
 
-    uint64_t overhead,
+    const std::vector<BenchmarkSummary>&results,
 
-    double tsc_frequency
+    size_t input_size
 
 ){
+
+    if(results.empty()){
+
+        return;
+    }
+
+
+    std::vector<size_t>ranking;
+
+
+    for(size_t i=0;i<results.size();i++){
+
+        ranking.push_back(i);
+    }
+
+
+    std::sort(
+
+        ranking.begin(),
+
+        ranking.end(),
+
+        [&results](size_t a,size_t b){
+
+            return
+                results[a].average_time_ns
+                <
+                results[b].average_time_ns;
+        }
+    );
+
 
     std::cout
         <<"========================================\n";
 
 
     std::cout
-        <<"       CODE PERFORMANCE ANALYZER V2\n";
+        <<"         INPUT SIZE: "
+        <<input_size
+        <<"\n";
 
+
+    std::cout
+        <<"========================================\n\n";
+
+
+    std::cout
+        <<std::left
+        <<std::setw(8)
+        <<"Rank"
+
+        <<std::setw(25)
+        <<"Benchmark"
+
+        <<std::setw(20)
+        <<"Average Time"
+
+        <<std::setw(18)
+        <<"Average TSC"
+
+        <<'\n';
+
+
+    std::cout
+        <<"-----------------------------------------------------------\n";
+
+
+    for(size_t rank=0;rank<ranking.size();rank++){
+
+        const BenchmarkSummary&result=
+            results[ranking[rank]];
+
+
+        std::ostringstream average_time;
+
+        average_time
+            <<std::fixed
+            <<std::setprecision(2)
+            <<result.average_time_ns
+            <<" ns";
+
+
+        std::ostringstream average_ticks;
+
+        average_ticks
+            <<std::fixed
+            <<std::setprecision(2)
+            <<result.average_ticks;
+
+
+        std::cout
+            <<std::left
+            <<std::setw(8)
+            <<rank+1
+
+            <<std::setw(25)
+            <<result.name
+
+            <<std::setw(20)
+            <<average_time.str()
+
+            <<std::setw(18)
+            <<average_ticks.str()
+
+            <<'\n';
+    }
+
+
+    std::cout
+        <<"-----------------------------------------------------------\n";
+
+
+    const BenchmarkSummary&fastest=
+        results[ranking[0]];
+
+
+    std::cout
+        <<"Fastest : "
+        <<fastest.name
+        <<'\n';
+
+
+    std::cout
+        <<"Time    : "
+        <<std::fixed
+        <<std::setprecision(2)
+        <<fastest.average_time_ns
+        <<" ns\n";
+
+
+    std::cout
+        <<"========================================\n\n";
+}
+
+
+// ========================================
+// Global scaling comparison
+// ========================================
+
+
+static void print_scaling_comparison(
+    const std::vector<BenchmarkSummary>&summaries,
+    const std::vector<size_t>&input_sizes,
+    const std::vector<Benchmark>&benchmarks
+){
+    if(summaries.empty()){
+
+        return;
+    }
+
+
+    std::cout
+        <<"========================================\n";
+
+
+    std::cout
+        <<"          PERFORMANCE vs INPUT SIZE\n";
+
+
+    std::cout
+        <<"========================================\n\n";
+
+
+    std::cout
+        <<std::left
+        <<std::setw(25)
+        <<"Benchmark";
+
+
+    for(size_t size:input_sizes){
+
+        std::ostringstream header;
+
+        header
+            <<"N="<<size;
+
+
+        std::cout
+            <<std::setw(16)
+            <<header.str();
+    }
+
+
+    std::cout
+        <<'\n';
+
+
+    std::cout
+        <<"-----------------------------------------------------------\n";
+
+
+    for(const Benchmark&benchmark:benchmarks){
+
+        std::cout
+            <<std::left
+            <<std::setw(25)
+            <<benchmark.name;
+
+
+        for(size_t input_size:input_sizes){
+
+            double value=0.0;
+
+
+            for(
+                const BenchmarkSummary&summary:
+                summaries
+            ){
+
+                if(
+
+                    summary.key==benchmark.key
+                    &&
+                    summary.input_size==input_size
+
+                ){
+
+                    value=
+                        summary.average_time_ns;
+
+                    break;
+                }
+            }
+
+
+            std::ostringstream time;
+
+            time
+                <<std::fixed
+                <<std::setprecision(2)
+                <<value/1000000.0
+                <<" ms";
+
+
+            std::cout
+                <<std::setw(16)
+                <<time.str();
+        }
+
+
+        std::cout
+            <<'\n';
+    }
+
+
+    std::cout
+        <<"===========================================================\n";
+}
+
+
+// ========================================
+// Run all benchmarks
+// ========================================
+
+
+void BenchmarkRunner::run_all(){
+
+    summaries.clear();
+
+
+    double tsc_frequency=
+        get_tsc_frequency();
+
+
+    std::cout
+        <<"========================================\n";
+
+    std::cout
+        <<"       CODE PERFORMANCE ANALYZER V2\n";
 
     std::cout
         <<"========================================\n\n";
@@ -327,252 +622,79 @@ static void print_header(
         <<std::setprecision(3)
         <<tsc_frequency
         <<" GHz\n\n";
-}
 
 
-// ========================================
-// Print comparison
-// ========================================
+    for(size_t input_size:input_sizes){
 
-static void print_comparison(
+        std::vector<BenchmarkSummary>size_results;
 
-    const std::vector<BenchmarkSummary>&summaries
 
-){
+        for(const Benchmark&benchmark:benchmarks){
 
-    if(summaries.empty()){
+            std::cout
+                <<"Starting : "
+                <<benchmark.name
+                <<" | N="
+                <<input_size
+                <<'\n';
 
-        return;
-    }
 
+            BenchmarkSummary summary=
 
-    // --------------------------------
-    // Sort indices by average time
-    // --------------------------------
+                run_single_benchmark(
 
-    std::vector<size_t>ranking;
+                    benchmark,
 
+                    input_size,
 
-    for(size_t i=0;i<summaries.size();i++){
+                    warmup_runs,
 
-        ranking.push_back(i);
-    }
+                    iterations,
 
+                    overhead
+                );
 
-    std::sort(
 
-        ranking.begin(),
-
-        ranking.end(),
-
-        [&summaries](size_t a,size_t b){
-
-            return
-                summaries[a].average_time_ns
-                <
-                summaries[b].average_time_ns;
-        }
-    );
-
-
-    // --------------------------------
-    // Comparison output
-    // --------------------------------
-
-    std::cout
-        <<"========================================\n";
-
-
-    std::cout
-        <<"           SORTING COMPARISON\n";
-
-
-    std::cout
-        <<"========================================\n\n";
-
-
-    std::cout
-        <<std::left
-        <<std::setw(8)
-        <<"Rank"
-
-        <<std::setw(25)
-        <<"Algorithm"
-
-        <<std::setw(18)
-        <<"Avg Time"
-
-        <<std::setw(18)
-        <<"Avg TSC"
-
-        <<'\n';
-
-
-    std::cout
-        <<"-----------------------------------------------------------\n";
-
-
-    for(size_t rank=0;rank<ranking.size();rank++){
-
-        const BenchmarkSummary&summary=
-            summaries[ranking[rank]];
-
-
-        std::ostringstream average_time;
-
-
-        average_time
-            <<std::fixed
-            <<std::setprecision(2)
-            <<summary.average_time_ns
-            <<" ns";
-
-
-        std::ostringstream average_ticks;
-
-
-        average_ticks
-            <<std::fixed
-            <<std::setprecision(2)
-            <<summary.average_ticks;
-
-
-        std::cout
-            <<std::left
-            <<std::setw(8)
-            <<rank+1
-
-            <<std::setw(25)
-            <<summary.name
-
-            <<std::setw(18)
-            <<average_time.str()
-
-            <<std::setw(18)
-            <<average_ticks.str()
-
-            <<'\n';
-    }
-
-
-    std::cout
-        <<"-----------------------------------------------------------\n";
-
-
-    // --------------------------------
-    // Fastest
-    // --------------------------------
-
-    const BenchmarkSummary&fastest=
-        summaries[ranking[0]];
-
-
-    std::cout
-        <<"Fastest algorithm : "
-        <<fastest.name
-        <<'\n';
-
-
-    std::cout
-        <<"Average time      : "
-        <<fastest.average_time_ns
-        <<" ns\n";
-
-
-    // --------------------------------
-    // Compare every algorithm to fastest
-    // --------------------------------
-
-    std::cout
-        <<"\nSpeed relative to fastest:\n";
-
-
-    for(size_t rank=0;rank<ranking.size();rank++){
-
-        const BenchmarkSummary&summary=
-            summaries[ranking[rank]];
-
-
-        double factor=
-            summary.average_time_ns
-            /fastest.average_time_ns;
-
-
-        std::cout
-            <<"  "
-            <<std::left
-            <<std::setw(25)
-            <<summary.name
-
-            <<std::fixed
-            <<std::setprecision(2)
-            <<factor
-            <<"x\n";
-    }
-
-
-    std::cout
-        <<"\n========================================\n";
-}
-
-
-// ========================================
-// Run all
-// ========================================
-
-    void BenchmarkRunner::run_all(){
-
-    summaries.clear();
-
-    double tsc_frequency=
-        get_tsc_frequency();
-
-    print_header(
-        overhead,
-        tsc_frequency
-    );
-
-    std::cout
-        <<"Number of benchmarks: "
-        <<benchmarks.size()
-        <<"\n\n";
-
-    for(size_t i=0;i<benchmarks.size();i++){
-
-        std::cout
-            <<"Starting benchmark "
-            <<i+1
-            <<" : "
-            <<benchmarks[i].name
-            <<"\n";
-
-        BenchmarkSummary summary=
-            run_single_benchmark(
-                benchmarks[i],
-                warmup_runs,
-                iterations,
-                overhead
+            summaries.push_back(
+                summary
             );
 
-        summaries.push_back(summary);
 
-        std::cout
-            <<"Finished benchmark "
-            <<i+1
-            <<"\n\n";
+            size_results.push_back(
+                summary
+            );
+
+
+            std::cout
+                <<"Finished : "
+                <<benchmark.name
+                <<" | N="
+                <<input_size
+                <<"\n\n";
+        }
+
+
+        print_size_comparison(
+            size_results,
+            input_size
+        );
     }
 
-    std::cout
-        <<"Finished ALL benchmarks\n\n";
 
-    print_comparison(summaries);
+    print_scaling_comparison(
+
+        summaries,
+
+        input_sizes,
+
+        benchmarks
+    );
 }
 
-  
-    
+
 
 // ========================================
-// Run selected
+// Run selected benchmark
 // ========================================
 
 bool BenchmarkRunner::run_selected(
@@ -580,9 +702,6 @@ bool BenchmarkRunner::run_selected(
     const std::string&key
 
 ){
-
-    summaries.clear();
-
 
     double tsc_frequency=
         get_tsc_frequency();
@@ -592,24 +711,53 @@ bool BenchmarkRunner::run_selected(
 
         if(benchmark.key==key){
 
-            print_header(
-
-                overhead,
-
-                tsc_frequency
-            );
+            std::cout
+                <<"========================================\n";
 
 
-            run_single_benchmark(
+            std::cout
+                <<"       CODE PERFORMANCE ANALYZER V2\n";
 
-                benchmark,
 
-                warmup_runs,
+            std::cout
+                <<"========================================\n\n";
 
-                iterations,
 
-                overhead
-            );
+            std::cout
+                <<"TSC frequency : "
+                <<std::fixed
+                <<std::setprecision(3)
+                <<tsc_frequency
+                <<" GHz\n\n";
+
+
+            for(size_t input_size:input_sizes){
+
+                std::cout
+                    <<"Running "
+                    <<benchmark.name
+                    <<" with N="
+                    <<input_size
+                    <<"\n";
+
+
+                run_single_benchmark(
+
+                    benchmark,
+
+                    input_size,
+
+                    warmup_runs,
+
+                    iterations,
+
+                    overhead
+                );
+
+
+                std::cout
+                    <<'\n';
+            }
 
 
             return true;
@@ -628,7 +776,7 @@ bool BenchmarkRunner::run_selected(
 void BenchmarkRunner::list_benchmarks() const{
 
     std::cout
-        <<"Available sorting benchmarks:\n\n";
+        <<"Available benchmarks:\n\n";
 
 
     for(const Benchmark&benchmark:benchmarks){
@@ -645,8 +793,20 @@ void BenchmarkRunner::list_benchmarks() const{
 
 
     std::cout
+        <<"\nInput sizes:\n";
+
+    for(size_t size:input_sizes){
+
+        std::cout
+            <<"  N="
+            <<size
+            <<'\n';
+    }
+
+
+    std::cout
         <<"\n  --all"
-        <<"         Run all sorting benchmarks\n";
+        <<"         Run all benchmarks\n";
 
 
     std::cout
