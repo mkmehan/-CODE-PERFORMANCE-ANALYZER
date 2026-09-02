@@ -7,6 +7,7 @@
 #include <string>
 #include <cstdint>
 
+
 class BenchmarkRunner{
 
 private:
@@ -40,11 +41,14 @@ public:
         BenchmarkFunction setup,
 
         BenchmarkFunction function
+
     );
 
 
     void set_input_sizes(
+
         const std::vector<size_t>&sizes
+
     );
 
 
@@ -52,11 +56,14 @@ public:
 
 
     bool run_selected(
+
         const std::string&key
+
     );
 
 
     void list_benchmarks() const;
+
 };
 
 #endif
