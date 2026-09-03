@@ -1,12 +1,12 @@
 #ifndef BENCHMARK_H
 #define BENCHMARK_H
 
-#include <functional>
 #include <string>
+#include <functional>
+#include <cstddef>
 #include <cstdint>
 
 using BenchmarkFunction=std::function<void(size_t)>;
-
 
 struct Benchmark{
 
@@ -17,13 +17,11 @@ struct Benchmark{
     BenchmarkFunction function;
 };
 
-
 struct BenchmarkResult{
 
     uint64_t cycles;
     uint64_t time_ns;
 };
-
 
 struct BenchmarkSummary{
 
@@ -39,11 +37,9 @@ struct BenchmarkSummary{
     double median_time_ns;
 };
 
-
 uint64_t measure_overhead();
 
 double get_tsc_frequency();
-
 
 BenchmarkResult run_benchmark(
 

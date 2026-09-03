@@ -2,6 +2,7 @@
 #include "Statistics.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -33,7 +34,6 @@ BenchmarkRunner::BenchmarkRunner(
     };
 }
 
-
 void BenchmarkRunner::add(
 
     const std::string&key,
@@ -43,7 +43,6 @@ void BenchmarkRunner::add(
     BenchmarkFunction setup,
 
     BenchmarkFunction function
-
 ){
 
     benchmarks.push_back({
@@ -54,6 +53,7 @@ void BenchmarkRunner::add(
         function
     });
 }
+
 
 
 void BenchmarkRunner::set_input_sizes(
@@ -475,6 +475,134 @@ static void print_size_comparison(
 // Global scaling comparison
 // ========================================
 
+struct MeasuredComplexity{
+
+    bool available;
+    double exponent;
+    size_t sample_count;
+};
+
+
+static MeasuredComplexity estimate_measured_complexity(
+
+    const std::vector<BenchmarkSummary>&summaries,
+
+    const std::string&key
+
+){
+
+    std::vector<double>log_sizes;
+    std::vector<double>log_times;
+
+
+    for(const BenchmarkSummary&summary:summaries){
+
+        if(
+            summary.key==key
+            &&
+            summary.input_size>1
+            &&
+            summary.median_ticks>0.0
+        ){
+
+            log_sizes.push_back(
+                std::log(
+                    static_cast<double>(summary.input_size)
+                )
+            );
+
+            log_times.push_back(
+                std::log(summary.median_ticks)
+            );
+        }
+    }
+
+
+    if(log_sizes.size()<3){
+
+        return{false,0.0,log_sizes.size()};
+    }
+
+
+    double average_log_size=0.0;
+    double average_log_time=0.0;
+
+
+    for(size_t i=0;i<log_sizes.size();i++){
+
+        average_log_size+=log_sizes[i];
+        average_log_time+=log_times[i];
+    }
+
+
+    average_log_size/=log_sizes.size();
+    average_log_time/=log_times.size();
+
+
+    double numerator=0.0;
+    double denominator=0.0;
+
+
+    for(size_t i=0;i<log_sizes.size();i++){
+
+        const double size_difference=
+            log_sizes[i]-average_log_size;
+
+        numerator+=
+            size_difference
+            *
+            (log_times[i]-average_log_time);
+
+        denominator+=
+            size_difference*size_difference;
+    }
+
+
+    if(denominator==0.0){
+
+        return{false,0.0,log_sizes.size()};
+    }
+
+
+    return{
+        true,
+        std::max(0.0,numerator/denominator),
+        log_sizes.size()
+    };
+}
+
+
+static std::string format_measured_complexity(
+
+    const MeasuredComplexity&complexity
+
+){
+
+    if(!complexity.available){
+
+        return "Need 3 input sizes";
+    }
+
+
+    if(complexity.exponent<0.15){
+
+        return "O(1)";
+    }
+
+
+    std::ostringstream output;
+
+    output
+        <<"O(n^"
+        <<std::fixed
+        <<std::setprecision(2)
+        <<complexity.exponent
+        <<")";
+
+
+    return output.str();
+}
+
 
 static void print_scaling_comparison(
     const std::vector<BenchmarkSummary>&summaries,
@@ -492,7 +620,7 @@ static void print_scaling_comparison(
 
 
     std::cout
-        <<"          PERFORMANCE vs INPUT SIZE\n";
+        <<"      MEASURED PERFORMANCE vs INPUT SIZE\n";
 
 
     std::cout
@@ -502,7 +630,10 @@ static void print_scaling_comparison(
     std::cout
         <<std::left
         <<std::setw(25)
-        <<"Benchmark";
+        <<"Benchmark"
+
+        <<std::setw(22)
+        <<"Measured growth";
 
 
     for(size_t size:input_sizes){
@@ -524,15 +655,25 @@ static void print_scaling_comparison(
 
 
     std::cout
-        <<"-----------------------------------------------------------\n";
+        <<"------------------------------------------------------------------------------------------------\n";
 
 
     for(const Benchmark&benchmark:benchmarks){
 
+        const MeasuredComplexity complexity=
+            estimate_measured_complexity(
+                summaries,
+                benchmark.key
+            );
+
+
         std::cout
             <<std::left
             <<std::setw(25)
-            <<benchmark.name;
+            <<benchmark.name
+
+            <<std::setw(22)
+            <<format_measured_complexity(complexity);
 
 
         for(size_t input_size:input_sizes){
@@ -582,7 +723,41 @@ static void print_scaling_comparison(
 
 
     std::cout
-        <<"===========================================================\n";
+        <<"================================================================================================\n";
+
+
+    std::cout
+        <<"Measured growth uses median TSC cycles and fits time = C * n^p.\n";
+
+
+    for(const Benchmark&benchmark:benchmarks){
+
+        const MeasuredComplexity complexity=
+            estimate_measured_complexity(
+                summaries,
+                benchmark.key
+            );
+
+
+        std::cout
+            <<"  "
+            <<benchmark.name
+            <<" : "
+            <<format_measured_complexity(complexity);
+
+
+        if(complexity.available){
+
+            std::cout
+                <<" from "
+                <<complexity.sample_count
+                <<" input sizes";
+        }
+
+
+        std::cout
+            <<'\n';
+    }
 }
 
 
@@ -731,6 +906,9 @@ bool BenchmarkRunner::run_selected(
                 <<" GHz\n\n";
 
 
+            std::vector<BenchmarkSummary>selected_summaries;
+
+
             for(size_t input_size:input_sizes){
 
                 std::cout
@@ -741,7 +919,9 @@ bool BenchmarkRunner::run_selected(
                     <<"\n";
 
 
-                run_single_benchmark(
+                BenchmarkSummary summary=
+
+                    run_single_benchmark(
 
                     benchmark,
 
@@ -755,9 +935,37 @@ bool BenchmarkRunner::run_selected(
                 );
 
 
+                selected_summaries.push_back(summary);
+
+
                 std::cout
                     <<'\n';
             }
+
+
+            const MeasuredComplexity complexity=
+                estimate_measured_complexity(
+                    selected_summaries,
+                    benchmark.key
+                );
+
+
+            std::cout
+                <<"Measured growth: "
+                <<format_measured_complexity(complexity);
+
+
+            if(complexity.available){
+
+                std::cout
+                    <<" (from "
+                    <<complexity.sample_count
+                    <<" input sizes)";
+            }
+
+
+            std::cout
+                <<"\n";
 
 
             return true;
@@ -812,4 +1020,8 @@ void BenchmarkRunner::list_benchmarks() const{
     std::cout
         <<"  --help"
         <<"        Show available benchmarks\n";
+
+
+    std::cout
+        <<"\nMeasured growth needs at least 3 input sizes.\n";
 }
