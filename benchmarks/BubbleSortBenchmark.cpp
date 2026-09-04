@@ -10,9 +10,15 @@ namespace{
 std::vector<int>data;
 
 
-void setup_bubble_sort(size_t n){
+void setup_bubble_sort(
+    size_t n,
+    InputDataCase input_case
+){
 
-    data=get_sorting_input(n);
+    data=get_sorting_input(
+        n,
+        input_case
+    );
 }
 
 
@@ -64,6 +70,14 @@ void register_bubble_sort(
 
         setup_bubble_sort,
 
-        run_bubble_sort
+        run_bubble_sort,
+
+        []{
+
+            return std::is_sorted(
+                data.begin(),
+                data.end()
+            );
+        }
     );
 }

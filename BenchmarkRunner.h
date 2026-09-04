@@ -38,6 +38,21 @@ public:
 
         const std::string&name,
 
+        BenchmarkSetupFunction setup,
+
+        BenchmarkFunction function,
+
+        BenchmarkVerificationFunction verify={}
+
+    );
+
+
+    void add(
+
+        const std::string&key,
+
+        const std::string&name,
+
         BenchmarkFunction setup,
 
         BenchmarkFunction function

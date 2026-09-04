@@ -10,9 +10,15 @@ namespace{
 std::vector<int>data;
 
 
-void setup_selection_sort(size_t n){
+void setup_selection_sort(
+    size_t n,
+    InputDataCase input_case
+){
 
-    data=get_sorting_input(n);
+    data=get_sorting_input(
+        n,
+        input_case
+    );
 }
 
 
@@ -62,6 +68,14 @@ void register_selection_sort(
 
         setup_selection_sort,
 
-        run_selection_sort
+        run_selection_sort,
+
+        []{
+
+            return std::is_sorted(
+                data.begin(),
+                data.end()
+            );
+        }
     );
 }

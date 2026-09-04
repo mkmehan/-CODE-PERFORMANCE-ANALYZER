@@ -1,6 +1,7 @@
 #include "../BenchmarkRunner.h"
 #include "SortingData.h"
 
+#include <algorithm>
 #include <vector>
 
 
@@ -90,9 +91,15 @@ void merge_sort(
 }
 
 
-void setup_merge_sort(size_t n){
+void setup_merge_sort(
+    size_t n,
+    InputDataCase input_case
+){
 
-    data=get_sorting_input(n);
+    data=get_sorting_input(
+        n,
+        input_case
+    );
 
     temp.resize(
         data.size()
@@ -137,6 +144,14 @@ void register_merge_sort(
 
         setup_merge_sort,
 
-        run_merge_sort
+        run_merge_sort,
+
+        []{
+
+            return std::is_sorted(
+                data.begin(),
+                data.end()
+            );
+        }
     );
 }

@@ -1,6 +1,7 @@
 #include "../BenchmarkRunner.h"
 #include "SortingData.h"
 
+#include <algorithm>
 #include <vector>
 #include <utility>
 
@@ -99,10 +100,16 @@ void quick_sort(
 }
 
 
-void setup_quick_sort(size_t n){
+void setup_quick_sort(
+    size_t n,
+    InputDataCase input_case
+){
 
     data=
-        get_sorting_input(n);
+        get_sorting_input(
+            n,
+            input_case
+        );
 }
 
 
@@ -140,6 +147,14 @@ void register_quick_sort(
 
         setup_quick_sort,
 
-        run_quick_sort
+        run_quick_sort,
+
+        []{
+
+            return std::is_sorted(
+                data.begin(),
+                data.end()
+            );
+        }
     );
 }

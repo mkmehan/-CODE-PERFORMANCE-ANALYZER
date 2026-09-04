@@ -14,7 +14,7 @@ SOURCES=main.cpp \
         benchmarks/SelectionSortBenchmark.cpp \
         benchmarks/MergeSortBenchmark.cpp \
         benchmarks/QuickSortBenchmark.cpp \
-        benchmarks/SumBenchmark.cpp
+       
 
 $(TARGET): $(SOURCES)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET)

@@ -91,10 +91,12 @@ double get_tsc_frequency(){
 
 BenchmarkResult run_benchmark(
 
-    BenchmarkFunction setup,
+    BenchmarkSetupFunction setup,
     BenchmarkFunction function,
 
     size_t input_size,
+
+    InputDataCase input_case,
 
     uint64_t overhead
 
@@ -115,7 +117,10 @@ BenchmarkResult run_benchmark(
     // Prepare the input
     // -------------------------------
 
-    setup(input_size);
+    setup(
+        input_size,
+        input_case
+    );
 
 
     // -------------------------------

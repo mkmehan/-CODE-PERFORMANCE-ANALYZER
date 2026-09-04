@@ -22,11 +22,6 @@ void register_quick_sort(
     BenchmarkRunner&runner
 );
 
-void register_sum(
-    BenchmarkRunner&runner
-);
-
-
 void register_all_benchmarks(
     BenchmarkRunner&runner
 ){
@@ -40,6 +35,4 @@ void register_all_benchmarks(
     register_merge_sort(runner);
 
     register_quick_sort(runner);
-
-    register_sum(runner);
 }

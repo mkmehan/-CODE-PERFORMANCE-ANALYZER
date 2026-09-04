@@ -6,15 +6,29 @@
 #include <cstddef>
 #include <cstdint>
 
+enum class InputDataCase{
+
+    Random,
+    Sorted,
+    ReverseSorted
+};
+
+
+using BenchmarkSetupFunction=
+    std::function<void(size_t,InputDataCase)>;
+
 using BenchmarkFunction=std::function<void(size_t)>;
+
+using BenchmarkVerificationFunction=std::function<bool()>;
 
 struct Benchmark{
 
     std::string key;
     std::string name;
 
-    BenchmarkFunction setup;
+    BenchmarkSetupFunction setup;
     BenchmarkFunction function;
+    BenchmarkVerificationFunction verify;
 };
 
 struct BenchmarkResult{
@@ -29,6 +43,9 @@ struct BenchmarkSummary{
     std::string name;
 
     size_t input_size;
+    InputDataCase input_case;
+    bool verification_performed;
+    bool verified;
 
     double average_ticks;
     double median_ticks;
@@ -43,10 +60,12 @@ double get_tsc_frequency();
 
 BenchmarkResult run_benchmark(
 
-    BenchmarkFunction setup,
+    BenchmarkSetupFunction setup,
     BenchmarkFunction function,
 
     size_t input_size,
+
+    InputDataCase input_case,
 
     uint64_t overhead
 

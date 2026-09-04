@@ -9,9 +9,15 @@ namespace{
 std::vector<int>data;
 
 
-void setup_insertion_sort(size_t n){
+void setup_insertion_sort(
+    size_t n,
+    InputDataCase input_case
+){
 
-    data=get_sorting_input(n);
+    data=get_sorting_input(
+        n,
+        input_case
+    );
 }
 
 
@@ -59,6 +65,14 @@ void register_insertion_sort(
 
         setup_insertion_sort,
 
-        run_insertion_sort
+        run_insertion_sort,
+
+        []{
+
+            return std::is_sorted(
+                data.begin(),
+                data.end()
+            );
+        }
     );
 }
