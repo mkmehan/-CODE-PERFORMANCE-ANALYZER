@@ -1,1 +1,2 @@
 g++ -std=c++17 main.cpp RDTSC_Timer.cpp Benchmark.cpp BenchmarkRunner.cpp Statistics.cpp benchmarks\SumBenchmark.cpp benchmarks\BubbleSortBenchmark.cpp benchmarks\InsertionSortBenchmark.cpp benchmarks\SelectionSortBenchmark.cpp benchmarks\MergeSortBenchmark.cpp benchmarks\QuickSortBenchmark.cpp -o analyzer.exe
+cmd /c "del \\?\D:\v2\nul"
