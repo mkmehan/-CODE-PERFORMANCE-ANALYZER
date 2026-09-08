@@ -1,0 +1,641 @@
+benchmark_key,input_data,input_size,iteration,cycles,time_ns,verification_performed,verified
+"bubble","Random",100,0,39968,13000,true,true
+"bubble","Random",100,1,40864,12900,true,true
+"bubble","Random",100,2,43264,13700,true,true
+"bubble","Random",100,3,50304,16000,true,true
+"bubble","Random",100,4,34144,10800,true,true
+"bubble","Random",100,5,35904,11700,true,true
+"bubble","Random",100,6,35296,11200,true,true
+"bubble","Random",100,7,36320,11500,true,true
+"bubble","Random",100,8,33856,10700,true,true
+"bubble","Random",100,9,34656,11000,true,true
+"insertion","Random",100,0,8352,2800,true,true
+"insertion","Random",100,1,8320,2800,true,true
+"insertion","Random",100,2,7520,2400,true,true
+"insertion","Random",100,3,8000,2600,true,true
+"insertion","Random",100,4,7808,2800,true,true
+"insertion","Random",100,5,8384,2700,true,true
+"insertion","Random",100,6,8256,2700,true,true
+"insertion","Random",100,7,16096,5200,true,true
+"insertion","Random",100,8,13280,4400,true,true
+"insertion","Random",100,9,9216,3000,true,true
+"selection","Random",100,0,171072,53700,true,true
+"selection","Random",100,1,37728,12000,true,true
+"selection","Random",100,2,29472,9400,true,true
+"selection","Random",100,3,31616,10200,true,true
+"selection","Random",100,4,33568,10600,true,true
+"selection","Random",100,5,40384,12900,true,true
+"selection","Random",100,6,39040,12300,true,true
+"selection","Random",100,7,40320,12700,true,true
+"selection","Random",100,8,92806,29900,true,true
+"selection","Random",100,9,26048,8300,true,true
+"merge","Random",100,0,17184,5500,true,true
+"merge","Random",100,1,17056,5400,true,true
+"merge","Random",100,2,15264,4900,true,true
+"merge","Random",100,3,16512,5500,true,true
+"merge","Random",100,4,15936,5100,true,true
+"merge","Random",100,5,15456,4900,true,true
+"merge","Random",100,6,15712,5200,true,true
+"merge","Random",100,7,15008,4900,true,true
+"merge","Random",100,8,15360,5000,true,true
+"merge","Random",100,9,15488,4900,true,true
+"quicksort","Random",100,0,18112,5800,true,true
+"quicksort","Random",100,1,21408,6800,true,true
+"quicksort","Random",100,2,20096,6500,true,true
+"quicksort","Random",100,3,17952,5800,true,true
+"quicksort","Random",100,4,19232,6200,true,true
+"quicksort","Random",100,5,17632,5600,true,true
+"quicksort","Random",100,6,16992,5400,true,true
+"quicksort","Random",100,7,17376,5500,true,true
+"quicksort","Random",100,8,16032,5100,true,true
+"quicksort","Random",100,9,17120,5500,true,true
+"heap","Random",100,0,19520,6300,true,true
+"heap","Random",100,1,18752,6000,true,true
+"heap","Random",100,2,17888,5700,true,true
+"heap","Random",100,3,19040,6100,true,true
+"heap","Random",100,4,18784,6000,true,true
+"heap","Random",100,5,19232,6200,true,true
+"heap","Random",100,6,18624,5900,true,true
+"heap","Random",100,7,18112,5700,true,true
+"heap","Random",100,8,18432,5900,true,true
+"heap","Random",100,9,17920,5700,true,true
+"std-sort","Random",100,0,9920,3200,true,true
+"std-sort","Random",100,1,10176,3300,true,true
+"std-sort","Random",100,2,10176,3300,true,true
+"std-sort","Random",100,3,9888,3300,true,true
+"std-sort","Random",100,4,9664,3200,true,true
+"std-sort","Random",100,5,10656,3500,true,true
+"std-sort","Random",100,6,9664,3300,true,true
+"std-sort","Random",100,7,10176,3300,true,true
+"std-sort","Random",100,8,9728,3200,true,true
+"std-sort","Random",100,9,9056,2900,true,true
+"std-stable-sort","Random",100,0,11776,3800,true,true
+"std-stable-sort","Random",100,1,12064,3900,true,true
+"std-stable-sort","Random",100,2,12448,4000,true,true
+"std-stable-sort","Random",100,3,12608,4300,true,true
+"std-stable-sort","Random",100,4,11488,3700,true,true
+"std-stable-sort","Random",100,5,11328,3700,true,true
+"std-stable-sort","Random",100,6,11328,3700,true,true
+"std-stable-sort","Random",100,7,10848,3500,true,true
+"std-stable-sort","Random",100,8,11488,3700,true,true
+"std-stable-sort","Random",100,9,12224,3900,true,true
+"bubble","Random",1000,0,2562560,802800,true,true
+"bubble","Random",1000,1,2465472,772100,true,true
+"bubble","Random",1000,2,3263066,1022900,true,true
+"bubble","Random",1000,3,2248416,704200,true,true
+"bubble","Random",1000,4,3141814,984900,true,true
+"bubble","Random",1000,5,2341520,771200,true,true
+"bubble","Random",1000,6,2488086,779900,true,true
+"bubble","Random",1000,7,1994304,624700,true,true
+"bubble","Random",1000,8,1828736,572800,true,true
+"bubble","Random",1000,9,1865088,584200,true,true
+"insertion","Random",1000,0,462144,144900,true,true
+"insertion","Random",1000,1,457376,143300,true,true
+"insertion","Random",1000,2,534336,167500,true,true
+"insertion","Random",1000,3,461504,144600,true,true
+"insertion","Random",1000,4,472864,148200,true,true
+"insertion","Random",1000,5,609376,191000,true,true
+"insertion","Random",1000,6,647776,203000,true,true
+"insertion","Random",1000,7,639776,200500,true,true
+"insertion","Random",1000,8,661792,207800,true,true
+"insertion","Random",1000,9,452992,141900,true,true
+"selection","Random",1000,0,1092448,342100,true,true
+"selection","Random",1000,1,1067808,334400,true,true
+"selection","Random",1000,2,1122336,351500,true,true
+"selection","Random",1000,3,1270016,397800,true,true
+"selection","Random",1000,4,1336704,418800,true,true
+"selection","Random",1000,5,1063392,333200,true,true
+"selection","Random",1000,6,1074048,336400,true,true
+"selection","Random",1000,7,1135520,355700,true,true
+"selection","Random",1000,8,1410259,444400,true,true
+"selection","Random",1000,9,1075584,337000,true,true
+"merge","Random",1000,0,675008,211700,true,true
+"merge","Random",1000,1,190912,60000,true,true
+"merge","Random",1000,2,191008,59900,true,true
+"merge","Random",1000,3,192256,60500,true,true
+"merge","Random",1000,4,191200,60000,true,true
+"merge","Random",1000,5,195072,61200,true,true
+"merge","Random",1000,6,193472,60700,true,true
+"merge","Random",1000,7,202784,63600,true,true
+"merge","Random",1000,8,198784,62300,true,true
+"merge","Random",1000,9,234560,73600,true,true
+"quicksort","Random",1000,0,287936,90300,true,true
+"quicksort","Random",1000,1,202976,63700,true,true
+"quicksort","Random",1000,2,206496,64800,true,true
+"quicksort","Random",1000,3,205216,64300,true,true
+"quicksort","Random",1000,4,202176,63400,true,true
+"quicksort","Random",1000,5,200928,63100,true,true
+"quicksort","Random",1000,6,197024,61900,true,true
+"quicksort","Random",1000,7,203648,63900,true,true
+"quicksort","Random",1000,8,207360,65100,true,true
+"quicksort","Random",1000,9,195488,61400,true,true
+"heap","Random",1000,0,232448,72900,true,true
+"heap","Random",1000,1,298944,93700,true,true
+"heap","Random",1000,2,231360,72700,true,true
+"heap","Random",1000,3,231008,72400,true,true
+"heap","Random",1000,4,232640,72900,true,true
+"heap","Random",1000,5,230592,72300,true,true
+"heap","Random",1000,6,232448,72900,true,true
+"heap","Random",1000,7,229152,71900,true,true
+"heap","Random",1000,8,233824,73300,true,true
+"heap","Random",1000,9,227936,71500,true,true
+"std-sort","Random",1000,0,140128,44000,true,true
+"std-sort","Random",1000,1,162560,51000,true,true
+"std-sort","Random",1000,2,139680,43800,true,true
+"std-sort","Random",1000,3,201440,63200,true,true
+"std-sort","Random",1000,4,132992,41700,true,true
+"std-sort","Random",1000,5,138272,43400,true,true
+"std-sort","Random",1000,6,134304,42100,true,true
+"std-sort","Random",1000,7,139520,44000,true,true
+"std-sort","Random",1000,8,137600,43200,true,true
+"std-sort","Random",1000,9,134048,42100,true,true
+"std-stable-sort","Random",1000,0,151328,47600,true,true
+"std-stable-sort","Random",1000,1,147168,46200,true,true
+"std-stable-sort","Random",1000,2,146112,45900,true,true
+"std-stable-sort","Random",1000,3,148192,46500,true,true
+"std-stable-sort","Random",1000,4,149120,46800,true,true
+"std-stable-sort","Random",1000,5,145792,45700,true,true
+"std-stable-sort","Random",1000,6,146304,45900,true,true
+"std-stable-sort","Random",1000,7,147040,46100,true,true
+"std-stable-sort","Random",1000,8,173024,54300,true,true
+"std-stable-sort","Random",1000,9,147552,46400,true,true
+"bubble","Sorted",100,0,256,200,true,true
+"bubble","Sorted",100,1,256,200,true,true
+"bubble","Sorted",100,2,256,200,true,true
+"bubble","Sorted",100,3,256,200,true,true
+"bubble","Sorted",100,4,256,200,true,true
+"bubble","Sorted",100,5,256,200,true,true
+"bubble","Sorted",100,6,256,300,true,true
+"bubble","Sorted",100,7,256,200,true,true
+"bubble","Sorted",100,8,256,200,true,true
+"bubble","Sorted",100,9,256,200,true,true
+"insertion","Sorted",100,0,352,200,true,true
+"insertion","Sorted",100,1,320,200,true,true
+"insertion","Sorted",100,2,352,200,true,true
+"insertion","Sorted",100,3,320,200,true,true
+"insertion","Sorted",100,4,352,200,true,true
+"insertion","Sorted",100,5,352,200,true,true
+"insertion","Sorted",100,6,352,200,true,true
+"insertion","Sorted",100,7,352,200,true,true
+"insertion","Sorted",100,8,320,300,true,true
+"insertion","Sorted",100,9,352,200,true,true
+"selection","Sorted",100,0,14496,4800,true,true
+"selection","Sorted",100,1,13760,4400,true,true
+"selection","Sorted",100,2,13568,4400,true,true
+"selection","Sorted",100,3,13472,4300,true,true
+"selection","Sorted",100,4,13504,4300,true,true
+"selection","Sorted",100,5,13472,4300,true,true
+"selection","Sorted",100,6,13472,4400,true,true
+"selection","Sorted",100,7,13472,4400,true,true
+"selection","Sorted",100,8,13472,4300,true,true
+"selection","Sorted",100,9,13440,4300,true,true
+"merge","Sorted",100,0,4960,1700,true,true
+"merge","Sorted",100,1,4864,1600,true,true
+"merge","Sorted",100,2,4928,1700,true,true
+"merge","Sorted",100,3,4864,1600,true,true
+"merge","Sorted",100,4,5024,1700,true,true
+"merge","Sorted",100,5,4672,1600,true,true
+"merge","Sorted",100,6,4864,1600,true,true
+"merge","Sorted",100,7,4768,1600,true,true
+"merge","Sorted",100,8,4896,1600,true,true
+"merge","Sorted",100,9,4832,1600,true,true
+"quicksort","Sorted",100,0,2176,800,true,true
+"quicksort","Sorted",100,1,1920,700,true,true
+"quicksort","Sorted",100,2,1920,800,true,true
+"quicksort","Sorted",100,3,1888,700,true,true
+"quicksort","Sorted",100,4,1888,700,true,true
+"quicksort","Sorted",100,5,1856,700,true,true
+"quicksort","Sorted",100,6,1888,700,true,true
+"quicksort","Sorted",100,7,1856,800,true,true
+"quicksort","Sorted",100,8,1824,700,true,true
+"quicksort","Sorted",100,9,1856,700,true,true
+"heap","Sorted",100,0,5536,1900,true,true
+"heap","Sorted",100,1,4704,1600,true,true
+"heap","Sorted",100,2,4448,1500,true,true
+"heap","Sorted",100,3,4320,1500,true,true
+"heap","Sorted",100,4,4224,1500,true,true
+"heap","Sorted",100,5,4192,1500,true,true
+"heap","Sorted",100,6,4032,1400,true,true
+"heap","Sorted",100,7,4032,1400,true,true
+"heap","Sorted",100,8,4000,1400,true,true
+"heap","Sorted",100,9,4032,1400,true,true
+"std-sort","Sorted",100,0,1600,600,true,true
+"std-sort","Sorted",100,1,1248,500,true,true
+"std-sort","Sorted",100,2,1248,500,true,true
+"std-sort","Sorted",100,3,1184,500,true,true
+"std-sort","Sorted",100,4,1152,500,true,true
+"std-sort","Sorted",100,5,1152,500,true,true
+"std-sort","Sorted",100,6,1120,500,true,true
+"std-sort","Sorted",100,7,1120,400,true,true
+"std-sort","Sorted",100,8,1120,400,true,true
+"std-sort","Sorted",100,9,1120,400,true,true
+"std-stable-sort","Sorted",100,0,2080,800,true,true
+"std-stable-sort","Sorted",100,1,2048,800,true,true
+"std-stable-sort","Sorted",100,2,2048,700,true,true
+"std-stable-sort","Sorted",100,3,2080,800,true,true
+"std-stable-sort","Sorted",100,4,2016,700,true,true
+"std-stable-sort","Sorted",100,5,2048,800,true,true
+"std-stable-sort","Sorted",100,6,2048,800,true,true
+"std-stable-sort","Sorted",100,7,2048,700,true,true
+"std-stable-sort","Sorted",100,8,2112,800,true,true
+"std-stable-sort","Sorted",100,9,2944,1000,true,true
+"bubble","Sorted",1000,0,2688,1000,true,true
+"bubble","Sorted",1000,1,2624,900,true,true
+"bubble","Sorted",1000,2,2592,1000,true,true
+"bubble","Sorted",1000,3,2624,900,true,true
+"bubble","Sorted",1000,4,2592,1000,true,true
+"bubble","Sorted",1000,5,2592,1000,true,true
+"bubble","Sorted",1000,6,2624,1000,true,true
+"bubble","Sorted",1000,7,2592,900,true,true
+"bubble","Sorted",1000,8,2592,900,true,true
+"bubble","Sorted",1000,9,2592,1000,true,true
+"insertion","Sorted",1000,0,2752,1000,true,true
+"insertion","Sorted",1000,1,2784,1000,true,true
+"insertion","Sorted",1000,2,2784,1000,true,true
+"insertion","Sorted",1000,3,2688,1000,true,true
+"insertion","Sorted",1000,4,2656,900,true,true
+"insertion","Sorted",1000,5,2656,900,true,true
+"insertion","Sorted",1000,6,2688,1000,true,true
+"insertion","Sorted",1000,7,2656,900,true,true
+"insertion","Sorted",1000,8,2688,900,true,true
+"insertion","Sorted",1000,9,2688,900,true,true
+"selection","Sorted",1000,0,995424,312000,true,true
+"selection","Sorted",1000,1,843104,264100,true,true
+"selection","Sorted",1000,2,921344,288600,true,true
+"selection","Sorted",1000,3,1322476,414800,true,true
+"selection","Sorted",1000,4,1146720,359300,true,true
+"selection","Sorted",1000,5,844224,264500,true,true
+"selection","Sorted",1000,6,1050880,329200,true,true
+"selection","Sorted",1000,7,843072,264200,true,true
+"selection","Sorted",1000,8,842976,264000,true,true
+"selection","Sorted",1000,9,933760,292500,true,true
+"merge","Sorted",1000,0,48928,15500,true,true
+"merge","Sorted",1000,1,48896,15400,true,true
+"merge","Sorted",1000,2,48896,15500,true,true
+"merge","Sorted",1000,3,50368,16000,true,true
+"merge","Sorted",1000,4,48960,15500,true,true
+"merge","Sorted",1000,5,48800,15500,true,true
+"merge","Sorted",1000,6,48896,15500,true,true
+"merge","Sorted",1000,7,49760,15700,true,true
+"merge","Sorted",1000,8,48960,15500,true,true
+"merge","Sorted",1000,9,48768,15400,true,true
+"quicksort","Sorted",1000,0,25408,8100,true,true
+"quicksort","Sorted",1000,1,24256,7800,true,true
+"quicksort","Sorted",1000,2,24000,7700,true,true
+"quicksort","Sorted",1000,3,23936,7600,true,true
+"quicksort","Sorted",1000,4,23840,7600,true,true
+"quicksort","Sorted",1000,5,23872,7600,true,true
+"quicksort","Sorted",1000,6,23808,7500,true,true
+"quicksort","Sorted",1000,7,23840,7600,true,true
+"quicksort","Sorted",1000,8,23840,7600,true,true
+"quicksort","Sorted",1000,9,23840,7600,true,true
+"heap","Sorted",1000,0,159648,50100,true,true
+"heap","Sorted",1000,1,89760,28200,true,true
+"heap","Sorted",1000,2,73600,23100,true,true
+"heap","Sorted",1000,3,61216,19300,true,true
+"heap","Sorted",1000,4,56896,17900,true,true
+"heap","Sorted",1000,5,54624,17200,true,true
+"heap","Sorted",1000,6,53888,17000,true,true
+"heap","Sorted",1000,7,53792,16900,true,true
+"heap","Sorted",1000,8,53376,16800,true,true
+"heap","Sorted",1000,9,53504,16900,true,true
+"std-sort","Sorted",1000,0,17568,5600,true,true
+"std-sort","Sorted",1000,1,17536,5600,true,true
+"std-sort","Sorted",1000,2,17504,5600,true,true
+"std-sort","Sorted",1000,3,17344,5600,true,true
+"std-sort","Sorted",1000,4,17568,5600,true,true
+"std-sort","Sorted",1000,5,17536,5600,true,true
+"std-sort","Sorted",1000,6,17568,5600,true,true
+"std-sort","Sorted",1000,7,17536,5700,true,true
+"std-sort","Sorted",1000,8,17568,5600,true,true
+"std-sort","Sorted",1000,9,17568,5600,true,true
+"std-stable-sort","Sorted",1000,0,18464,5900,true,true
+"std-stable-sort","Sorted",1000,1,18400,5800,true,true
+"std-stable-sort","Sorted",1000,2,18432,5900,true,true
+"std-stable-sort","Sorted",1000,3,18432,5900,true,true
+"std-stable-sort","Sorted",1000,4,18208,5800,true,true
+"std-stable-sort","Sorted",1000,5,18240,5800,true,true
+"std-stable-sort","Sorted",1000,6,18208,5800,true,true
+"std-stable-sort","Sorted",1000,7,18080,5800,true,true
+"std-stable-sort","Sorted",1000,8,18144,5800,true,true
+"std-stable-sort","Sorted",1000,9,18944,6000,true,true
+"bubble","Reverse",100,0,15136,4900,true,true
+"bubble","Reverse",100,1,16576,5300,true,true
+"bubble","Reverse",100,2,16800,5400,true,true
+"bubble","Reverse",100,3,16672,5300,true,true
+"bubble","Reverse",100,4,16704,5400,true,true
+"bubble","Reverse",100,5,16704,5300,true,true
+"bubble","Reverse",100,6,16800,5400,true,true
+"bubble","Reverse",100,7,16704,5400,true,true
+"bubble","Reverse",100,8,16672,5400,true,true
+"bubble","Reverse",100,9,17152,5500,true,true
+"insertion","Reverse",100,0,9568,3100,true,true
+"insertion","Reverse",100,1,9120,3000,true,true
+"insertion","Reverse",100,2,9088,2900,true,true
+"insertion","Reverse",100,3,9056,3000,true,true
+"insertion","Reverse",100,4,9056,3000,true,true
+"insertion","Reverse",100,5,9088,3000,true,true
+"insertion","Reverse",100,6,9024,3000,true,true
+"insertion","Reverse",100,7,9024,2900,true,true
+"insertion","Reverse",100,8,16448,5200,true,true
+"insertion","Reverse",100,9,20064,6400,true,true
+"selection","Reverse",100,0,21792,7000,true,true
+"selection","Reverse",100,1,27072,8600,true,true
+"selection","Reverse",100,2,25280,8100,true,true
+"selection","Reverse",100,3,19136,6100,true,true
+"selection","Reverse",100,4,12928,4100,true,true
+"selection","Reverse",100,5,12352,4000,true,true
+"selection","Reverse",100,6,12160,3900,true,true
+"selection","Reverse",100,7,11936,3900,true,true
+"selection","Reverse",100,8,11936,3900,true,true
+"selection","Reverse",100,9,11744,3800,true,true
+"merge","Reverse",100,0,4864,1600,true,true
+"merge","Reverse",100,1,4480,1500,true,true
+"merge","Reverse",100,2,4768,1700,true,true
+"merge","Reverse",100,3,4672,1600,true,true
+"merge","Reverse",100,4,4832,1600,true,true
+"merge","Reverse",100,5,4512,1500,true,true
+"merge","Reverse",100,6,4832,1600,true,true
+"merge","Reverse",100,7,4480,1600,true,true
+"merge","Reverse",100,8,4800,1600,true,true
+"merge","Reverse",100,9,4576,1600,true,true
+"quicksort","Reverse",100,0,2112,800,true,true
+"quicksort","Reverse",100,1,1952,800,true,true
+"quicksort","Reverse",100,2,1952,700,true,true
+"quicksort","Reverse",100,3,1952,700,true,true
+"quicksort","Reverse",100,4,1920,700,true,true
+"quicksort","Reverse",100,5,1952,700,true,true
+"quicksort","Reverse",100,6,1920,700,true,true
+"quicksort","Reverse",100,7,1920,700,true,true
+"quicksort","Reverse",100,8,1920,800,true,true
+"quicksort","Reverse",100,9,1984,700,true,true
+"heap","Reverse",100,0,5344,1800,true,true
+"heap","Reverse",100,1,4672,1500,true,true
+"heap","Reverse",100,2,4384,1500,true,true
+"heap","Reverse",100,3,4256,1400,true,true
+"heap","Reverse",100,4,4320,1500,true,true
+"heap","Reverse",100,5,4192,1500,true,true
+"heap","Reverse",100,6,4352,1500,true,true
+"heap","Reverse",100,7,4224,1400,true,true
+"heap","Reverse",100,8,4288,1400,true,true
+"heap","Reverse",100,9,4288,1500,true,true
+"std-sort","Reverse",100,0,1152,600,true,true
+"std-sort","Reverse",100,1,1184,500,true,true
+"std-sort","Reverse",100,2,896,400,true,true
+"std-sort","Reverse",100,3,960,500,true,true
+"std-sort","Reverse",100,4,960,400,true,true
+"std-sort","Reverse",100,5,928,500,true,true
+"std-sort","Reverse",100,6,928,400,true,true
+"std-sort","Reverse",100,7,960,400,true,true
+"std-sort","Reverse",100,8,960,400,true,true
+"std-sort","Reverse",100,9,960,400,true,true
+"std-stable-sort","Reverse",100,0,3584,1200,true,true
+"std-stable-sort","Reverse",100,1,3456,1100,true,true
+"std-stable-sort","Reverse",100,2,3456,1200,true,true
+"std-stable-sort","Reverse",100,3,3424,1100,true,true
+"std-stable-sort","Reverse",100,4,5920,2000,true,true
+"std-stable-sort","Reverse",100,5,6464,2100,true,true
+"std-stable-sort","Reverse",100,6,7328,2400,true,true
+"std-stable-sort","Reverse",100,7,6976,2300,true,true
+"std-stable-sort","Reverse",100,8,7008,2300,true,true
+"std-stable-sort","Reverse",100,9,5024,1700,true,true
+"bubble","Reverse",1000,0,1550080,485500,true,true
+"bubble","Reverse",1000,1,1504096,471100,true,true
+"bubble","Reverse",1000,2,1370272,429200,true,true
+"bubble","Reverse",1000,3,1523776,477400,true,true
+"bubble","Reverse",1000,4,1406144,440500,true,true
+"bubble","Reverse",1000,5,1507776,472200,true,true
+"bubble","Reverse",1000,6,1307424,409400,true,true
+"bubble","Reverse",1000,7,1331552,417100,true,true
+"bubble","Reverse",1000,8,1496832,468900,true,true
+"bubble","Reverse",1000,9,1305440,408900,true,true
+"insertion","Reverse",1000,0,1121856,351600,true,true
+"insertion","Reverse",1000,1,991744,310700,true,true
+"insertion","Reverse",1000,2,905568,284000,true,true
+"insertion","Reverse",1000,3,1100640,344800,true,true
+"insertion","Reverse",1000,4,1019872,319400,true,true
+"insertion","Reverse",1000,5,964992,302500,true,true
+"insertion","Reverse",1000,6,1000960,313800,true,true
+"insertion","Reverse",1000,7,923936,289400,true,true
+"insertion","Reverse",1000,8,1001984,313900,true,true
+"insertion","Reverse",1000,9,1108064,347600,true,true
+"selection","Reverse",1000,0,1064768,333600,true,true
+"selection","Reverse",1000,1,1017568,318900,true,true
+"selection","Reverse",1000,2,920800,288500,true,true
+"selection","Reverse",1000,3,920448,288300,true,true
+"selection","Reverse",1000,4,920384,288300,true,true
+"selection","Reverse",1000,5,984864,308500,true,true
+"selection","Reverse",1000,6,941280,295000,true,true
+"selection","Reverse",1000,7,937696,293700,true,true
+"selection","Reverse",1000,8,1003616,314300,true,true
+"selection","Reverse",1000,9,941120,294800,true,true
+"merge","Reverse",1000,0,49152,15500,true,true
+"merge","Reverse",1000,1,49280,15600,true,true
+"merge","Reverse",1000,2,49312,15500,true,true
+"merge","Reverse",1000,3,49056,15500,true,true
+"merge","Reverse",1000,4,49056,15500,true,true
+"merge","Reverse",1000,5,49184,15500,true,true
+"merge","Reverse",1000,6,49120,15500,true,true
+"merge","Reverse",1000,7,48928,15400,true,true
+"merge","Reverse",1000,8,48960,15400,true,true
+"merge","Reverse",1000,9,49152,15500,true,true
+"quicksort","Reverse",1000,0,25056,8000,true,true
+"quicksort","Reverse",1000,1,23840,7600,true,true
+"quicksort","Reverse",1000,2,23744,7600,true,true
+"quicksort","Reverse",1000,3,23712,7500,true,true
+"quicksort","Reverse",1000,4,23616,7500,true,true
+"quicksort","Reverse",1000,5,23680,7500,true,true
+"quicksort","Reverse",1000,6,23584,7500,true,true
+"quicksort","Reverse",1000,7,23616,7500,true,true
+"quicksort","Reverse",1000,8,23552,7700,true,true
+"quicksort","Reverse",1000,9,23840,7600,true,true
+"heap","Reverse",1000,0,76256,24000,true,true
+"heap","Reverse",1000,1,63840,20100,true,true
+"heap","Reverse",1000,2,59840,18800,true,true
+"heap","Reverse",1000,3,58368,18400,true,true
+"heap","Reverse",1000,4,58016,18300,true,true
+"heap","Reverse",1000,5,57760,18200,true,true
+"heap","Reverse",1000,6,118688,37300,true,true
+"heap","Reverse",1000,7,57408,18100,true,true
+"heap","Reverse",1000,8,57600,18100,true,true
+"heap","Reverse",1000,9,57536,18100,true,true
+"std-sort","Reverse",1000,0,12864,4300,true,true
+"std-sort","Reverse",1000,1,12960,4100,true,true
+"std-sort","Reverse",1000,2,12640,4000,true,true
+"std-sort","Reverse",1000,3,12736,4100,true,true
+"std-sort","Reverse",1000,4,12512,4000,true,true
+"std-sort","Reverse",1000,5,12608,4100,true,true
+"std-sort","Reverse",1000,6,12640,4100,true,true
+"std-sort","Reverse",1000,7,12608,4100,true,true
+"std-sort","Reverse",1000,8,12608,4100,true,true
+"std-sort","Reverse",1000,9,12576,4000,true,true
+"std-stable-sort","Reverse",1000,0,33440,10600,true,true
+"std-stable-sort","Reverse",1000,1,33120,10500,true,true
+"std-stable-sort","Reverse",1000,2,33312,10500,true,true
+"std-stable-sort","Reverse",1000,3,33120,10400,true,true
+"std-stable-sort","Reverse",1000,4,33216,10500,true,true
+"std-stable-sort","Reverse",1000,5,33120,10500,true,true
+"std-stable-sort","Reverse",1000,6,33120,10500,true,true
+"std-stable-sort","Reverse",1000,7,33120,10500,true,true
+"std-stable-sort","Reverse",1000,8,33152,10500,true,true
+"std-stable-sort","Reverse",1000,9,33152,10500,true,true
+"bubble","Nearly Sorted",100,0,768,300,true,true
+"bubble","Nearly Sorted",100,1,800,400,true,true
+"bubble","Nearly Sorted",100,2,768,400,true,true
+"bubble","Nearly Sorted",100,3,736,400,true,true
+"bubble","Nearly Sorted",100,4,800,400,true,true
+"bubble","Nearly Sorted",100,5,832,400,true,true
+"bubble","Nearly Sorted",100,6,704,300,true,true
+"bubble","Nearly Sorted",100,7,1088,500,true,true
+"bubble","Nearly Sorted",100,8,800,400,true,true
+"bubble","Nearly Sorted",100,9,672,300,true,true
+"insertion","Nearly Sorted",100,0,896,400,true,true
+"insertion","Nearly Sorted",100,1,960,500,true,true
+"insertion","Nearly Sorted",100,2,768,300,true,true
+"insertion","Nearly Sorted",100,3,800,400,true,true
+"insertion","Nearly Sorted",100,4,672,400,true,true
+"insertion","Nearly Sorted",100,5,672,300,true,true
+"insertion","Nearly Sorted",100,6,672,300,true,true
+"insertion","Nearly Sorted",100,7,800,400,true,true
+"insertion","Nearly Sorted",100,8,672,300,true,true
+"insertion","Nearly Sorted",100,9,768,400,true,true
+"selection","Nearly Sorted",100,0,10912,3500,true,true
+"selection","Nearly Sorted",100,1,10784,3500,true,true
+"selection","Nearly Sorted",100,2,10528,3400,true,true
+"selection","Nearly Sorted",100,3,10688,3400,true,true
+"selection","Nearly Sorted",100,4,10688,3400,true,true
+"selection","Nearly Sorted",100,5,10592,3400,true,true
+"selection","Nearly Sorted",100,6,10592,3500,true,true
+"selection","Nearly Sorted",100,7,10592,3400,true,true
+"selection","Nearly Sorted",100,8,10272,3400,true,true
+"selection","Nearly Sorted",100,9,10368,3400,true,true
+"merge","Nearly Sorted",100,0,5728,1900,true,true
+"merge","Nearly Sorted",100,1,5408,1800,true,true
+"merge","Nearly Sorted",100,2,5120,1800,true,true
+"merge","Nearly Sorted",100,3,5312,1800,true,true
+"merge","Nearly Sorted",100,4,5248,1700,true,true
+"merge","Nearly Sorted",100,5,4992,1700,true,true
+"merge","Nearly Sorted",100,6,5056,1700,true,true
+"merge","Nearly Sorted",100,7,5280,1700,true,true
+"merge","Nearly Sorted",100,8,5120,1700,true,true
+"merge","Nearly Sorted",100,9,5824,1900,true,true
+"quicksort","Nearly Sorted",100,0,5024,1700,true,true
+"quicksort","Nearly Sorted",100,1,3776,1300,true,true
+"quicksort","Nearly Sorted",100,2,3424,1200,true,true
+"quicksort","Nearly Sorted",100,3,3776,1300,true,true
+"quicksort","Nearly Sorted",100,4,4256,1500,true,true
+"quicksort","Nearly Sorted",100,5,3264,1100,true,true
+"quicksort","Nearly Sorted",100,6,2624,1000,true,true
+"quicksort","Nearly Sorted",100,7,3808,1300,true,true
+"quicksort","Nearly Sorted",100,8,3200,1100,true,true
+"quicksort","Nearly Sorted",100,9,3648,1200,true,true
+"heap","Nearly Sorted",100,0,9600,3100,true,true
+"heap","Nearly Sorted",100,1,9472,3500,true,true
+"heap","Nearly Sorted",100,2,8352,2700,true,true
+"heap","Nearly Sorted",100,3,9056,3500,true,true
+"heap","Nearly Sorted",100,4,8960,2900,true,true
+"heap","Nearly Sorted",100,5,7808,2500,true,true
+"heap","Nearly Sorted",100,6,7104,2300,true,true
+"heap","Nearly Sorted",100,7,6944,2300,true,true
+"heap","Nearly Sorted",100,8,6304,2100,true,true
+"heap","Nearly Sorted",100,9,6976,2300,true,true
+"std-sort","Nearly Sorted",100,0,2432,900,true,true
+"std-sort","Nearly Sorted",100,1,2496,900,true,true
+"std-sort","Nearly Sorted",100,2,2560,900,true,true
+"std-sort","Nearly Sorted",100,3,2176,800,true,true
+"std-sort","Nearly Sorted",100,4,2048,800,true,true
+"std-sort","Nearly Sorted",100,5,1760,700,true,true
+"std-sort","Nearly Sorted",100,6,2432,900,true,true
+"std-sort","Nearly Sorted",100,7,1984,700,true,true
+"std-sort","Nearly Sorted",100,8,1792,700,true,true
+"std-sort","Nearly Sorted",100,9,1920,700,true,true
+"std-stable-sort","Nearly Sorted",100,0,2848,1000,true,true
+"std-stable-sort","Nearly Sorted",100,1,2528,900,true,true
+"std-stable-sort","Nearly Sorted",100,2,2368,800,true,true
+"std-stable-sort","Nearly Sorted",100,3,2976,1000,true,true
+"std-stable-sort","Nearly Sorted",100,4,2656,900,true,true
+"std-stable-sort","Nearly Sorted",100,5,2816,1000,true,true
+"std-stable-sort","Nearly Sorted",100,6,2432,800,true,true
+"std-stable-sort","Nearly Sorted",100,7,2752,900,true,true
+"std-stable-sort","Nearly Sorted",100,8,2528,900,true,true
+"std-stable-sort","Nearly Sorted",100,9,4224,1400,true,true
+"bubble","Nearly Sorted",1000,0,9312,3000,true,true
+"bubble","Nearly Sorted",1000,1,9440,3100,true,true
+"bubble","Nearly Sorted",1000,2,9216,3000,true,true
+"bubble","Nearly Sorted",1000,3,9504,3100,true,true
+"bubble","Nearly Sorted",1000,4,9440,3100,true,true
+"bubble","Nearly Sorted",1000,5,9280,3100,true,true
+"bubble","Nearly Sorted",1000,6,6688,2200,true,true
+"bubble","Nearly Sorted",1000,7,11968,3900,true,true
+"bubble","Nearly Sorted",1000,8,25632,8100,true,true
+"bubble","Nearly Sorted",1000,9,6720,2200,true,true
+"insertion","Nearly Sorted",1000,0,6656,2200,true,true
+"insertion","Nearly Sorted",1000,1,6784,2200,true,true
+"insertion","Nearly Sorted",1000,2,6752,2300,true,true
+"insertion","Nearly Sorted",1000,3,7072,2400,true,true
+"insertion","Nearly Sorted",1000,4,6592,2200,true,true
+"insertion","Nearly Sorted",1000,5,6784,2600,true,true
+"insertion","Nearly Sorted",1000,6,6752,2200,true,true
+"insertion","Nearly Sorted",1000,7,7136,2400,true,true
+"insertion","Nearly Sorted",1000,8,6496,2200,true,true
+"insertion","Nearly Sorted",1000,9,6816,2200,true,true
+"selection","Nearly Sorted",1000,0,850816,266500,true,true
+"selection","Nearly Sorted",1000,1,895712,280600,true,true
+"selection","Nearly Sorted",1000,2,850240,266400,true,true
+"selection","Nearly Sorted",1000,3,850176,266300,true,true
+"selection","Nearly Sorted",1000,4,865824,271300,true,true
+"selection","Nearly Sorted",1000,5,897056,281000,true,true
+"selection","Nearly Sorted",1000,6,850208,266300,true,true
+"selection","Nearly Sorted",1000,7,850368,266400,true,true
+"selection","Nearly Sorted",1000,8,850464,266400,true,true
+"selection","Nearly Sorted",1000,9,895072,280400,true,true
+"merge","Nearly Sorted",1000,0,52768,16600,true,true
+"merge","Nearly Sorted",1000,1,51808,16300,true,true
+"merge","Nearly Sorted",1000,2,51744,16400,true,true
+"merge","Nearly Sorted",1000,3,51744,16400,true,true
+"merge","Nearly Sorted",1000,4,51872,16300,true,true
+"merge","Nearly Sorted",1000,5,51744,16300,true,true
+"merge","Nearly Sorted",1000,6,51392,16200,true,true
+"merge","Nearly Sorted",1000,7,50976,16100,true,true
+"merge","Nearly Sorted",1000,8,51136,16100,true,true
+"merge","Nearly Sorted",1000,9,51072,16100,true,true
+"quicksort","Nearly Sorted",1000,0,35776,11300,true,true
+"quicksort","Nearly Sorted",1000,1,35936,11300,true,true
+"quicksort","Nearly Sorted",1000,2,37056,11700,true,true
+"quicksort","Nearly Sorted",1000,3,35552,11200,true,true
+"quicksort","Nearly Sorted",1000,4,38048,12100,true,true
+"quicksort","Nearly Sorted",1000,5,37216,11700,true,true
+"quicksort","Nearly Sorted",1000,6,36032,11400,true,true
+"quicksort","Nearly Sorted",1000,7,33184,10500,true,true
+"quicksort","Nearly Sorted",1000,8,34912,11000,true,true
+"quicksort","Nearly Sorted",1000,9,32736,10400,true,true
+"heap","Nearly Sorted",1000,0,149376,46900,true,true
+"heap","Nearly Sorted",1000,1,134304,42500,true,true
+"heap","Nearly Sorted",1000,2,123904,39300,true,true
+"heap","Nearly Sorted",1000,3,187168,58800,true,true
+"heap","Nearly Sorted",1000,4,124672,39200,true,true
+"heap","Nearly Sorted",1000,5,117600,36900,true,true
+"heap","Nearly Sorted",1000,6,122336,38400,true,true
+"heap","Nearly Sorted",1000,7,119040,37400,true,true
+"heap","Nearly Sorted",1000,8,114528,36000,true,true
+"heap","Nearly Sorted",1000,9,115168,36200,true,true
+"std-sort","Nearly Sorted",1000,0,25152,8000,true,true
+"std-sort","Nearly Sorted",1000,1,26016,8300,true,true
+"std-sort","Nearly Sorted",1000,2,24384,7800,true,true
+"std-sort","Nearly Sorted",1000,3,24416,7700,true,true
+"std-sort","Nearly Sorted",1000,4,23136,7300,true,true
+"std-sort","Nearly Sorted",1000,5,23584,7500,true,true
+"std-sort","Nearly Sorted",1000,6,24576,7800,true,true
+"std-sort","Nearly Sorted",1000,7,22304,7100,true,true
+"std-sort","Nearly Sorted",1000,8,22976,7300,true,true
+"std-sort","Nearly Sorted",1000,9,22400,7100,true,true
+"std-stable-sort","Nearly Sorted",1000,0,21952,6900,true,true
+"std-stable-sort","Nearly Sorted",1000,1,22304,7100,true,true
+"std-stable-sort","Nearly Sorted",1000,2,22528,7200,true,true
+"std-stable-sort","Nearly Sorted",1000,3,22048,7000,true,true
+"std-stable-sort","Nearly Sorted",1000,4,22272,7100,true,true
+"std-stable-sort","Nearly Sorted",1000,5,21888,6900,true,true
+"std-stable-sort","Nearly Sorted",1000,6,21728,6900,true,true
+"std-stable-sort","Nearly Sorted",1000,7,21600,6900,true,true
+"std-stable-sort","Nearly Sorted",1000,8,21920,6900,true,true
+"std-stable-sort","Nearly Sorted",1000,9,21696,6900,true,true

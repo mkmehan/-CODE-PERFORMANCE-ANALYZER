@@ -1,0 +1,801 @@
+benchmark_key,input_data,input_size,iteration,cycles,time_ns,verification_performed,verified
+"quicksort","Random",100,0,7936,2500,true,true
+"quicksort","Random",100,1,7424,2600,true,true
+"quicksort","Random",100,2,7424,2400,true,true
+"quicksort","Random",100,3,7200,2300,true,true
+"quicksort","Random",100,4,7904,2500,true,true
+"quicksort","Random",100,5,7776,2600,true,true
+"quicksort","Random",100,6,7776,2700,true,true
+"quicksort","Random",100,7,7872,2500,true,true
+"quicksort","Random",100,8,7168,2300,true,true
+"quicksort","Random",100,9,8032,2600,true,true
+"quicksort","Random",100,10,7040,2300,true,true
+"quicksort","Random",100,11,7584,2500,true,true
+"quicksort","Random",100,12,6912,2200,true,true
+"quicksort","Random",100,13,7712,2500,true,true
+"quicksort","Random",100,14,7616,2500,true,true
+"quicksort","Random",100,15,7712,2400,true,true
+"quicksort","Random",100,16,7328,2300,true,true
+"quicksort","Random",100,17,7360,2400,true,true
+"quicksort","Random",100,18,7840,2500,true,true
+"quicksort","Random",100,19,7232,2300,true,true
+"quicksort","Random",100,20,7584,2500,true,true
+"quicksort","Random",100,21,7616,2500,true,true
+"quicksort","Random",100,22,7296,2400,true,true
+"quicksort","Random",100,23,7520,2400,true,true
+"quicksort","Random",100,24,7392,2400,true,true
+"quicksort","Random",100,25,7648,2500,true,true
+"quicksort","Random",100,26,7136,2300,true,true
+"quicksort","Random",100,27,7296,2300,true,true
+"quicksort","Random",100,28,7520,2500,true,true
+"quicksort","Random",100,29,8032,2600,true,true
+"quicksort","Random",100,30,7072,2300,true,true
+"quicksort","Random",100,31,7584,2500,true,true
+"quicksort","Random",100,32,7552,2500,true,true
+"quicksort","Random",100,33,7488,2500,true,true
+"quicksort","Random",100,34,7712,2500,true,true
+"quicksort","Random",100,35,7392,2400,true,true
+"quicksort","Random",100,36,7584,2500,true,true
+"quicksort","Random",100,37,7744,2500,true,true
+"quicksort","Random",100,38,7392,2400,true,true
+"quicksort","Random",100,39,7168,2300,true,true
+"quicksort","Random",100,40,7776,2500,true,true
+"quicksort","Random",100,41,7648,2500,true,true
+"quicksort","Random",100,42,8000,2600,true,true
+"quicksort","Random",100,43,7424,2400,true,true
+"quicksort","Random",100,44,7936,2600,true,true
+"quicksort","Random",100,45,7328,2400,true,true
+"quicksort","Random",100,46,7296,2300,true,true
+"quicksort","Random",100,47,69088,21700,true,true
+"quicksort","Random",100,48,6816,2200,true,true
+"quicksort","Random",100,49,7456,2600,true,true
+"quicksort","Random",100,50,7520,2400,true,true
+"quicksort","Random",100,51,7168,2400,true,true
+"quicksort","Random",100,52,7712,2500,true,true
+"quicksort","Random",100,53,7680,2500,true,true
+"quicksort","Random",100,54,8096,2600,true,true
+"quicksort","Random",100,55,7456,2400,true,true
+"quicksort","Random",100,56,7296,2400,true,true
+"quicksort","Random",100,57,7936,2500,true,true
+"quicksort","Random",100,58,7712,2500,true,true
+"quicksort","Random",100,59,6912,2300,true,true
+"quicksort","Random",100,60,7648,2500,true,true
+"quicksort","Random",100,61,7072,2300,true,true
+"quicksort","Random",100,62,7328,2300,true,true
+"quicksort","Random",100,63,7488,2500,true,true
+"quicksort","Random",100,64,7072,2200,true,true
+"quicksort","Random",100,65,7296,2300,true,true
+"quicksort","Random",100,66,7392,2400,true,true
+"quicksort","Random",100,67,8320,2700,true,true
+"quicksort","Random",100,68,6880,2200,true,true
+"quicksort","Random",100,69,7264,2300,true,true
+"quicksort","Random",100,70,7232,2400,true,true
+"quicksort","Random",100,71,7264,2300,true,true
+"quicksort","Random",100,72,7328,2300,true,true
+"quicksort","Random",100,73,7232,2400,true,true
+"quicksort","Random",100,74,7872,2500,true,true
+"quicksort","Random",100,75,6816,2200,true,true
+"quicksort","Random",100,76,7168,2300,true,true
+"quicksort","Random",100,77,7360,2400,true,true
+"quicksort","Random",100,78,7392,2400,true,true
+"quicksort","Random",100,79,7264,2300,true,true
+"quicksort","Random",100,80,7136,2300,true,true
+"quicksort","Random",100,81,6688,2200,true,true
+"quicksort","Random",100,82,7520,2400,true,true
+"quicksort","Random",100,83,6752,2200,true,true
+"quicksort","Random",100,84,7328,2400,true,true
+"quicksort","Random",100,85,6816,2200,true,true
+"quicksort","Random",100,86,7104,2300,true,true
+"quicksort","Random",100,87,6848,2200,true,true
+"quicksort","Random",100,88,7456,2400,true,true
+"quicksort","Random",100,89,6880,2300,true,true
+"quicksort","Random",100,90,7264,2300,true,true
+"quicksort","Random",100,91,7552,2400,true,true
+"quicksort","Random",100,92,6976,2300,true,true
+"quicksort","Random",100,93,7136,2300,true,true
+"quicksort","Random",100,94,20640,6600,true,true
+"quicksort","Random",100,95,7616,2400,true,true
+"quicksort","Random",100,96,6944,2300,true,true
+"quicksort","Random",100,97,7776,2500,true,true
+"quicksort","Random",100,98,6944,2200,true,true
+"quicksort","Random",100,99,7648,2500,true,true
+"quicksort","Random",500,0,46848,14800,true,true
+"quicksort","Random",500,1,398656,124900,true,true
+"quicksort","Random",500,2,45792,14400,true,true
+"quicksort","Random",500,3,47424,14900,true,true
+"quicksort","Random",500,4,45408,14300,true,true
+"quicksort","Random",500,5,44608,14000,true,true
+"quicksort","Random",500,6,46080,14500,true,true
+"quicksort","Random",500,7,45824,14400,true,true
+"quicksort","Random",500,8,45984,14500,true,true
+"quicksort","Random",500,9,44320,14000,true,true
+"quicksort","Random",500,10,44960,14100,true,true
+"quicksort","Random",500,11,45280,14300,true,true
+"quicksort","Random",500,12,45952,14400,true,true
+"quicksort","Random",500,13,45280,14200,true,true
+"quicksort","Random",500,14,45792,14400,true,true
+"quicksort","Random",500,15,45216,14200,true,true
+"quicksort","Random",500,16,45824,14400,true,true
+"quicksort","Random",500,17,44384,14000,true,true
+"quicksort","Random",500,18,87776,27500,true,true
+"quicksort","Random",500,19,43936,13900,true,true
+"quicksort","Random",500,20,45440,14300,true,true
+"quicksort","Random",500,21,45568,14300,true,true
+"quicksort","Random",500,22,47232,14900,true,true
+"quicksort","Random",500,23,46336,14600,true,true
+"quicksort","Random",500,24,44832,14200,true,true
+"quicksort","Random",500,25,46688,14700,true,true
+"quicksort","Random",500,26,45184,14300,true,true
+"quicksort","Random",500,27,43104,13600,true,true
+"quicksort","Random",500,28,45056,14200,true,true
+"quicksort","Random",500,29,45280,14300,true,true
+"quicksort","Random",500,30,46400,14600,true,true
+"quicksort","Random",500,31,43520,13700,true,true
+"quicksort","Random",500,32,44832,14100,true,true
+"quicksort","Random",500,33,45440,14300,true,true
+"quicksort","Random",500,34,46048,14500,true,true
+"quicksort","Random",500,35,46400,14600,true,true
+"quicksort","Random",500,36,46144,14500,true,true
+"quicksort","Random",500,37,45248,14200,true,true
+"quicksort","Random",500,38,46688,14700,true,true
+"quicksort","Random",500,39,46496,14600,true,true
+"quicksort","Random",500,40,43264,13600,true,true
+"quicksort","Random",500,41,44160,13900,true,true
+"quicksort","Random",500,42,46304,14500,true,true
+"quicksort","Random",500,43,44256,13900,true,true
+"quicksort","Random",500,44,44032,13900,true,true
+"quicksort","Random",500,45,42944,13500,true,true
+"quicksort","Random",500,46,42848,13500,true,true
+"quicksort","Random",500,47,44704,14100,true,true
+"quicksort","Random",500,48,47520,15000,true,true
+"quicksort","Random",500,49,43840,13800,true,true
+"quicksort","Random",500,50,43200,13600,true,true
+"quicksort","Random",500,51,46400,14600,true,true
+"quicksort","Random",500,52,45152,14200,true,true
+"quicksort","Random",500,53,45472,14300,true,true
+"quicksort","Random",500,54,44352,14000,true,true
+"quicksort","Random",500,55,45056,14100,true,true
+"quicksort","Random",500,56,44288,14000,true,true
+"quicksort","Random",500,57,45024,14200,true,true
+"quicksort","Random",500,58,46176,14500,true,true
+"quicksort","Random",500,59,45760,14400,true,true
+"quicksort","Random",500,60,46208,14500,true,true
+"quicksort","Random",500,61,45280,14200,true,true
+"quicksort","Random",500,62,44800,14100,true,true
+"quicksort","Random",500,63,45632,14400,true,true
+"quicksort","Random",500,64,43424,13700,true,true
+"quicksort","Random",500,65,44192,13900,true,true
+"quicksort","Random",500,66,45920,14400,true,true
+"quicksort","Random",500,67,45184,14200,true,true
+"quicksort","Random",500,68,45824,14500,true,true
+"quicksort","Random",500,69,44192,13900,true,true
+"quicksort","Random",500,70,44320,14000,true,true
+"quicksort","Random",500,71,44736,14100,true,true
+"quicksort","Random",500,72,46016,14500,true,true
+"quicksort","Random",500,73,44448,14000,true,true
+"quicksort","Random",500,74,45056,14200,true,true
+"quicksort","Random",500,75,46624,14700,true,true
+"quicksort","Random",500,76,88512,27800,true,true
+"quicksort","Random",500,77,46208,14600,true,true
+"quicksort","Random",500,78,44672,14000,true,true
+"quicksort","Random",500,79,43200,13600,true,true
+"quicksort","Random",500,80,45536,14300,true,true
+"quicksort","Random",500,81,44960,14200,true,true
+"quicksort","Random",500,82,46016,14700,true,true
+"quicksort","Random",500,83,45952,14500,true,true
+"quicksort","Random",500,84,45088,14200,true,true
+"quicksort","Random",500,85,44384,14000,true,true
+"quicksort","Random",500,86,44000,13900,true,true
+"quicksort","Random",500,87,45024,14100,true,true
+"quicksort","Random",500,88,42624,13400,true,true
+"quicksort","Random",500,89,43168,13600,true,true
+"quicksort","Random",500,90,45024,14200,true,true
+"quicksort","Random",500,91,56704,17900,true,true
+"quicksort","Random",500,92,46080,14500,true,true
+"quicksort","Random",500,93,44160,13900,true,true
+"quicksort","Random",500,94,43520,13700,true,true
+"quicksort","Random",500,95,45664,14400,true,true
+"quicksort","Random",500,96,44704,14100,true,true
+"quicksort","Random",500,97,43264,13600,true,true
+"quicksort","Random",500,98,44736,14100,true,true
+"quicksort","Random",500,99,43968,13800,true,true
+"quicksort","Sorted",100,0,896,300,true,true
+"quicksort","Sorted",100,1,928,500,true,true
+"quicksort","Sorted",100,2,960,400,true,true
+"quicksort","Sorted",100,3,960,400,true,true
+"quicksort","Sorted",100,4,928,400,true,true
+"quicksort","Sorted",100,5,960,300,true,true
+"quicksort","Sorted",100,6,960,400,true,true
+"quicksort","Sorted",100,7,896,300,true,true
+"quicksort","Sorted",100,8,928,600,true,true
+"quicksort","Sorted",100,9,928,400,true,true
+"quicksort","Sorted",100,10,928,300,true,true
+"quicksort","Sorted",100,11,928,500,true,true
+"quicksort","Sorted",100,12,928,400,true,true
+"quicksort","Sorted",100,13,928,300,true,true
+"quicksort","Sorted",100,14,896,400,true,true
+"quicksort","Sorted",100,15,928,300,true,true
+"quicksort","Sorted",100,16,928,400,true,true
+"quicksort","Sorted",100,17,928,400,true,true
+"quicksort","Sorted",100,18,896,300,true,true
+"quicksort","Sorted",100,19,928,500,true,true
+"quicksort","Sorted",100,20,896,500,true,true
+"quicksort","Sorted",100,21,896,300,true,true
+"quicksort","Sorted",100,22,928,400,true,true
+"quicksort","Sorted",100,23,896,500,true,true
+"quicksort","Sorted",100,24,896,400,true,true
+"quicksort","Sorted",100,25,928,400,true,true
+"quicksort","Sorted",100,26,928,500,true,true
+"quicksort","Sorted",100,27,928,400,true,true
+"quicksort","Sorted",100,28,928,400,true,true
+"quicksort","Sorted",100,29,928,400,true,true
+"quicksort","Sorted",100,30,928,300,true,true
+"quicksort","Sorted",100,31,896,500,true,true
+"quicksort","Sorted",100,32,928,400,true,true
+"quicksort","Sorted",100,33,960,400,true,true
+"quicksort","Sorted",100,34,928,300,true,true
+"quicksort","Sorted",100,35,928,400,true,true
+"quicksort","Sorted",100,36,928,300,true,true
+"quicksort","Sorted",100,37,928,400,true,true
+"quicksort","Sorted",100,38,928,300,true,true
+"quicksort","Sorted",100,39,928,300,true,true
+"quicksort","Sorted",100,40,896,400,true,true
+"quicksort","Sorted",100,41,928,300,true,true
+"quicksort","Sorted",100,42,896,400,true,true
+"quicksort","Sorted",100,43,896,400,true,true
+"quicksort","Sorted",100,44,928,400,true,true
+"quicksort","Sorted",100,45,928,400,true,true
+"quicksort","Sorted",100,46,928,300,true,true
+"quicksort","Sorted",100,47,896,400,true,true
+"quicksort","Sorted",100,48,928,400,true,true
+"quicksort","Sorted",100,49,928,400,true,true
+"quicksort","Sorted",100,50,928,400,true,true
+"quicksort","Sorted",100,51,928,300,true,true
+"quicksort","Sorted",100,52,928,300,true,true
+"quicksort","Sorted",100,53,928,400,true,true
+"quicksort","Sorted",100,54,896,400,true,true
+"quicksort","Sorted",100,55,896,400,true,true
+"quicksort","Sorted",100,56,928,400,true,true
+"quicksort","Sorted",100,57,1056,400,true,true
+"quicksort","Sorted",100,58,928,300,true,true
+"quicksort","Sorted",100,59,928,500,true,true
+"quicksort","Sorted",100,60,896,400,true,true
+"quicksort","Sorted",100,61,896,400,true,true
+"quicksort","Sorted",100,62,896,400,true,true
+"quicksort","Sorted",100,63,896,300,true,true
+"quicksort","Sorted",100,64,928,400,true,true
+"quicksort","Sorted",100,65,992,400,true,true
+"quicksort","Sorted",100,66,928,300,true,true
+"quicksort","Sorted",100,67,928,300,true,true
+"quicksort","Sorted",100,68,1024,400,true,true
+"quicksort","Sorted",100,69,928,300,true,true
+"quicksort","Sorted",100,70,896,400,true,true
+"quicksort","Sorted",100,71,896,300,true,true
+"quicksort","Sorted",100,72,928,400,true,true
+"quicksort","Sorted",100,73,896,300,true,true
+"quicksort","Sorted",100,74,896,400,true,true
+"quicksort","Sorted",100,75,928,400,true,true
+"quicksort","Sorted",100,76,896,400,true,true
+"quicksort","Sorted",100,77,896,400,true,true
+"quicksort","Sorted",100,78,896,400,true,true
+"quicksort","Sorted",100,79,928,400,true,true
+"quicksort","Sorted",100,80,928,600,true,true
+"quicksort","Sorted",100,81,896,400,true,true
+"quicksort","Sorted",100,82,896,400,true,true
+"quicksort","Sorted",100,83,928,600,true,true
+"quicksort","Sorted",100,84,896,300,true,true
+"quicksort","Sorted",100,85,928,400,true,true
+"quicksort","Sorted",100,86,928,300,true,true
+"quicksort","Sorted",100,87,896,400,true,true
+"quicksort","Sorted",100,88,896,400,true,true
+"quicksort","Sorted",100,89,928,400,true,true
+"quicksort","Sorted",100,90,928,300,true,true
+"quicksort","Sorted",100,91,896,300,true,true
+"quicksort","Sorted",100,92,896,400,true,true
+"quicksort","Sorted",100,93,896,400,true,true
+"quicksort","Sorted",100,94,896,400,true,true
+"quicksort","Sorted",100,95,928,300,true,true
+"quicksort","Sorted",100,96,928,300,true,true
+"quicksort","Sorted",100,97,896,400,true,true
+"quicksort","Sorted",100,98,896,400,true,true
+"quicksort","Sorted",100,99,896,400,true,true
+"quicksort","Sorted",500,0,6112,2000,true,true
+"quicksort","Sorted",500,1,6208,2000,true,true
+"quicksort","Sorted",500,2,6208,2100,true,true
+"quicksort","Sorted",500,3,6176,2000,true,true
+"quicksort","Sorted",500,4,6144,2000,true,true
+"quicksort","Sorted",500,5,6176,2100,true,true
+"quicksort","Sorted",500,6,6144,2000,true,true
+"quicksort","Sorted",500,7,6112,2000,true,true
+"quicksort","Sorted",500,8,6112,2000,true,true
+"quicksort","Sorted",500,9,6144,2000,true,true
+"quicksort","Sorted",500,10,6112,2000,true,true
+"quicksort","Sorted",500,11,6112,2000,true,true
+"quicksort","Sorted",500,12,6112,2000,true,true
+"quicksort","Sorted",500,13,6112,2000,true,true
+"quicksort","Sorted",500,14,6112,2000,true,true
+"quicksort","Sorted",500,15,6112,2000,true,true
+"quicksort","Sorted",500,16,6112,2000,true,true
+"quicksort","Sorted",500,17,6176,2000,true,true
+"quicksort","Sorted",500,18,6112,1900,true,true
+"quicksort","Sorted",500,19,6208,2000,true,true
+"quicksort","Sorted",500,20,6112,2000,true,true
+"quicksort","Sorted",500,21,6144,2000,true,true
+"quicksort","Sorted",500,22,6112,2000,true,true
+"quicksort","Sorted",500,23,6112,2000,true,true
+"quicksort","Sorted",500,24,6080,2000,true,true
+"quicksort","Sorted",500,25,6112,2000,true,true
+"quicksort","Sorted",500,26,6112,2000,true,true
+"quicksort","Sorted",500,27,6112,1900,true,true
+"quicksort","Sorted",500,28,6112,2000,true,true
+"quicksort","Sorted",500,29,6112,2000,true,true
+"quicksort","Sorted",500,30,6112,2000,true,true
+"quicksort","Sorted",500,31,6112,2000,true,true
+"quicksort","Sorted",500,32,6112,2000,true,true
+"quicksort","Sorted",500,33,6176,2000,true,true
+"quicksort","Sorted",500,34,6144,2000,true,true
+"quicksort","Sorted",500,35,6112,2000,true,true
+"quicksort","Sorted",500,36,6112,2000,true,true
+"quicksort","Sorted",500,37,6112,2000,true,true
+"quicksort","Sorted",500,38,6112,2000,true,true
+"quicksort","Sorted",500,39,6080,2000,true,true
+"quicksort","Sorted",500,40,6080,2000,true,true
+"quicksort","Sorted",500,41,6080,1900,true,true
+"quicksort","Sorted",500,42,6112,2000,true,true
+"quicksort","Sorted",500,43,6112,2000,true,true
+"quicksort","Sorted",500,44,6112,2000,true,true
+"quicksort","Sorted",500,45,6080,2000,true,true
+"quicksort","Sorted",500,46,6112,2000,true,true
+"quicksort","Sorted",500,47,6112,2000,true,true
+"quicksort","Sorted",500,48,6112,2000,true,true
+"quicksort","Sorted",500,49,6112,2000,true,true
+"quicksort","Sorted",500,50,6112,2000,true,true
+"quicksort","Sorted",500,51,6112,2000,true,true
+"quicksort","Sorted",500,52,6080,2000,true,true
+"quicksort","Sorted",500,53,6080,2000,true,true
+"quicksort","Sorted",500,54,6112,2000,true,true
+"quicksort","Sorted",500,55,6112,2000,true,true
+"quicksort","Sorted",500,56,6112,2000,true,true
+"quicksort","Sorted",500,57,6112,2000,true,true
+"quicksort","Sorted",500,58,6112,2000,true,true
+"quicksort","Sorted",500,59,6112,2000,true,true
+"quicksort","Sorted",500,60,6112,2000,true,true
+"quicksort","Sorted",500,61,6112,1900,true,true
+"quicksort","Sorted",500,62,6144,2000,true,true
+"quicksort","Sorted",500,63,6112,2000,true,true
+"quicksort","Sorted",500,64,6112,2000,true,true
+"quicksort","Sorted",500,65,6176,2000,true,true
+"quicksort","Sorted",500,66,6144,2000,true,true
+"quicksort","Sorted",500,67,6144,2000,true,true
+"quicksort","Sorted",500,68,6112,2000,true,true
+"quicksort","Sorted",500,69,6112,2000,true,true
+"quicksort","Sorted",500,70,6240,2000,true,true
+"quicksort","Sorted",500,71,6144,2000,true,true
+"quicksort","Sorted",500,72,6112,2000,true,true
+"quicksort","Sorted",500,73,6144,2000,true,true
+"quicksort","Sorted",500,74,6112,2000,true,true
+"quicksort","Sorted",500,75,6144,2000,true,true
+"quicksort","Sorted",500,76,6112,2000,true,true
+"quicksort","Sorted",500,77,6112,2000,true,true
+"quicksort","Sorted",500,78,6112,2000,true,true
+"quicksort","Sorted",500,79,6144,2000,true,true
+"quicksort","Sorted",500,80,6112,2000,true,true
+"quicksort","Sorted",500,81,6144,2000,true,true
+"quicksort","Sorted",500,82,6112,2000,true,true
+"quicksort","Sorted",500,83,6144,2000,true,true
+"quicksort","Sorted",500,84,6144,2100,true,true
+"quicksort","Sorted",500,85,6112,2000,true,true
+"quicksort","Sorted",500,86,6112,2000,true,true
+"quicksort","Sorted",500,87,6144,2000,true,true
+"quicksort","Sorted",500,88,6112,1900,true,true
+"quicksort","Sorted",500,89,6144,2000,true,true
+"quicksort","Sorted",500,90,6112,2000,true,true
+"quicksort","Sorted",500,91,6144,2000,true,true
+"quicksort","Sorted",500,92,6112,2000,true,true
+"quicksort","Sorted",500,93,6112,2000,true,true
+"quicksort","Sorted",500,94,6112,2000,true,true
+"quicksort","Sorted",500,95,6112,2000,true,true
+"quicksort","Sorted",500,96,6144,2000,true,true
+"quicksort","Sorted",500,97,6112,2000,true,true
+"quicksort","Sorted",500,98,6144,2000,true,true
+"quicksort","Sorted",500,99,6144,2000,true,true
+"quicksort","Reverse",100,0,960,300,true,true
+"quicksort","Reverse",100,1,992,400,true,true
+"quicksort","Reverse",100,2,992,400,true,true
+"quicksort","Reverse",100,3,1024,400,true,true
+"quicksort","Reverse",100,4,1024,400,true,true
+"quicksort","Reverse",100,5,992,400,true,true
+"quicksort","Reverse",100,6,1024,400,true,true
+"quicksort","Reverse",100,7,992,400,true,true
+"quicksort","Reverse",100,8,992,400,true,true
+"quicksort","Reverse",100,9,1024,400,true,true
+"quicksort","Reverse",100,10,960,400,true,true
+"quicksort","Reverse",100,11,960,400,true,true
+"quicksort","Reverse",100,12,992,400,true,true
+"quicksort","Reverse",100,13,992,300,true,true
+"quicksort","Reverse",100,14,960,400,true,true
+"quicksort","Reverse",100,15,960,400,true,true
+"quicksort","Reverse",100,16,992,300,true,true
+"quicksort","Reverse",100,17,1024,400,true,true
+"quicksort","Reverse",100,18,992,400,true,true
+"quicksort","Reverse",100,19,992,400,true,true
+"quicksort","Reverse",100,20,992,400,true,true
+"quicksort","Reverse",100,21,1120,400,true,true
+"quicksort","Reverse",100,22,960,400,true,true
+"quicksort","Reverse",100,23,960,300,true,true
+"quicksort","Reverse",100,24,960,400,true,true
+"quicksort","Reverse",100,25,960,400,true,true
+"quicksort","Reverse",100,26,960,500,true,true
+"quicksort","Reverse",100,27,960,400,true,true
+"quicksort","Reverse",100,28,960,500,true,true
+"quicksort","Reverse",100,29,960,600,true,true
+"quicksort","Reverse",100,30,960,400,true,true
+"quicksort","Reverse",100,31,992,400,true,true
+"quicksort","Reverse",100,32,960,400,true,true
+"quicksort","Reverse",100,33,1024,400,true,true
+"quicksort","Reverse",100,34,992,400,true,true
+"quicksort","Reverse",100,35,960,500,true,true
+"quicksort","Reverse",100,36,992,400,true,true
+"quicksort","Reverse",100,37,960,400,true,true
+"quicksort","Reverse",100,38,960,300,true,true
+"quicksort","Reverse",100,39,960,500,true,true
+"quicksort","Reverse",100,40,992,400,true,true
+"quicksort","Reverse",100,41,960,400,true,true
+"quicksort","Reverse",100,42,960,400,true,true
+"quicksort","Reverse",100,43,992,400,true,true
+"quicksort","Reverse",100,44,960,400,true,true
+"quicksort","Reverse",100,45,960,400,true,true
+"quicksort","Reverse",100,46,960,500,true,true
+"quicksort","Reverse",100,47,960,400,true,true
+"quicksort","Reverse",100,48,960,600,true,true
+"quicksort","Reverse",100,49,992,400,true,true
+"quicksort","Reverse",100,50,960,300,true,true
+"quicksort","Reverse",100,51,992,400,true,true
+"quicksort","Reverse",100,52,960,300,true,true
+"quicksort","Reverse",100,53,960,400,true,true
+"quicksort","Reverse",100,54,960,400,true,true
+"quicksort","Reverse",100,55,960,400,true,true
+"quicksort","Reverse",100,56,992,400,true,true
+"quicksort","Reverse",100,57,960,300,true,true
+"quicksort","Reverse",100,58,960,300,true,true
+"quicksort","Reverse",100,59,960,400,true,true
+"quicksort","Reverse",100,60,960,400,true,true
+"quicksort","Reverse",100,61,960,300,true,true
+"quicksort","Reverse",100,62,960,400,true,true
+"quicksort","Reverse",100,63,992,400,true,true
+"quicksort","Reverse",100,64,960,400,true,true
+"quicksort","Reverse",100,65,992,300,true,true
+"quicksort","Reverse",100,66,960,400,true,true
+"quicksort","Reverse",100,67,960,400,true,true
+"quicksort","Reverse",100,68,960,400,true,true
+"quicksort","Reverse",100,69,960,400,true,true
+"quicksort","Reverse",100,70,960,400,true,true
+"quicksort","Reverse",100,71,960,400,true,true
+"quicksort","Reverse",100,72,960,400,true,true
+"quicksort","Reverse",100,73,960,300,true,true
+"quicksort","Reverse",100,74,960,400,true,true
+"quicksort","Reverse",100,75,960,400,true,true
+"quicksort","Reverse",100,76,992,300,true,true
+"quicksort","Reverse",100,77,992,400,true,true
+"quicksort","Reverse",100,78,992,400,true,true
+"quicksort","Reverse",100,79,960,300,true,true
+"quicksort","Reverse",100,80,960,400,true,true
+"quicksort","Reverse",100,81,960,400,true,true
+"quicksort","Reverse",100,82,960,400,true,true
+"quicksort","Reverse",100,83,992,300,true,true
+"quicksort","Reverse",100,84,992,400,true,true
+"quicksort","Reverse",100,85,960,300,true,true
+"quicksort","Reverse",100,86,960,400,true,true
+"quicksort","Reverse",100,87,960,400,true,true
+"quicksort","Reverse",100,88,960,300,true,true
+"quicksort","Reverse",100,89,960,400,true,true
+"quicksort","Reverse",100,90,960,400,true,true
+"quicksort","Reverse",100,91,960,300,true,true
+"quicksort","Reverse",100,92,960,400,true,true
+"quicksort","Reverse",100,93,992,300,true,true
+"quicksort","Reverse",100,94,960,400,true,true
+"quicksort","Reverse",100,95,960,400,true,true
+"quicksort","Reverse",100,96,960,300,true,true
+"quicksort","Reverse",100,97,960,400,true,true
+"quicksort","Reverse",100,98,960,400,true,true
+"quicksort","Reverse",100,99,960,400,true,true
+"quicksort","Reverse",500,0,6048,2000,true,true
+"quicksort","Reverse",500,1,6208,2100,true,true
+"quicksort","Reverse",500,2,6080,2000,true,true
+"quicksort","Reverse",500,3,6048,2000,true,true
+"quicksort","Reverse",500,4,6048,2000,true,true
+"quicksort","Reverse",500,5,6112,2000,true,true
+"quicksort","Reverse",500,6,6048,2000,true,true
+"quicksort","Reverse",500,7,6016,2000,true,true
+"quicksort","Reverse",500,8,6048,1900,true,true
+"quicksort","Reverse",500,9,6080,2000,true,true
+"quicksort","Reverse",500,10,6016,2000,true,true
+"quicksort","Reverse",500,11,6080,1900,true,true
+"quicksort","Reverse",500,12,6048,1900,true,true
+"quicksort","Reverse",500,13,6592,2200,true,true
+"quicksort","Reverse",500,14,6176,2000,true,true
+"quicksort","Reverse",500,15,6144,1900,true,true
+"quicksort","Reverse",500,16,6080,2000,true,true
+"quicksort","Reverse",500,17,6112,2000,true,true
+"quicksort","Reverse",500,18,6080,2000,true,true
+"quicksort","Reverse",500,19,6080,2000,true,true
+"quicksort","Reverse",500,20,6048,2000,true,true
+"quicksort","Reverse",500,21,6080,2000,true,true
+"quicksort","Reverse",500,22,6048,2100,true,true
+"quicksort","Reverse",500,23,6080,2000,true,true
+"quicksort","Reverse",500,24,6080,2100,true,true
+"quicksort","Reverse",500,25,6080,2100,true,true
+"quicksort","Reverse",500,26,6048,2000,true,true
+"quicksort","Reverse",500,27,6080,2000,true,true
+"quicksort","Reverse",500,28,6048,2000,true,true
+"quicksort","Reverse",500,29,6080,2000,true,true
+"quicksort","Reverse",500,30,6048,2000,true,true
+"quicksort","Reverse",500,31,6080,2000,true,true
+"quicksort","Reverse",500,32,6048,2000,true,true
+"quicksort","Reverse",500,33,6112,2000,true,true
+"quicksort","Reverse",500,34,6048,2200,true,true
+"quicksort","Reverse",500,35,6080,1900,true,true
+"quicksort","Reverse",500,36,6048,1900,true,true
+"quicksort","Reverse",500,37,6048,2000,true,true
+"quicksort","Reverse",500,38,6080,2000,true,true
+"quicksort","Reverse",500,39,6080,1900,true,true
+"quicksort","Reverse",500,40,6080,1900,true,true
+"quicksort","Reverse",500,41,6080,2000,true,true
+"quicksort","Reverse",500,42,6080,2000,true,true
+"quicksort","Reverse",500,43,6048,2000,true,true
+"quicksort","Reverse",500,44,6048,2000,true,true
+"quicksort","Reverse",500,45,6048,1900,true,true
+"quicksort","Reverse",500,46,6048,1900,true,true
+"quicksort","Reverse",500,47,6080,2000,true,true
+"quicksort","Reverse",500,48,6048,2000,true,true
+"quicksort","Reverse",500,49,6048,2000,true,true
+"quicksort","Reverse",500,50,6048,2000,true,true
+"quicksort","Reverse",500,51,6048,1900,true,true
+"quicksort","Reverse",500,52,6048,1900,true,true
+"quicksort","Reverse",500,53,6048,2000,true,true
+"quicksort","Reverse",500,54,6112,2100,true,true
+"quicksort","Reverse",500,55,6048,1900,true,true
+"quicksort","Reverse",500,56,6048,1900,true,true
+"quicksort","Reverse",500,57,6080,2000,true,true
+"quicksort","Reverse",500,58,6016,2100,true,true
+"quicksort","Reverse",500,59,6048,2100,true,true
+"quicksort","Reverse",500,60,6016,1900,true,true
+"quicksort","Reverse",500,61,6048,2100,true,true
+"quicksort","Reverse",500,62,6048,2100,true,true
+"quicksort","Reverse",500,63,6048,2000,true,true
+"quicksort","Reverse",500,64,6048,2200,true,true
+"quicksort","Reverse",500,65,6208,2000,true,true
+"quicksort","Reverse",500,66,6048,2000,true,true
+"quicksort","Reverse",500,67,6048,2000,true,true
+"quicksort","Reverse",500,68,6016,2100,true,true
+"quicksort","Reverse",500,69,6048,1900,true,true
+"quicksort","Reverse",500,70,6016,2200,true,true
+"quicksort","Reverse",500,71,6048,2000,true,true
+"quicksort","Reverse",500,72,6048,2200,true,true
+"quicksort","Reverse",500,73,6048,2200,true,true
+"quicksort","Reverse",500,74,6048,2000,true,true
+"quicksort","Reverse",500,75,6048,2100,true,true
+"quicksort","Reverse",500,76,6048,2200,true,true
+"quicksort","Reverse",500,77,6048,2000,true,true
+"quicksort","Reverse",500,78,6048,2200,true,true
+"quicksort","Reverse",500,79,6048,2000,true,true
+"quicksort","Reverse",500,80,6048,2100,true,true
+"quicksort","Reverse",500,81,6080,2000,true,true
+"quicksort","Reverse",500,82,6048,1900,true,true
+"quicksort","Reverse",500,83,6080,2000,true,true
+"quicksort","Reverse",500,84,6048,1900,true,true
+"quicksort","Reverse",500,85,6080,2000,true,true
+"quicksort","Reverse",500,86,6048,2000,true,true
+"quicksort","Reverse",500,87,6080,2000,true,true
+"quicksort","Reverse",500,88,6048,2000,true,true
+"quicksort","Reverse",500,89,6080,1900,true,true
+"quicksort","Reverse",500,90,6080,1900,true,true
+"quicksort","Reverse",500,91,6080,2000,true,true
+"quicksort","Reverse",500,92,6048,2000,true,true
+"quicksort","Reverse",500,93,6048,2000,true,true
+"quicksort","Reverse",500,94,6048,2000,true,true
+"quicksort","Reverse",500,95,6048,1900,true,true
+"quicksort","Reverse",500,96,6048,1900,true,true
+"quicksort","Reverse",500,97,6080,2000,true,true
+"quicksort","Reverse",500,98,6080,2000,true,true
+"quicksort","Reverse",500,99,6048,2000,true,true
+"quicksort","Nearly Sorted",100,0,1280,500,true,true
+"quicksort","Nearly Sorted",100,1,1216,500,true,true
+"quicksort","Nearly Sorted",100,2,1248,500,true,true
+"quicksort","Nearly Sorted",100,3,1344,400,true,true
+"quicksort","Nearly Sorted",100,4,1344,500,true,true
+"quicksort","Nearly Sorted",100,5,1408,600,true,true
+"quicksort","Nearly Sorted",100,6,1152,400,true,true
+"quicksort","Nearly Sorted",100,7,1568,800,true,true
+"quicksort","Nearly Sorted",100,8,1216,500,true,true
+"quicksort","Nearly Sorted",100,9,1472,500,true,true
+"quicksort","Nearly Sorted",100,10,1152,500,true,true
+"quicksort","Nearly Sorted",100,11,1216,500,true,true
+"quicksort","Nearly Sorted",100,12,1376,500,true,true
+"quicksort","Nearly Sorted",100,13,1184,500,true,true
+"quicksort","Nearly Sorted",100,14,1440,500,true,true
+"quicksort","Nearly Sorted",100,15,1152,400,true,true
+"quicksort","Nearly Sorted",100,16,1312,500,true,true
+"quicksort","Nearly Sorted",100,17,1152,700,true,true
+"quicksort","Nearly Sorted",100,18,1152,500,true,true
+"quicksort","Nearly Sorted",100,19,1120,400,true,true
+"quicksort","Nearly Sorted",100,20,1248,500,true,true
+"quicksort","Nearly Sorted",100,21,1184,500,true,true
+"quicksort","Nearly Sorted",100,22,1088,400,true,true
+"quicksort","Nearly Sorted",100,23,1152,400,true,true
+"quicksort","Nearly Sorted",100,24,1120,400,true,true
+"quicksort","Nearly Sorted",100,25,1088,400,true,true
+"quicksort","Nearly Sorted",100,26,1312,500,true,true
+"quicksort","Nearly Sorted",100,27,1184,500,true,true
+"quicksort","Nearly Sorted",100,28,1184,400,true,true
+"quicksort","Nearly Sorted",100,29,1152,500,true,true
+"quicksort","Nearly Sorted",100,30,1152,500,true,true
+"quicksort","Nearly Sorted",100,31,1248,400,true,true
+"quicksort","Nearly Sorted",100,32,1216,400,true,true
+"quicksort","Nearly Sorted",100,33,1152,500,true,true
+"quicksort","Nearly Sorted",100,34,1216,400,true,true
+"quicksort","Nearly Sorted",100,35,1280,500,true,true
+"quicksort","Nearly Sorted",100,36,1216,500,true,true
+"quicksort","Nearly Sorted",100,37,1184,500,true,true
+"quicksort","Nearly Sorted",100,38,1152,400,true,true
+"quicksort","Nearly Sorted",100,39,1216,400,true,true
+"quicksort","Nearly Sorted",100,40,1120,400,true,true
+"quicksort","Nearly Sorted",100,41,1152,400,true,true
+"quicksort","Nearly Sorted",100,42,1120,500,true,true
+"quicksort","Nearly Sorted",100,43,1152,500,true,true
+"quicksort","Nearly Sorted",100,44,1120,400,true,true
+"quicksort","Nearly Sorted",100,45,1120,400,true,true
+"quicksort","Nearly Sorted",100,46,1376,800,true,true
+"quicksort","Nearly Sorted",100,47,1056,400,true,true
+"quicksort","Nearly Sorted",100,48,1184,500,true,true
+"quicksort","Nearly Sorted",100,49,1152,400,true,true
+"quicksort","Nearly Sorted",100,50,1184,500,true,true
+"quicksort","Nearly Sorted",100,51,1088,400,true,true
+"quicksort","Nearly Sorted",100,52,1088,400,true,true
+"quicksort","Nearly Sorted",100,53,1088,400,true,true
+"quicksort","Nearly Sorted",100,54,1056,400,true,true
+"quicksort","Nearly Sorted",100,55,1184,500,true,true
+"quicksort","Nearly Sorted",100,56,1088,400,true,true
+"quicksort","Nearly Sorted",100,57,1184,500,true,true
+"quicksort","Nearly Sorted",100,58,1056,400,true,true
+"quicksort","Nearly Sorted",100,59,1120,400,true,true
+"quicksort","Nearly Sorted",100,60,1120,500,true,true
+"quicksort","Nearly Sorted",100,61,1056,400,true,true
+"quicksort","Nearly Sorted",100,62,1216,400,true,true
+"quicksort","Nearly Sorted",100,63,1248,500,true,true
+"quicksort","Nearly Sorted",100,64,1184,400,true,true
+"quicksort","Nearly Sorted",100,65,1120,400,true,true
+"quicksort","Nearly Sorted",100,66,1120,400,true,true
+"quicksort","Nearly Sorted",100,67,1152,400,true,true
+"quicksort","Nearly Sorted",100,68,1152,500,true,true
+"quicksort","Nearly Sorted",100,69,1056,400,true,true
+"quicksort","Nearly Sorted",100,70,1120,500,true,true
+"quicksort","Nearly Sorted",100,71,1248,400,true,true
+"quicksort","Nearly Sorted",100,72,1120,400,true,true
+"quicksort","Nearly Sorted",100,73,1280,500,true,true
+"quicksort","Nearly Sorted",100,74,1216,500,true,true
+"quicksort","Nearly Sorted",100,75,1088,400,true,true
+"quicksort","Nearly Sorted",100,76,1088,400,true,true
+"quicksort","Nearly Sorted",100,77,1184,500,true,true
+"quicksort","Nearly Sorted",100,78,1216,500,true,true
+"quicksort","Nearly Sorted",100,79,1216,400,true,true
+"quicksort","Nearly Sorted",100,80,1056,400,true,true
+"quicksort","Nearly Sorted",100,81,1088,400,true,true
+"quicksort","Nearly Sorted",100,82,1088,400,true,true
+"quicksort","Nearly Sorted",100,83,1088,400,true,true
+"quicksort","Nearly Sorted",100,84,1152,400,true,true
+"quicksort","Nearly Sorted",100,85,1120,500,true,true
+"quicksort","Nearly Sorted",100,86,1120,400,true,true
+"quicksort","Nearly Sorted",100,87,1088,500,true,true
+"quicksort","Nearly Sorted",100,88,1024,400,true,true
+"quicksort","Nearly Sorted",100,89,1120,400,true,true
+"quicksort","Nearly Sorted",100,90,1056,400,true,true
+"quicksort","Nearly Sorted",100,91,1152,400,true,true
+"quicksort","Nearly Sorted",100,92,1056,400,true,true
+"quicksort","Nearly Sorted",100,93,1056,400,true,true
+"quicksort","Nearly Sorted",100,94,1184,500,true,true
+"quicksort","Nearly Sorted",100,95,1216,400,true,true
+"quicksort","Nearly Sorted",100,96,1024,400,true,true
+"quicksort","Nearly Sorted",100,97,1120,400,true,true
+"quicksort","Nearly Sorted",100,98,1056,500,true,true
+"quicksort","Nearly Sorted",100,99,1280,500,true,true
+"quicksort","Nearly Sorted",500,0,7744,2500,true,true
+"quicksort","Nearly Sorted",500,1,7424,2300,true,true
+"quicksort","Nearly Sorted",500,2,7616,2400,true,true
+"quicksort","Nearly Sorted",500,3,7616,2500,true,true
+"quicksort","Nearly Sorted",500,4,7520,2400,true,true
+"quicksort","Nearly Sorted",500,5,7488,2400,true,true
+"quicksort","Nearly Sorted",500,6,7680,2500,true,true
+"quicksort","Nearly Sorted",500,7,7680,2400,true,true
+"quicksort","Nearly Sorted",500,8,7712,2800,true,true
+"quicksort","Nearly Sorted",500,9,7712,2500,true,true
+"quicksort","Nearly Sorted",500,10,7552,2400,true,true
+"quicksort","Nearly Sorted",500,11,7616,2500,true,true
+"quicksort","Nearly Sorted",500,12,8160,2600,true,true
+"quicksort","Nearly Sorted",500,13,7264,2300,true,true
+"quicksort","Nearly Sorted",500,14,7680,2500,true,true
+"quicksort","Nearly Sorted",500,15,7680,2500,true,true
+"quicksort","Nearly Sorted",500,16,7488,2400,true,true
+"quicksort","Nearly Sorted",500,17,7360,2300,true,true
+"quicksort","Nearly Sorted",500,18,7584,2400,true,true
+"quicksort","Nearly Sorted",500,19,7520,2400,true,true
+"quicksort","Nearly Sorted",500,20,7360,2400,true,true
+"quicksort","Nearly Sorted",500,21,7488,2400,true,true
+"quicksort","Nearly Sorted",500,22,7168,2300,true,true
+"quicksort","Nearly Sorted",500,23,7296,2400,true,true
+"quicksort","Nearly Sorted",500,24,7168,2300,true,true
+"quicksort","Nearly Sorted",500,25,7232,2300,true,true
+"quicksort","Nearly Sorted",500,26,7584,2500,true,true
+"quicksort","Nearly Sorted",500,27,7264,2400,true,true
+"quicksort","Nearly Sorted",500,28,7136,2300,true,true
+"quicksort","Nearly Sorted",500,29,7008,2200,true,true
+"quicksort","Nearly Sorted",500,30,7584,2500,true,true
+"quicksort","Nearly Sorted",500,31,7328,2300,true,true
+"quicksort","Nearly Sorted",500,32,7360,2300,true,true
+"quicksort","Nearly Sorted",500,33,7360,2400,true,true
+"quicksort","Nearly Sorted",500,34,7360,2400,true,true
+"quicksort","Nearly Sorted",500,35,7456,2400,true,true
+"quicksort","Nearly Sorted",500,36,7136,2300,true,true
+"quicksort","Nearly Sorted",500,37,7744,2500,true,true
+"quicksort","Nearly Sorted",500,38,7264,2400,true,true
+"quicksort","Nearly Sorted",500,39,7456,2400,true,true
+"quicksort","Nearly Sorted",500,40,7488,2400,true,true
+"quicksort","Nearly Sorted",500,41,7136,2300,true,true
+"quicksort","Nearly Sorted",500,42,7872,2500,true,true
+"quicksort","Nearly Sorted",500,43,7456,2400,true,true
+"quicksort","Nearly Sorted",500,44,7392,2400,true,true
+"quicksort","Nearly Sorted",500,45,7456,2400,true,true
+"quicksort","Nearly Sorted",500,46,7232,2300,true,true
+"quicksort","Nearly Sorted",500,47,7360,2400,true,true
+"quicksort","Nearly Sorted",500,48,7264,2300,true,true
+"quicksort","Nearly Sorted",500,49,7456,2400,true,true
+"quicksort","Nearly Sorted",500,50,7264,2400,true,true
+"quicksort","Nearly Sorted",500,51,7296,2300,true,true
+"quicksort","Nearly Sorted",500,52,7424,2300,true,true
+"quicksort","Nearly Sorted",500,53,7328,2400,true,true
+"quicksort","Nearly Sorted",500,54,7360,2400,true,true
+"quicksort","Nearly Sorted",500,55,7584,2400,true,true
+"quicksort","Nearly Sorted",500,56,7200,2400,true,true
+"quicksort","Nearly Sorted",500,57,7168,2300,true,true
+"quicksort","Nearly Sorted",500,58,7392,2300,true,true
+"quicksort","Nearly Sorted",500,59,7360,2400,true,true
+"quicksort","Nearly Sorted",500,60,7296,2300,true,true
+"quicksort","Nearly Sorted",500,61,7488,2400,true,true
+"quicksort","Nearly Sorted",500,62,7360,2400,true,true
+"quicksort","Nearly Sorted",500,63,7456,2400,true,true
+"quicksort","Nearly Sorted",500,64,7392,2300,true,true
+"quicksort","Nearly Sorted",500,65,7264,2400,true,true
+"quicksort","Nearly Sorted",500,66,7008,2300,true,true
+"quicksort","Nearly Sorted",500,67,7104,2300,true,true
+"quicksort","Nearly Sorted",500,68,7232,2400,true,true
+"quicksort","Nearly Sorted",500,69,7680,2500,true,true
+"quicksort","Nearly Sorted",500,70,7264,2400,true,true
+"quicksort","Nearly Sorted",500,71,7296,2400,true,true
+"quicksort","Nearly Sorted",500,72,7328,2400,true,true
+"quicksort","Nearly Sorted",500,73,7200,2300,true,true
+"quicksort","Nearly Sorted",500,74,7072,2300,true,true
+"quicksort","Nearly Sorted",500,75,7200,2300,true,true
+"quicksort","Nearly Sorted",500,76,7200,2400,true,true
+"quicksort","Nearly Sorted",500,77,7072,2300,true,true
+"quicksort","Nearly Sorted",500,78,7328,2400,true,true
+"quicksort","Nearly Sorted",500,79,7168,2300,true,true
+"quicksort","Nearly Sorted",500,80,7360,2400,true,true
+"quicksort","Nearly Sorted",500,81,6912,2300,true,true
+"quicksort","Nearly Sorted",500,82,7072,2300,true,true
+"quicksort","Nearly Sorted",500,83,7360,2300,true,true
+"quicksort","Nearly Sorted",500,84,7360,2400,true,true
+"quicksort","Nearly Sorted",500,85,7040,2300,true,true
+"quicksort","Nearly Sorted",500,86,7264,2400,true,true
+"quicksort","Nearly Sorted",500,87,7264,2400,true,true
+"quicksort","Nearly Sorted",500,88,7168,2300,true,true
+"quicksort","Nearly Sorted",500,89,7200,2300,true,true
+"quicksort","Nearly Sorted",500,90,7520,2400,true,true
+"quicksort","Nearly Sorted",500,91,6976,2300,true,true
+"quicksort","Nearly Sorted",500,92,7360,2400,true,true
+"quicksort","Nearly Sorted",500,93,7392,2400,true,true
+"quicksort","Nearly Sorted",500,94,7232,2400,true,true
+"quicksort","Nearly Sorted",500,95,7168,2300,true,true
+"quicksort","Nearly Sorted",500,96,7072,2300,true,true
+"quicksort","Nearly Sorted",500,97,7200,2300,true,true
+"quicksort","Nearly Sorted",500,98,7168,2300,true,true
+"quicksort","Nearly Sorted",500,99,7168,2400,true,true
