@@ -16,6 +16,7 @@ std::string input_data_case_name(InputDataCase input_case) {
     case InputDataCase::NearlySorted: return "Nearly Sorted";
     case InputDataCase::ManyDuplicates: return "Many Duplicates";
     case InputDataCase::AllEqual: return "All Equal";
+    case InputDataCase::CustomFile: return "Custom File";
     }
     return "Unknown";
 }

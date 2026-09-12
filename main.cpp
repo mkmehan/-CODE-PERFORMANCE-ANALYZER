@@ -1,4 +1,5 @@
 #include "BenchmarkRunner.h"
+#include "FileInputLoader.h"
 #include "benchmarks/RegisterBenchmarks.h"
 
 #include <algorithm>
@@ -131,6 +132,7 @@ void print_usage(const BenchmarkRunner& runner) {
         << "Options:\n"
         << "  --sizes <a,b,c>       Input sizes\n"
         << "  --cases <list>        random,sorted,reverse,nearly-sorted,many-duplicates,all-equal\n"
+        << "  --file <path>         Load custom integer dataset from text file\n"
         << "  --iterations <n>      Measurement runs\n"
         << "  --warmup <n>          Warm-up runs\n"
         << "  --seed <n>            Reproducible random seed\n"
@@ -151,6 +153,7 @@ SetConsoleCP(CP_UTF8);
 #endif
     BenchmarkConfig config;
     std::string selected_benchmark;
+    std::string file_path;
     bool all_selected = false;
     bool quick_mode = false;
 
@@ -252,6 +255,15 @@ SetConsoleCP(CP_UTF8);
             continue;
         }
 
+        if (argument == "--file") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --file requires a filepath.\n";
+                return 1;
+            }
+            file_path = argv[++i];
+            continue;
+        }
+
         if (argument.size() > 2 && argument.rfind("--", 0) == 0) {
             if (all_selected || quick_mode || !selected_benchmark.empty()) {
                 std::cerr << "Error: multiple benchmark selections were specified.\n";
@@ -268,12 +280,34 @@ SetConsoleCP(CP_UTF8);
         return 1;
     }
 
+    if (!file_path.empty()) {
+        const ValidationResult val_result = FileInputLoader::load_and_validate(file_path);
+        FileInputLoader::print_validation_card(val_result);
+        if (!val_result.valid) {
+            return 1;
+        }
+
+        FileInputLoader::print_dataset_properties(val_result.info, file_path, val_result.data);
+
+        config.is_custom_file = true;
+        config.custom_file_path = file_path;
+        if (!cases_explicit) {
+            config.input_cases = { InputDataCase::CustomFile };
+        }
+        if (!sizes_explicit) {
+            config.input_sizes = { val_result.info.element_count };
+        }
+        FileInputLoader::set_active_dataset(
+            std::move(val_result.data), val_result.info, file_path
+        );
+    }
+
     try {
         if (quick_mode) {
-            if (!sizes_explicit) {
+            if (!sizes_explicit && !config.is_custom_file) {
                 config.input_sizes = {100, 1000};
             }
-            if (!cases_explicit) {
+            if (!cases_explicit && !config.is_custom_file) {
                 config.input_cases = {InputDataCase::Random};
             }
             if (!iterations_explicit) {

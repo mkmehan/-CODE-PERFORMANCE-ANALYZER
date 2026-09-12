@@ -2,6 +2,7 @@
 #define SORTING_DATA_H
 
 #include "../Benchmark.h"
+#include "../FileInputLoader.h"
 
 #include <algorithm>
 #include <random>
@@ -12,6 +13,14 @@ inline std::vector<int> get_sorting_input(
     InputDataCase input_case,
     uint32_t seed
 ) {
+    if (input_case == InputDataCase::CustomFile) {
+        const std::vector<int>& custom = FileInputLoader::get_active_dataset();
+        if (size == 0 || size >= custom.size()) {
+            return custom;
+        }
+        return std::vector<int>(custom.begin(), custom.begin() + size);
+    }
+
     std::vector<int> values(size);
 
     if (input_case == InputDataCase::Sorted ||

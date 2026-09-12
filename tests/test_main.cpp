@@ -4,10 +4,12 @@
 #include "../MemoryMonitor.h"
 #include "../CpuAffinity.h"
 #include "../Statistics.h"
+#include "../FileInputLoader.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -134,6 +136,82 @@ void run_complexity_tests() {
     const auto insufficient = analyzer.analyze({100, 200}, {1.0, 2.0});
     expect(insufficient.observed_model == "Insufficient data", "Insufficient data handling");
 }
+
+void run_file_input_tests() {
+    std::cout << "\n[FILE INPUT & VALIDATION TESTS]\n";
+
+    // Test 1: Valid whitespace & newline separated dataset
+    const std::string valid_file = "test_unit_valid.txt";
+    {
+        std::ofstream out(valid_file);
+        out << "1 1 1\n2 2\n3\n4\n";
+    }
+
+    const auto valid_res = FileInputLoader::load_and_validate(valid_file);
+    expect(valid_res.valid, "Valid file loads successfully");
+    expect(valid_res.info.element_count == 7, "Correct element count (7)");
+    expect(valid_res.info.distinct_count == 4, "Correct distinct count (4)");
+    expect(valid_res.info.duplicate_count == 3, "Duplicate count = N - distinct (3)");
+    expect(valid_res.info.min_value == 1, "Correct min value (1)");
+    expect(valid_res.info.max_value == 4, "Correct max value (4)");
+    expect(valid_res.info.is_sorted, "Sorted order detected");
+    expect(valid_res.data == std::vector<int>({1, 1, 1, 2, 2, 3, 4}), "Data vector parsed correctly");
+
+    // Test 2: In-memory cache & setup isolation (zero file I/O during sorting)
+    FileInputLoader::set_active_dataset(valid_res.data, valid_res.info, valid_file);
+    expect(FileInputLoader::has_active_dataset(), "Active dataset cache registered");
+    std::vector<int> retrieved = get_sorting_input(0, InputDataCase::CustomFile, 0);
+    expect(retrieved == valid_res.data, "get_sorting_input returns custom data");
+    quick_sort(retrieved);
+    expect(std::is_sorted(retrieved.begin(), retrieved.end()), "Custom data sorts correctly");
+    // Verify cached master copy was not mutated by the sort
+    std::vector<int> fresh_copy = get_sorting_input(0, InputDataCase::CustomFile, 0);
+    expect(fresh_copy == valid_res.data, "Setup gets fresh unmutated copy from cache");
+    FileInputLoader::clear_active_dataset();
+    expect(!FileInputLoader::has_active_dataset(), "Active dataset cache cleared");
+
+    // Test 3: Non-existent file rejection
+    const auto missing_res = FileInputLoader::load_and_validate("non_existent_file_xyz.txt");
+    expect(!missing_res.valid, "Non-existent file rejected");
+    expect(missing_res.error_line == 0, "Missing file reports line 0");
+
+    // Test 4: Empty file rejection
+    const std::string empty_file = "test_unit_empty.txt";
+    {
+        std::ofstream out(empty_file);
+        out << "   \n  \t  \n";
+    }
+    const auto empty_res = FileInputLoader::load_and_validate(empty_file);
+    expect(!empty_res.valid, "Empty file rejected");
+
+    // Test 5: Invalid non-integer token with line number
+    const std::string invalid_file = "test_unit_invalid.txt";
+    {
+        std::ofstream out(invalid_file);
+        out << "10\n20\nfoo\n40\n";
+    }
+    const auto invalid_res = FileInputLoader::load_and_validate(invalid_file);
+    expect(!invalid_res.valid, "Invalid integer token rejected");
+    expect(invalid_res.error_line == 3, "Correct error line detected (line 3)");
+    expect(invalid_res.found == "\"foo\"", "Offending token captured");
+
+    // Test 6: Reverse sorted order detection
+    const std::string reverse_file = "test_unit_reverse.txt";
+    {
+        std::ofstream out(reverse_file);
+        out << "100 80 50 10 -5";
+    }
+    const auto rev_res = FileInputLoader::load_and_validate(reverse_file);
+    expect(rev_res.valid, "Reverse file loaded");
+    expect(rev_res.info.is_reverse_sorted, "Reverse sorted order detected");
+    expect(!rev_res.info.is_sorted, "Reverse file is not ascending sorted");
+
+    // Clean up temporary test files
+    std::remove(valid_file.c_str());
+    std::remove(empty_file.c_str());
+    std::remove(invalid_file.c_str());
+    std::remove(reverse_file.c_str());
+}
 }
 
 int main() {
@@ -146,6 +224,7 @@ int main() {
     run_statistics_tests();
     run_resource_tests();
     run_complexity_tests();
+    run_file_input_tests();
 
     std::cout << "\n========================================\n";
     if (failures == 0) {

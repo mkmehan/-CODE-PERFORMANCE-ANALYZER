@@ -4,6 +4,7 @@
 #include "Statistics.h"
 #include "SystemInfo.h"
 #include "CpuAffinity.h"
+#include "FileInputLoader.h"
 
 #include <algorithm>
 #include <chrono>
@@ -271,10 +272,18 @@ void print_header(const SystemSnapshot& system, const BenchmarkConfig& config) {
         << "BENCHMARK CONFIGURATION\n" << divider << '\n'
         << std::setw(20) << "Warm-up runs" << ": " << config.warmup_runs << '\n'
         << std::setw(20) << "Measurement runs" << ": " << config.iterations << '\n'
-        << std::setw(20) << "Input sizes" << ": " << sizes.str() << '\n'
-        << std::setw(20) << "Input distributions" << ": " << join_cases(config.input_cases) << '\n'
+        << std::setw(20) << "Input sizes" << ": " << sizes.str() << '\n';
+    if (config.is_custom_file) {
+        std::cout
+            << std::setw(20) << "Input source" << ": " << "Custom File (" << config.custom_file_path << ")\n"
+            << std::setw(20) << "Random seed" << ": " << "N/A (user dataset)\n";
+    } else {
+        std::cout
+            << std::setw(20) << "Input distributions" << ": " << join_cases(config.input_cases) << '\n'
+            << std::setw(20) << "Random seed" << ": " << config.random_seed << '\n';
+    }
+    std::cout
         << std::setw(20) << "Timer" << ": " << timer_name(config) << '\n'
-        << std::setw(20) << "Random seed" << ": " << config.random_seed << '\n'
         << std::setw(20) << "Memory measurement" << ": " << (config.measure_memory ? "Enabled" : "Disabled") << '\n'
         << std::setw(20) << "CPU affinity" << ": ";
     if (config.cpu_affinity >= 0) {
@@ -611,8 +620,30 @@ bool write_json_report(
     report << std::fixed << std::setprecision(6);
     report
         << "{\n"
-        << "  \"format_version\": \"3.0\",\n"
-        << "  \"generated_at\": \"" << timestamp_for_file() << "\",\n"
+        << "  \"format_version\": \"4.0\",\n"
+        << "  \"generated_at\": \"" << timestamp_for_file() << "\",\n";
+
+    if (config.is_custom_file && FileInputLoader::has_active_dataset()) {
+        const DatasetInfo& info = FileInputLoader::get_active_dataset_info();
+        report
+            << "  \"input\": {\n"
+            << "    \"type\": \"custom_file\",\n"
+            << "    \"file\": \"" << json_escape(config.custom_file_path) << "\",\n"
+            << "    \"elements\": " << info.element_count << ",\n"
+            << "    \"distinct\": " << info.distinct_count << ",\n"
+            << "    \"duplicates\": " << info.duplicate_count << ",\n"
+            << "    \"min\": " << info.min_value << ",\n"
+            << "    \"max\": " << info.max_value << ",\n"
+            << "    \"order\": \"" << json_escape(info.order_description) << "\"\n"
+            << "  },\n";
+    } else {
+        report
+            << "  \"input\": {\n"
+            << "    \"type\": \"generated\"\n"
+            << "  },\n";
+    }
+
+    report
         << "  \"system\": {\n"
         << "    \"operating_system\": \"" << json_escape(system.os) << "\",\n"
         << "    \"cpu\": \"" << json_escape(system.cpu) << "\",\n"
@@ -922,6 +953,8 @@ void BenchmarkRunner::list_benchmarks() const {
         << "Usage:\n"
         << "  analyzer.exe --all\n"
         << "  analyzer.exe --quick\n"
+        << "  analyzer.exe --file dataset.txt\n"
+        << "  analyzer.exe --file dataset.txt --quicksort\n"
         << "  analyzer.exe --quicksort --sizes 100,500,1000\n"
         << "  analyzer.exe --all --cases random,sorted,nearly-sorted\n"
         << "  analyzer.exe --all --iterations 20 --warmup 5 --no-rdtsc\n";

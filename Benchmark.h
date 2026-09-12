@@ -14,7 +14,8 @@ enum class InputDataCase {
     ReverseSorted,
     NearlySorted,
     ManyDuplicates,
-    AllEqual
+    AllEqual,
+    CustomFile
 };
 
 std::string input_data_case_name(InputDataCase input_case);

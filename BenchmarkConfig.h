@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 struct BenchmarkConfig {
@@ -28,6 +29,9 @@ struct BenchmarkConfig {
     int cpu_affinity = -1;
 
     bool measure_memory = true;
+
+    std::string custom_file_path;
+    bool is_custom_file = false;
 };
 
 #endif
