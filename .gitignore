@@ -1,0 +1,16 @@
+# Build output
+*.o
+*.obj
+*.exe
+*.dll
+build/
+
+# Benchmark output
+results/
+benchmark_report.csv
+
+# IDE/editor files
+.vscode/
+.idea/
+*.user
+*.suo

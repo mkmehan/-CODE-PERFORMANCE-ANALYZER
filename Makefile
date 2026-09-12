@@ -1,23 +1,66 @@
-CXX=g++
-CXXFLAGS=-std=c++17 -Wall -O2
+CXX = g++
 
-TARGET=analyzer.exe
+CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -O2
 
-SOURCES=main.cpp \
-        Benchmark.cpp \
-        BenchmarkRunner.cpp \
-        Statistics.cpp \
-        RDTSC_Timer.cpp \
-        benchmarks/RegisterBenchmarks.cpp \
-        benchmarks/BubbleSortBenchmark.cpp \
-        benchmarks/InsertionSortBenchmark.cpp \
-        benchmarks/SelectionSortBenchmark.cpp \
-        benchmarks/MergeSortBenchmark.cpp \
-        benchmarks/QuickSortBenchmark.cpp \
-       
+LDLIBS = -lpsapi
 
-$(TARGET): $(SOURCES)
-	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET)
+TARGET = analyzer.exe
+TEST_TARGET = analyzer_tests.exe
+
+SOURCES = main.cpp \
+          Benchmark.cpp \
+          BenchmarkRunner.cpp \
+          ComplexityAnalyzer.cpp \
+          HighResolutionTimer.cpp \
+          Statistics.cpp \
+          SystemInfo.cpp \
+          RDTSC_Timer.cpp \
+          MemoryMonitor.cpp \
+          CpuAffinity.cpp \
+          benchmarks/RegisterBenchmarks.cpp \
+          benchmarks/BubbleSortBenchmark.cpp \
+          benchmarks/InsertionSortBenchmark.cpp \
+          benchmarks/SelectionSortBenchmark.cpp \
+          benchmarks/MergeSortBenchmark.cpp \
+          benchmarks/QuickSortBenchmark.cpp \
+          benchmarks/HeapSortBenchmark.cpp \
+          benchmarks/StdSortBenchmark.cpp
+
+OBJECTS = $(SOURCES:.cpp=.o)
+
+.PHONY: all clean rebuild test
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(OBJECTS) -o $@ $(LDLIBS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+rebuild: clean all
+
+test: $(TEST_TARGET)
+	.\$(TEST_TARGET)
+
+$(TEST_TARGET): tests/test_main.cpp \
+               Benchmark.cpp \
+               Statistics.cpp \
+               ComplexityAnalyzer.cpp \
+               HighResolutionTimer.cpp \
+               RDTSC_Timer.cpp \
+               MemoryMonitor.cpp \
+               CpuAffinity.cpp
+	$(CXX) $(CXXFLAGS) tests/test_main.cpp \
+	       Benchmark.cpp \
+	       Statistics.cpp \
+	       ComplexityAnalyzer.cpp \
+	       HighResolutionTimer.cpp \
+	       RDTSC_Timer.cpp \
+	       MemoryMonitor.cpp \
+	       CpuAffinity.cpp \
+	       -o $@ $(LDLIBS)
 
 clean:
-	del /Q $(TARGET) 2>nul
+	cmd /C "del /Q $(TARGET) $(TEST_TARGET) 2>nul"
+	cmd /C "del /Q *.o benchmarks\*.o tests\*.o 2>nul"

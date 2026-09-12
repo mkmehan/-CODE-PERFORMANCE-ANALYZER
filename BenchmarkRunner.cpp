@@ -1,618 +1,922 @@
 #include "BenchmarkRunner.h"
+
+#include "ComplexityAnalyzer.h"
 #include "Statistics.h"
+#include "SystemInfo.h"
+#include "CpuAffinity.h"
 
 #include <algorithm>
-#include <cmath>
+#include <chrono>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <string>
-#include <vector>
+#include <stdexcept>
+#include <utility>
 
-namespace{
+namespace {
 
-const char*input_case_name(InputDataCase input_case){
-    switch(input_case){
-    case InputDataCase::Random: return "Random";
-    case InputDataCase::Sorted: return "Sorted";
-    case InputDataCase::ReverseSorted: return "Reverse";
-    }
-    return "Unknown";
-}
+const char* const divider =
+    "──────────────────────────────────────────────────────────────────────";
 
-const std::vector<InputDataCase>&input_cases(){
-    static const std::vector<InputDataCase>cases={
-        InputDataCase::Random,
-        InputDataCase::Sorted,
-        InputDataCase::ReverseSorted
-    };
-    return cases;
-}
-
-std::string verification_status(const BenchmarkSummary&summary){
-    if(!summary.verification_performed){
-        return "NOT CHECKED";
-    }
-    return summary.verified ? "PASS" : "FAIL";
-}
-
-std::string format_time(double time_ns){
-    std::ostringstream output;
-    output<<std::fixed<<std::setprecision(2);
-    if(time_ns>=1000000.0){
-        output<<time_ns/1000000.0<<" ms";
-    }else if(time_ns>=1000.0){
-        output<<time_ns/1000.0<<" us";
-    }else{
-        output<<time_ns<<" ns";
-    }
-    return output.str();
-}
-
-std::string csv_escape(const std::string&value){
-    std::string escaped="\"";
-    for(char character:value){
-        if(character=='\"'){
-            escaped+="\"\"";
-        }else{
-            escaped+=character;
-        }
-    }
-    escaped+='\"';
-    return escaped;
-}
-
-}
-
-BenchmarkRunner::BenchmarkRunner(int warmup,int iterations){
-    warmup_runs=warmup;
-    this->iterations=iterations;
-    overhead=measure_overhead();
-    input_sizes={100,500,1000,2000};
-}
-
-void BenchmarkRunner::add(
-    const std::string&key,
-    const std::string&name,
-    BenchmarkSetupFunction setup,
-    BenchmarkFunction function,
-    BenchmarkVerificationFunction verify
-){
-    benchmarks.push_back({key,name,setup,function,verify});
-}
-
-void BenchmarkRunner::add(
-    const std::string&key,
-    const std::string&name,
-    BenchmarkFunction setup,
-    BenchmarkFunction function
-){
-    add(
-        key,
-        name,
-        [setup](size_t input_size,InputDataCase){ setup(input_size); },
-        function
-    );
-}
-
-void BenchmarkRunner::set_input_sizes(const std::vector<size_t>&sizes){
-    input_sizes=sizes;
-}
-
-static BenchmarkSummary run_single_benchmark(
-    const Benchmark&benchmark,
-    size_t input_size,
-    InputDataCase input_case,
-    int warmup_runs,
-    int iterations,
-    uint64_t overhead
-){
-    std::vector<uint64_t>tick_results;
-    std::vector<uint64_t>time_results;
-
-    for(int i=0;i<warmup_runs;i++){
-        run_benchmark(
-            benchmark.setup,
-            benchmark.function,
-            input_size,
-            input_case,
-            overhead
-        );
-    }
-
-    const bool verification_performed=static_cast<bool>(benchmark.verify);
-    bool verified=true;
-
-    for(int i=0;i<iterations;i++){
-        const BenchmarkResult result=run_benchmark(
-            benchmark.setup,
-            benchmark.function,
-            input_size,
-            input_case,
-            overhead
-        );
-        tick_results.push_back(result.cycles);
-        time_results.push_back(result.time_ns);
-
-        if(verification_performed && !benchmark.verify()){
-            verified=false;
-        }
-    }
-
-    const double average_ticks=get_average(tick_results);
-    const double median_ticks=get_median(tick_results);
-    const double average_time=get_average(time_results);
-    const double median_time=get_median(time_results);
-    const double stddev_ticks=get_standard_deviation(
-        tick_results,
-        average_ticks
-    );
-    const double stddev_time=get_standard_deviation(
-        time_results,
-        average_time
-    );
-    const uint64_t minimum_ticks=get_minimum(tick_results);
-    const uint64_t maximum_ticks=get_maximum(tick_results);
-    const uint64_t minimum_time=get_minimum(time_results);
-    const uint64_t maximum_time=get_maximum(time_results);
-
-    const BenchmarkSummary summary={
-        benchmark.key,
-        benchmark.name,
-        input_size,
-        input_case,
-        verification_performed,
-        verified,
-        average_ticks,
-        median_ticks,
-        average_time,
-        median_time
-    };
-
-    std::cout
-        <<"----------------------------------------\n"
-        <<"Benchmark : "<<benchmark.name<<'\n'
-        <<"Input size: "<<input_size<<'\n'
-        <<"Input data: "<<input_case_name(input_case)<<'\n'
-        <<"Command   : --"<<benchmark.key<<'\n'
-        <<"Verification: "<<verification_status(summary)<<'\n'
-        <<"----------------------------------------\n"
-        <<"Warm-up runs  : "<<warmup_runs<<'\n'
-        <<"Measured runs : "<<iterations<<"\n\n"
-        <<"RDTSC\n"
-        <<"Minimum ticks : "<<minimum_ticks<<'\n'
-        <<"Maximum ticks : "<<maximum_ticks<<'\n'
-        <<"Average ticks : "<<std::fixed<<std::setprecision(2)
-        <<average_ticks<<'\n'
-        <<"Median ticks  : "<<median_ticks<<'\n'
-        <<"Std deviation : "<<stddev_ticks<<" ticks\n\n"
-        <<"High Resolution Timer\n"
-        <<"Minimum time  : "<<minimum_time<<" ns\n"
-        <<"Maximum time  : "<<maximum_time<<" ns\n"
-        <<"Average time  : "<<average_time<<" ns\n"
-        <<"Median time   : "<<median_time<<" ns\n"
-        <<"Std deviation : "<<stddev_time<<" ns\n\n";
-
-    return summary;
-}
-
-static void print_size_comparison(
-    const std::vector<BenchmarkSummary>&results,
-    size_t input_size,
-    InputDataCase input_case
-){
-    if(results.empty()){
-        return;
-    }
-
-    std::vector<size_t>ranking;
-    for(size_t i=0;i<results.size();i++){
-        ranking.push_back(i);
-    }
-
-    std::sort(
-        ranking.begin(),
-        ranking.end(),
-        [&results](size_t left,size_t right){
-            return results[left].average_time_ns
-                <results[right].average_time_ns;
-        }
-    );
-
-    std::cout
-        <<"========================================\n"
-        <<" INPUT SIZE: "<<input_size
-        <<" | INPUT DATA: "<<input_case_name(input_case)<<"\n"
-        <<"========================================\n\n"
-        <<std::left
-        <<std::setw(8)<<"Rank"
-        <<std::setw(25)<<"Benchmark"
-        <<std::setw(14)<<"Verified"
-        <<std::setw(20)<<"Average Time"
-        <<std::setw(18)<<"Average TSC"<<'\n'
-        <<"--------------------------------------------------------------------------------\n";
-
-    for(size_t rank=0;rank<ranking.size();rank++){
-        const BenchmarkSummary&result=results[ranking[rank]];
-        std::ostringstream ticks;
-        ticks<<std::fixed<<std::setprecision(2)<<result.average_ticks;
-
-        std::cout
-            <<std::left
-            <<std::setw(8)<<rank+1
-            <<std::setw(25)<<result.name
-            <<std::setw(14)<<verification_status(result)
-            <<std::setw(20)<<format_time(result.average_time_ns)
-            <<std::setw(18)<<ticks.str()<<'\n';
-    }
-
-    std::cout
-        <<"--------------------------------------------------------------------------------\n\n";
-}
-
-struct MeasuredComplexity{
-    bool available;
-    double exponent;
-    size_t sample_count;
+struct SystemSnapshot {
+    std::string os;
+    std::string cpu;
+    std::string architecture;
+    unsigned int logical_cpus;
+    unsigned int physical_cores;
+    std::string compiler;
+    std::string cxx_standard;
+    std::string optimization;
 };
 
-static MeasuredComplexity estimate_measured_complexity(
-    const std::vector<BenchmarkSummary>&summaries,
-    const std::string&key,
-    InputDataCase input_case
-){
-    std::vector<double>log_sizes;
-    std::vector<double>log_times;
+struct ReportPaths {
+    std::filesystem::path csv;
+    std::filesystem::path json;
+};
 
-    for(const BenchmarkSummary&summary:summaries){
-        if(
-            summary.key==key
-            && summary.input_case==input_case
-            && summary.input_size>1
-            && summary.median_ticks>0.0
-        ){
-            log_sizes.push_back(
-                std::log(static_cast<double>(summary.input_size))
-            );
-            log_times.push_back(std::log(summary.median_ticks));
-        }
+std::string comma_number(size_t value) {
+    std::string result = std::to_string(value);
+    for (int position = static_cast<int>(result.size()) - 3; position > 0; position -= 3) {
+        result.insert(static_cast<size_t>(position), ",");
     }
-
-    if(log_sizes.size()<3){
-        return{false,0.0,log_sizes.size()};
-    }
-
-    double average_log_size=0.0;
-    double average_log_time=0.0;
-    for(size_t i=0;i<log_sizes.size();i++){
-        average_log_size+=log_sizes[i];
-        average_log_time+=log_times[i];
-    }
-    average_log_size/=log_sizes.size();
-    average_log_time/=log_times.size();
-
-    double numerator=0.0;
-    double denominator=0.0;
-    for(size_t i=0;i<log_sizes.size();i++){
-        const double size_difference=log_sizes[i]-average_log_size;
-        numerator+=size_difference*(log_times[i]-average_log_time);
-        denominator+=size_difference*size_difference;
-    }
-
-    if(denominator==0.0){
-        return{false,0.0,log_sizes.size()};
-    }
-
-    return{
-        true,
-        std::max(0.0,numerator/denominator),
-        log_sizes.size()
-    };
+    return result;
 }
 
-static std::string format_measured_complexity(
-    const MeasuredComplexity&complexity
-){
-    if(!complexity.available){
-        return "Need 3 input sizes";
-    }
-    if(complexity.exponent<0.15){
-        return "O(1)";
-    }
-
+std::string format_time(double nanoseconds) {
     std::ostringstream output;
-    output
-        <<"O(n^"
-        <<std::fixed
-        <<std::setprecision(2)
-        <<complexity.exponent
-        <<")";
+    output << std::fixed << std::setprecision(2);
+    if (nanoseconds >= 1000000.0) {
+        output << nanoseconds / 1000000.0 << " ms";
+    } else if (nanoseconds >= 1000.0) {
+        output << nanoseconds / 1000.0 << " us";
+    } else {
+        output << nanoseconds << " ns";
+    }
     return output.str();
 }
 
-static std::string case_verification_status(
-    const std::vector<BenchmarkSummary>&summaries,
-    const std::string&key,
-    InputDataCase input_case
-){
-    bool checked=false;
-    for(const BenchmarkSummary&summary:summaries){
-        if(
-            summary.key==key
-            && summary.input_case==input_case
-            && summary.verification_performed
-        ){
-            checked=true;
-            if(!summary.verified){
-                return "FAIL";
-            }
-        }
-    }
-    return checked ? "PASS" : "NOT CHECKED";
+std::string format_mb(double bytes) {
+    const double mb = bytes / (1024.0 * 1024.0);
+    const double rounded = (std::abs(mb) < 0.005) ? 0.0 : mb;
+    std::ostringstream output;
+    output << std::fixed << std::setprecision(2) << rounded << " MB";
+    return output.str();
 }
 
-static double find_average_time(
-    const std::vector<BenchmarkSummary>&summaries,
-    const std::string&key,
+std::string format_cycles(double cycles) {
+    std::ostringstream output;
+    output << std::fixed << std::setprecision(0) << cycles << " cycles";
+    return output.str();
+}
+
+std::string format_measurement(double value, const BenchmarkConfig& config) {
+    return config.use_high_resolution_timer ? format_time(value) : format_cycles(value);
+}
+
+std::string verification_status(const BenchmarkSummary& summary) {
+    if (!summary.verification_performed) {
+        return "NOT CHECKED";
+    }
+    return summary.verified ? "PASS ✓" : "FAIL";
+}
+
+const BenchmarkStatistics& timing_statistics(
+    const BenchmarkSummary& summary,
+    const BenchmarkConfig& config
+) {
+    return config.use_high_resolution_timer ? summary.time : summary.cycles;
+}
+
+std::string join_cases(const std::vector<InputDataCase>& cases) {
+    std::ostringstream output;
+    for (size_t index = 0; index < cases.size(); ++index) {
+        if (index > 0) {
+            output << ", ";
+        }
+        output << input_data_case_name(cases[index]);
+    }
+    return output.str();
+}
+
+std::string timer_name(const BenchmarkConfig& config) {
+    if (config.use_rdtsc && config.use_high_resolution_timer) {
+        return "RDTSC + High Resolution Clock";
+    }
+    return config.use_rdtsc ? "RDTSC" : "High Resolution Clock";
+}
+
+uint32_t mix_seed(uint32_t seed, uint32_t value) {
+    return seed ^ (value + 0x9e3779b9U + (seed << 6U) + (seed >> 2U));
+}
+
+uint32_t sample_seed(
+    uint32_t base_seed,
+    size_t input_size,
+    InputDataCase input_case,
+    size_t run,
+    bool warmup
+) {
+    uint32_t seed = mix_seed(base_seed, static_cast<uint32_t>(input_size));
+    seed = mix_seed(seed, static_cast<uint32_t>(input_case));
+    seed = mix_seed(seed, static_cast<uint32_t>(run));
+    return mix_seed(seed, warmup ? 0x5741524dU : 0x4d454153U);
+}
+
+BenchmarkStatistics make_statistics(const std::vector<uint64_t>& values) {
+    BenchmarkStatistics statistics;
+    statistics.sample_count = values.size();
+    if (values.empty()) {
+        return statistics;
+    }
+
+    statistics.minimum = get_minimum(values);
+    statistics.maximum = get_maximum(values);
+    statistics.mean = get_average(values);
+    statistics.median = get_median(values);
+    statistics.p25 = get_percentile(values, 25.0);
+    statistics.p75 = get_percentile(values, 75.0);
+    statistics.p90 = get_percentile(values, 90.0);
+    statistics.p95 = get_percentile(values, 95.0);
+    statistics.p99 = get_percentile(values, 99.0);
+    statistics.standard_deviation = get_standard_deviation(values, statistics.mean);
+
+    const double iqr = statistics.p75 - statistics.p25;
+    const double lower_fence = statistics.p25 - 1.5 * iqr;
+    const double upper_fence = statistics.p75 + 1.5 * iqr;
+    for (uint64_t value : values) {
+        if (static_cast<double>(value) < lower_fence ||
+            static_cast<double>(value) > upper_fence) {
+            ++statistics.outlier_count;
+        }
+    }
+    return statistics;
+}
+
+const BenchmarkSummary* find_summary(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::string& key,
     InputDataCase input_case,
     size_t input_size
-){
-    for(const BenchmarkSummary&summary:summaries){
-        if(
-            summary.key==key
-            && summary.input_case==input_case
-            && summary.input_size==input_size
-        ){
-            return summary.average_time_ns;
+) {
+    for (const BenchmarkSummary& summary : summaries) {
+        if (summary.key == key && summary.input_case == input_case &&
+            summary.input_size == input_size) {
+            return &summary;
         }
     }
-    return 0.0;
+    return nullptr;
 }
 
-static void print_scaling_comparison(
-    const std::vector<BenchmarkSummary>&summaries,
-    const std::vector<size_t>&input_sizes,
-    const std::vector<Benchmark>&benchmarks
-){
-    if(summaries.empty()){
+std::vector<uint64_t> find_raw_values(
+    const std::vector<BenchmarkMeasurement>& measurements,
+    const BenchmarkSummary& summary,
+    bool time_values
+) {
+    std::vector<uint64_t> values;
+    for (const BenchmarkMeasurement& measurement : measurements) {
+        if (measurement.benchmark_key == summary.key &&
+            measurement.input_case == summary.input_case &&
+            measurement.input_size == summary.input_size) {
+            values.push_back(time_values ? measurement.time_ns : measurement.cycles);
+        }
+    }
+    return values;
+}
+
+size_t count_successful_runs(
+    const std::vector<BenchmarkMeasurement>& measurements,
+    const BenchmarkSummary& summary
+) {
+    size_t result = 0;
+    for (const BenchmarkMeasurement& measurement : measurements) {
+        if (measurement.benchmark_key == summary.key &&
+            measurement.input_case == summary.input_case &&
+            measurement.input_size == summary.input_size &&
+            (!measurement.verification_performed || measurement.verified)) {
+            ++result;
+        }
+    }
+    return result;
+}
+
+SystemSnapshot system_snapshot() {
+    SystemInfo info;
+    return {
+        info.operating_system(),
+        info.cpu_name(),
+        info.architecture(),
+        info.logical_processors(),
+        info.physical_cores(),
+        info.compiler(),
+        info.cxx_standard(),
+        info.optimization()
+    };
+}
+
+ComplexityResult complexity_for(
+    const std::vector<BenchmarkSummary>& summaries,
+    const Benchmark& benchmark,
+    InputDataCase input_case,
+    const BenchmarkConfig& config
+) {
+    std::vector<size_t> sizes;
+    std::vector<double> timings;
+    for (size_t size : config.input_sizes) {
+        const BenchmarkSummary* summary =
+            find_summary(summaries, benchmark.key, input_case, size);
+        if (summary != nullptr) {
+            sizes.push_back(size);
+            timings.push_back(timing_statistics(*summary, config).median);
+        }
+    }
+    ComplexityAnalyzer analyzer;
+    ComplexityResult result = analyzer.analyze(sizes, timings);
+    result.theoretical_complexity = benchmark.theoretical_complexity;
+    return result;
+}
+
+void print_header(const SystemSnapshot& system, const BenchmarkConfig& config) {
+    std::ostringstream sizes;
+    for (size_t index = 0; index < config.input_sizes.size(); ++index) {
+        if (index > 0) {
+            sizes << ", ";
+        }
+        sizes << comma_number(config.input_sizes[index]);
+    }
+
+    std::cout
+        << "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+        << "║                  CODE PERFORMANCE ANALYZER v3.0                     ║\n"
+        << "║              Algorithm Benchmarking & Analysis Framework            ║\n"
+        << "╚══════════════════════════════════════════════════════════════════════╝\n\n"
+        << "SYSTEM INFORMATION\n" << divider << '\n'
+        << std::left
+        << std::setw(20) << "OS" << ": " << system.os << '\n'
+        << std::setw(20) << "CPU" << ": " << system.cpu << '\n'
+        << std::setw(20) << "Architecture" << ": " << system.architecture << '\n'
+        << std::setw(20) << "Physical Cores" << ": " << system.physical_cores << '\n'
+        << std::setw(20) << "Logical CPUs" << ": " << system.logical_cpus << '\n'
+        << std::setw(20) << "Compiler" << ": " << system.compiler << '\n'
+        << std::setw(20) << "C++ Standard" << ": " << system.cxx_standard << '\n'
+        << std::setw(20) << "Optimization" << ": " << system.optimization << "\n\n"
+        << "BENCHMARK CONFIGURATION\n" << divider << '\n'
+        << std::setw(20) << "Warm-up runs" << ": " << config.warmup_runs << '\n'
+        << std::setw(20) << "Measurement runs" << ": " << config.iterations << '\n'
+        << std::setw(20) << "Input sizes" << ": " << sizes.str() << '\n'
+        << std::setw(20) << "Input distributions" << ": " << join_cases(config.input_cases) << '\n'
+        << std::setw(20) << "Timer" << ": " << timer_name(config) << '\n'
+        << std::setw(20) << "Random seed" << ": " << config.random_seed << '\n'
+        << std::setw(20) << "Memory measurement" << ": " << (config.measure_memory ? "Enabled" : "Disabled") << '\n'
+        << std::setw(20) << "CPU affinity" << ": ";
+    if (config.cpu_affinity >= 0) {
+        std::cout << "CPU " << config.cpu_affinity;
+    } else {
+        std::cout << "Disabled";
+    }
+    std::cout << "\n\n";
+}
+
+void print_summary_table(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<Benchmark>& benchmarks,
+    const BenchmarkConfig& config
+) {
+    if (summaries.empty()) {
+        return;
+    }
+    const size_t size = config.input_sizes[config.input_sizes.size() / 2];
+    const InputDataCase input_case = config.input_cases.front();
+    std::cout
+        << divider << "\nBENCHMARK: SORTING ALGORITHMS\n" << divider << "\n\n"
+        << std::left
+        << std::setw(16) << "Algorithm"
+        << std::setw(16) << "Input"
+        << std::setw(10) << "N"
+        << std::setw(14) << "Median"
+        << std::setw(14) << "P95"
+        << "Status\n"
+        << divider << '\n';
+    for (const Benchmark& benchmark : benchmarks) {
+        const BenchmarkSummary* summary =
+            find_summary(summaries, benchmark.key, input_case, size);
+        if (summary == nullptr) {
+            continue;
+        }
+        const BenchmarkStatistics& statistics = timing_statistics(*summary, config);
+        std::cout
+            << std::setw(16) << benchmark.name
+            << std::setw(16) << input_data_case_name(input_case)
+            << std::setw(10) << comma_number(size)
+            << std::setw(14) << format_measurement(statistics.median, config)
+            << std::setw(14) << format_measurement(statistics.p95, config)
+            << verification_status(*summary) << '\n';
+    }
+    std::cout << '\n';
+}
+
+const Benchmark* preferred_benchmark(const std::vector<Benchmark>& benchmarks) {
+    for (const Benchmark& benchmark : benchmarks) {
+        if (benchmark.key == "quicksort") {
+            return &benchmark;
+        }
+    }
+    return benchmarks.empty() ? nullptr : &benchmarks.front();
+}
+
+void print_detailed_result(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<BenchmarkMeasurement>& measurements,
+    const std::vector<Benchmark>& benchmarks,
+    const BenchmarkConfig& config
+) {
+    const Benchmark* benchmark = preferred_benchmark(benchmarks);
+    if (benchmark == nullptr) {
+        return;
+    }
+    const BenchmarkSummary* summary = find_summary(
+        summaries, benchmark->key, config.input_cases.front(), config.input_sizes.back()
+    );
+    if (summary == nullptr) {
+        return;
+    }
+    const BenchmarkStatistics& statistics = timing_statistics(*summary, config);
+    const std::vector<uint64_t> values =
+        find_raw_values(measurements, *summary, config.use_high_resolution_timer);
+    const double cv = get_coefficient_of_variation(values, statistics.mean) * 100.0;
+
+    std::cout
+        << "DETAILED RESULT\n" << divider << "\n\n"
+        << benchmark->name << '\n'
+        << "Input distribution : " << input_data_case_name(summary->input_case) << '\n'
+        << "Input size          : " << comma_number(summary->input_size) << '\n'
+        << "Iterations          : " << config.iterations << "\n\n"
+        << "Timing\n"
+        << "  Minimum           : " << format_measurement(statistics.minimum, config) << '\n'
+        << "  P25               : " << format_measurement(statistics.p25, config) << '\n'
+        << "  Median            : " << format_measurement(statistics.median, config) << '\n'
+        << "  Mean              : " << format_measurement(statistics.mean, config) << '\n'
+        << "  P75               : " << format_measurement(statistics.p75, config) << '\n'
+        << "  P90               : " << format_measurement(statistics.p90, config) << '\n'
+        << "  P95               : " << format_measurement(statistics.p95, config) << '\n'
+        << "  P99               : " << format_measurement(statistics.p99, config) << '\n'
+        << "  Maximum           : " << format_measurement(statistics.maximum, config) << '\n'
+        << "  Std deviation     : " << format_measurement(statistics.standard_deviation, config) << "\n\n"
+        << "Reliability\n"
+        << "  Successful runs   : " << count_successful_runs(measurements, *summary)
+        << " / " << statistics.sample_count << '\n'
+        << "  Outliers detected : " << statistics.outlier_count << '\n'
+        << "  Variation (CV)    : " << std::fixed << std::setprecision(2) << cv << "%\n"
+        << "  Correctness       : " << verification_status(*summary) << "\n\n";
+}
+
+void print_memory_analysis(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<Benchmark>& benchmarks,
+    const BenchmarkConfig& config
+) {
+    if (!config.measure_memory) {
+        std::cout
+            << "MEMORY ANALYSIS\n"
+            << "──────────────────────────────────\n"
+            << "Disabled\n\n";
+        return;
+    }
+    const Benchmark* benchmark = preferred_benchmark(benchmarks);
+    if (benchmark == nullptr) {
+        return;
+    }
+    const BenchmarkSummary* summary = find_summary(
+        summaries, benchmark->key, config.input_cases.front(), config.input_sizes.back()
+    );
+    if (summary == nullptr) {
         return;
     }
 
     std::cout
-        <<"========================================\n"
-        <<"      MEASURED PERFORMANCE vs INPUT SIZE\n"
-        <<"========================================\n\n"
-        <<std::left
-        <<std::setw(25)<<"Benchmark"
-        <<std::setw(12)<<"Input data"
-        <<std::setw(14)<<"Verified"
-        <<std::setw(20)<<"Measured growth";
-
-    for(size_t input_size:input_sizes){
-        std::ostringstream header;
-        header<<"N="<<input_size;
-        std::cout<<std::setw(16)<<header.str();
-    }
-
-    std::cout
-        <<"\n---------------------------------------------------------------------------------------------------------------\n";
-
-    for(const Benchmark&benchmark:benchmarks){
-        for(InputDataCase input_case:input_cases()){
-            const MeasuredComplexity complexity=
-                estimate_measured_complexity(
-                    summaries,
-                    benchmark.key,
-                    input_case
-                );
-
-            std::cout
-                <<std::left
-                <<std::setw(25)<<benchmark.name
-                <<std::setw(12)<<input_case_name(input_case)
-                <<std::setw(14)<<case_verification_status(
-                    summaries,
-                    benchmark.key,
-                    input_case
-                )
-                <<std::setw(20)<<format_measured_complexity(complexity);
-
-            for(size_t input_size:input_sizes){
-                std::cout
-                    <<std::setw(16)
-                    <<format_time(find_average_time(
-                        summaries,
-                        benchmark.key,
-                        input_case,
-                        input_size
-                    ));
-            }
-            std::cout<<'\n';
-        }
-    }
-
-    std::cout
-        <<"===============================================================================================================\n"
-        <<"Measured growth uses median TSC cycles and fits time = C * n^p.\n";
+        << "MEMORY ANALYSIS\n"
+        << "──────────────────────────────────\n"
+        << "Private Memory\n"
+        << "  Baseline          : " << format_mb(static_cast<double>(summary->memory.baseline.private_bytes)) << '\n'
+        << "  Peak observed     : " << format_mb(static_cast<double>(summary->memory.peak.private_bytes)) << '\n'
+        << "  Peak increase     : " << format_mb(static_cast<double>(summary->memory.peak_private_increase)) << '\n'
+        << "  Net change        : " << format_mb(static_cast<double>(summary->memory.net_private_change)) << "\n\n"
+        << "Working Set\n"
+        << "  Baseline          : " << format_mb(static_cast<double>(summary->memory.baseline.working_set_bytes)) << '\n'
+        << "  Peak observed     : " << format_mb(static_cast<double>(summary->memory.peak.working_set_bytes)) << '\n'
+        << "  Peak increase     : " << format_mb(static_cast<double>(summary->memory.peak_working_set_increase)) << '\n'
+        << "  Net change        : " << format_mb(static_cast<double>(summary->memory.net_working_set_change)) << "\n\n";
 }
 
-static bool write_csv_report(const std::vector<BenchmarkSummary>&summaries){
-    std::ofstream report("benchmark_report.csv");
-    if(!report){
+void print_complexity_analysis(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<Benchmark>& benchmarks,
+    const BenchmarkConfig& config
+) {
+    std::cout
+        << "COMPLEXITY ANALYSIS\n" << divider << "\n\n"
+        << std::left
+        << std::setw(18) << "Algorithm"
+        << std::setw(20) << "Theoretical"
+        << std::setw(22) << "Observed Scaling"
+        << "Fit quality\n" << divider << '\n';
+    for (const Benchmark& benchmark : benchmarks) {
+        const ComplexityResult result =
+            complexity_for(summaries, benchmark, config.input_cases.front(), config);
+        std::ostringstream fit;
+        fit << std::fixed << std::setprecision(2) << result.fit_quality;
+        std::cout
+            << std::setw(18) << benchmark.name
+            << std::setw(20) << result.theoretical_complexity
+            << std::setw(22) << result.observed_model
+            << fit.str() << '\n';
+    }
+    std::cout
+        << "\nObserved scaling is an experimental log-log fit; it does not prove Big-O complexity.\n"
+        << "* Quick Sort theoretical complexity is average-case.\n\n";
+}
+
+void print_performance_comparison(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<Benchmark>& benchmarks,
+    const BenchmarkConfig& config
+) {
+    const size_t size = config.input_sizes.back();
+    const InputDataCase input_case = config.input_cases.front();
+    std::vector<const BenchmarkSummary*> ranking;
+    for (const Benchmark& benchmark : benchmarks) {
+        if (const BenchmarkSummary* summary =
+                find_summary(summaries, benchmark.key, input_case, size)) {
+            ranking.push_back(summary);
+        }
+    }
+    std::sort(ranking.begin(), ranking.end(), [&config](
+        const BenchmarkSummary* left,
+        const BenchmarkSummary* right
+    ) {
+        return timing_statistics(*left, config).median <
+            timing_statistics(*right, config).median;
+    });
+
+    std::cout
+        << "PERFORMANCE COMPARISON\n" << divider << "\n\n"
+        << "Fastest algorithm @ N = " << comma_number(size) << '\n';
+    for (size_t index = 0; index < ranking.size(); ++index) {
+        std::cout
+            << "  " << index + 1 << ". "
+            << std::left << std::setw(16) << ranking[index]->name
+            << format_measurement(timing_statistics(*ranking[index], config).median, config)
+            << '\n';
+    }
+    std::cout << '\n';
+}
+
+void print_distribution_analysis(
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<Benchmark>& benchmarks,
+    const BenchmarkConfig& config
+) {
+    const Benchmark* benchmark = preferred_benchmark(benchmarks);
+    if (benchmark == nullptr) {
+        return;
+    }
+    const size_t size = config.input_sizes.back();
+    std::cout
+        << "INPUT DISTRIBUTION ANALYSIS\n" << divider << "\n\n"
+        << benchmark->name << " @ N = " << comma_number(size) << "\n\n";
+    for (InputDataCase input_case : config.input_cases) {
+        const BenchmarkSummary* summary =
+            find_summary(summaries, benchmark->key, input_case, size);
+        if (summary != nullptr) {
+            std::cout
+                << std::left << std::setw(20) << input_data_case_name(input_case)
+                << format_measurement(timing_statistics(*summary, config).median, config)
+                << '\n';
+        }
+    }
+    std::cout << '\n';
+}
+
+std::string json_escape(const std::string& value) {
+    std::ostringstream output;
+    for (unsigned char character : value) {
+        switch (character) {
+        case '"': output << "\\\""; break;
+        case '\\': output << "\\\\"; break;
+        case '\n': output << "\\n"; break;
+        case '\r': output << "\\r"; break;
+        case '\t': output << "\\t"; break;
+        default:
+            if (character < 0x20) {
+                output << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                    << static_cast<int>(character) << std::dec << std::setfill(' ');
+            } else {
+                output << character;
+            }
+        }
+    }
+    return output.str();
+}
+
+std::string timestamp_for_file() {
+    const std::time_t now = std::time(nullptr);
+    std::tm local_time{};
+    localtime_s(&local_time, &now);
+    std::ostringstream output;
+    output << std::put_time(&local_time, "%Y-%m-%d_%H-%M-%S");
+    return output.str();
+}
+
+ReportPaths create_report_paths() {
+    const std::filesystem::path directory = "results";
+    std::filesystem::create_directories(directory);
+    const std::string timestamp = timestamp_for_file();
+    for (unsigned int suffix = 0;; ++suffix) {
+        const std::string suffix_text = suffix == 0 ? "" : "_" + std::to_string(suffix);
+        const std::filesystem::path base =
+            directory / ("benchmark_" + timestamp + suffix_text);
+        const ReportPaths paths = {base.string() + ".csv", base.string() + ".json"};
+        if (!std::filesystem::exists(paths.csv) && !std::filesystem::exists(paths.json)) {
+            return paths;
+        }
+    }
+}
+
+bool write_csv_report(
+    const ReportPaths& paths,
+    const std::vector<BenchmarkMeasurement>& measurements
+) {
+    std::ofstream report(paths.csv);
+    if (!report) {
         return false;
     }
-
     report
-        <<"benchmark_key,benchmark_name,input_data,input_size,verification,"
-        <<"average_ticks,median_ticks,average_time_ns,median_time_ns,"
-        <<"measured_growth\n";
-    report<<std::fixed<<std::setprecision(2);
-
-    for(const BenchmarkSummary&summary:summaries){
-        const MeasuredComplexity complexity=
-            estimate_measured_complexity(
-                summaries,
-                summary.key,
-                summary.input_case
-            );
-
+        << "benchmark_key,input_data,input_size,iteration,cycles,time_ns,"
+        << "private_memory_delta_bytes,working_set_delta_bytes,verification_performed,verified\n";
+    for (const BenchmarkMeasurement& measurement : measurements) {
         report
-            <<csv_escape(summary.key)<<','
-            <<csv_escape(summary.name)<<','
-            <<csv_escape(input_case_name(summary.input_case))<<','
-            <<summary.input_size<<','
-            <<csv_escape(verification_status(summary))<<','
-            <<summary.average_ticks<<','
-            <<summary.median_ticks<<','
-            <<summary.average_time_ns<<','
-            <<summary.median_time_ns<<','
-            <<csv_escape(format_measured_complexity(complexity))
-            <<'\n';
+            << '"' << json_escape(measurement.benchmark_key) << "\","
+            << '"' << json_escape(input_data_case_name(measurement.input_case)) << "\","
+            << measurement.input_size << ','
+            << measurement.iteration << ','
+            << measurement.cycles << ','
+            << measurement.time_ns << ','
+            << measurement.private_memory_delta << ','
+            << measurement.working_set_delta << ','
+            << (measurement.verification_performed ? "true" : "false") << ','
+            << (measurement.verified ? "true" : "false") << '\n';
     }
-
     return static_cast<bool>(report);
 }
 
-void BenchmarkRunner::run_all(){
-    summaries.clear();
-    const double tsc_frequency=get_tsc_frequency();
+void write_statistics_json(
+    std::ostream& output,
+    const BenchmarkStatistics& statistics,
+    const std::string& indent
+) {
+    output
+        << indent << "\"minimum\": " << statistics.minimum << ",\n"
+        << indent << "\"maximum\": " << statistics.maximum << ",\n"
+        << indent << "\"mean\": " << statistics.mean << ",\n"
+        << indent << "\"median\": " << statistics.median << ",\n"
+        << indent << "\"p25\": " << statistics.p25 << ",\n"
+        << indent << "\"p75\": " << statistics.p75 << ",\n"
+        << indent << "\"p90\": " << statistics.p90 << ",\n"
+        << indent << "\"p95\": " << statistics.p95 << ",\n"
+        << indent << "\"p99\": " << statistics.p99 << ",\n"
+        << indent << "\"standard_deviation\": " << statistics.standard_deviation << ",\n"
+        << indent << "\"sample_count\": " << statistics.sample_count << ",\n"
+        << indent << "\"outlier_count\": " << statistics.outlier_count << '\n';
+}
 
-    std::cout
-        <<"========================================\n"
-        <<"       CODE PERFORMANCE ANALYZER V2\n"
-        <<"========================================\n\n"
-        <<"Timer overhead : "<<overhead<<" TSC ticks\n"
-        <<"TSC frequency  : "<<std::fixed<<std::setprecision(3)
-        <<tsc_frequency<<" GHz\n\n";
+bool write_json_report(
+    const ReportPaths& paths,
+    const SystemSnapshot& system,
+    const BenchmarkConfig& config,
+    const std::vector<BenchmarkSummary>& summaries,
+    const std::vector<BenchmarkMeasurement>& measurements
+) {
+    std::ofstream report(paths.json);
+    if (!report) {
+        return false;
+    }
+    report << std::fixed << std::setprecision(6);
+    report
+        << "{\n"
+        << "  \"format_version\": \"3.0\",\n"
+        << "  \"generated_at\": \"" << timestamp_for_file() << "\",\n"
+        << "  \"system\": {\n"
+        << "    \"operating_system\": \"" << json_escape(system.os) << "\",\n"
+        << "    \"cpu\": \"" << json_escape(system.cpu) << "\",\n"
+        << "    \"architecture\": \"" << json_escape(system.architecture) << "\",\n"
+        << "    \"physical_cores\": " << system.physical_cores << ",\n"
+        << "    \"logical_processors\": " << system.logical_cpus << ",\n"
+        << "    \"compiler\": \"" << json_escape(system.compiler) << "\",\n"
+        << "    \"cxx_standard\": \"" << json_escape(system.cxx_standard) << "\",\n"
+        << "    \"optimization\": \"" << json_escape(system.optimization) << "\"\n"
+        << "  },\n"
+        << "  \"configuration\": {\n"
+        << "    \"warmup_runs\": " << config.warmup_runs << ",\n"
+        << "    \"iterations\": " << config.iterations << ",\n"
+        << "    \"random_seed\": " << config.random_seed << ",\n"
+        << "    \"use_rdtsc\": " << (config.use_rdtsc ? "true" : "false") << ",\n"
+        << "    \"use_high_resolution_timer\": "
+        << (config.use_high_resolution_timer ? "true" : "false") << ",\n"
+        << "    \"measure_memory\": "
+        << (config.measure_memory ? "true" : "false") << ",\n"
+        << "    \"cpu_affinity\": " << config.cpu_affinity << ",\n"
+        << "    \"input_sizes\": [";
+    for (size_t index = 0; index < config.input_sizes.size(); ++index) {
+        report << (index == 0 ? "" : ", ") << config.input_sizes[index];
+    }
+    report << "],\n    \"input_cases\": [";
+    for (size_t index = 0; index < config.input_cases.size(); ++index) {
+        report << (index == 0 ? "" : ", ")
+            << '"' << json_escape(input_data_case_name(config.input_cases[index])) << '"';
+    }
+    report << "]\n  },\n  \"summaries\": [\n";
+    for (size_t index = 0; index < summaries.size(); ++index) {
+        const BenchmarkSummary& summary = summaries[index];
+        report
+            << "    {\n"
+            << "      \"key\": \"" << json_escape(summary.key) << "\",\n"
+            << "      \"name\": \"" << json_escape(summary.name) << "\",\n"
+            << "      \"input_size\": " << summary.input_size << ",\n"
+            << "      \"input_case\": \"" << json_escape(input_data_case_name(summary.input_case)) << "\",\n"
+            << "      \"verification_performed\": "
+            << (summary.verification_performed ? "true" : "false") << ",\n"
+            << "      \"verified\": " << (summary.verified ? "true" : "false") << ",\n"
+            << "      \"cycles\": {\n";
+        write_statistics_json(report, summary.cycles, "        ");
+        report << "      },\n      \"time_ns\": {\n";
+        write_statistics_json(report, summary.time, "        ");
+        report << "      },\n      \"private_memory_delta_bytes\": {\n";
+        write_statistics_json(report, summary.private_memory, "        ");
+        report << "      },\n      \"working_set_delta_bytes\": {\n";
+        write_statistics_json(report, summary.working_set, "        ");
+        report << "      },\n      \"memory_analysis\": {\n";
+        report << "        \"private_baseline_bytes\": " << summary.memory.baseline.private_bytes << ",\n";
+        report << "        \"private_peak_bytes\": " << summary.memory.peak.private_bytes << ",\n";
+        report << "        \"private_peak_increase_bytes\": " << summary.memory.peak_private_increase << ",\n";
+        report << "        \"private_net_change_bytes\": " << summary.memory.net_private_change << ",\n";
+        report << "        \"working_set_baseline_bytes\": " << summary.memory.baseline.working_set_bytes << ",\n";
+        report << "        \"working_set_peak_bytes\": " << summary.memory.peak.working_set_bytes << ",\n";
+        report << "        \"working_set_peak_increase_bytes\": " << summary.memory.peak_working_set_increase << ",\n";
+        report << "        \"working_set_net_change_bytes\": " << summary.memory.net_working_set_change << "\n";
+        report << "      }\n    }" << (index + 1 == summaries.size() ? "\n" : ",\n");
+    }
+    report << "  ],\n  \"measurements\": [\n";
+    for (size_t index = 0; index < measurements.size(); ++index) {
+        const BenchmarkMeasurement& measurement = measurements[index];
+        report
+            << "    {\"benchmark_key\": \"" << json_escape(measurement.benchmark_key)
+            << "\", \"input_size\": " << measurement.input_size
+            << ", \"input_case\": \"" << json_escape(input_data_case_name(measurement.input_case))
+            << "\", \"iteration\": " << measurement.iteration
+            << ", \"cycles\": " << measurement.cycles
+            << ", \"time_ns\": " << measurement.time_ns
+            << ", \"private_memory_delta_bytes\": " << measurement.private_memory_delta
+            << ", \"working_set_delta_bytes\": " << measurement.working_set_delta
+            << ", \"verification_performed\": "
+            << (measurement.verification_performed ? "true" : "false")
+            << ", \"verified\": " << (measurement.verified ? "true" : "false")
+            << "}" << (index + 1 == measurements.size() ? "\n" : ",\n");
+    }
+    report << "  ]\n}\n";
+    return static_cast<bool>(report);
+}
 
-    for(InputDataCase input_case:input_cases()){
-        for(size_t input_size:input_sizes){
-            std::vector<BenchmarkSummary>size_results;
-
-            for(const Benchmark&benchmark:benchmarks){
-                std::cout
-                    <<"Starting : "<<benchmark.name
-                    <<" | "<<input_case_name(input_case)
-                    <<" | N="<<input_size<<'\n';
-
-                const BenchmarkSummary summary=run_single_benchmark(
-                    benchmark,
-                    input_size,
-                    input_case,
-                    warmup_runs,
-                    iterations,
-                    overhead
-                );
-
-                summaries.push_back(summary);
-                size_results.push_back(summary);
-
-                std::cout
-                    <<"Finished : "<<benchmark.name
-                    <<" | "<<input_case_name(input_case)
-                    <<" | N="<<input_size<<"\n\n";
-            }
-
-            print_size_comparison(
-                size_results,
-                input_size,
-                input_case
-            );
-        }
+BenchmarkSummary run_single_benchmark(
+    const Benchmark& benchmark,
+    size_t input_size,
+    InputDataCase input_case,
+    const BenchmarkConfig& config,
+    uint64_t overhead,
+    std::vector<BenchmarkMeasurement>& measurements
+) {
+    for (int run = 0; run < config.warmup_runs; ++run) {
+        run_benchmark(
+            benchmark.setup, benchmark.function, input_size, input_case,
+            sample_seed(config.random_seed, input_size, input_case, static_cast<size_t>(run), true),
+            config.use_rdtsc, config.use_high_resolution_timer, overhead,
+            config.cpu_affinity, false
+        );
     }
 
-    print_scaling_comparison(summaries,input_sizes,benchmarks);
+    std::vector<uint64_t> cycles;
+    std::vector<uint64_t> times;
+    const bool verification_performed = static_cast<bool>(benchmark.verify);
+    bool verified = true;
+    for (int run = 0; run < config.iterations; ++run) {
+        const BenchmarkResult result = run_benchmark(
+            benchmark.setup, benchmark.function, input_size, input_case,
+            sample_seed(config.random_seed, input_size, input_case, static_cast<size_t>(run), false),
+            config.use_rdtsc, config.use_high_resolution_timer, overhead,
+            config.cpu_affinity, config.measure_memory
+        );
+        // Verification happens only after both timers have stopped.
+        const bool measurement_verified =
+            !verification_performed || benchmark.verify();
+        verified = verified && measurement_verified;
+        if (config.use_rdtsc) {
+            cycles.push_back(result.cycles);
+        }
+        if (config.use_high_resolution_timer) {
+            times.push_back(result.time_ns);
+        }
+        measurements.push_back({
+            benchmark.key, input_size, input_case, static_cast<size_t>(run),
+            result.cycles, result.time_ns, result.private_memory_delta,
+            result.working_set_delta, verification_performed, measurement_verified,
+            result.memory
+        });
+    }
 
-    if(write_csv_report(summaries)){
-        std::cout<<"CSV report written: benchmark_report.csv\n";
-    }else{
-        std::cerr<<"Error: could not write benchmark_report.csv\n";
+    BenchmarkSummary summary;
+    summary.key = benchmark.key;
+    summary.name = benchmark.name;
+    summary.input_size = input_size;
+    summary.input_case = input_case;
+    summary.verification_performed = verification_performed;
+    summary.verified = verified;
+    summary.cycles = make_statistics(cycles);
+    std::vector<uint64_t> private_memory;
+    std::vector<uint64_t> working_set;
+    if (config.measure_memory) {
+        bool memory_set = false;
+        for (const BenchmarkMeasurement& measurement : measurements) {
+            if (measurement.benchmark_key == benchmark.key &&
+                measurement.input_case == input_case &&
+                measurement.input_size == input_size) {
+                private_memory.push_back(measurement.private_memory_delta);
+                working_set.push_back(measurement.working_set_delta);
+                if (!memory_set ||
+                    measurement.memory.peak_private_increase > summary.memory.peak_private_increase) {
+                    summary.memory = measurement.memory;
+                    memory_set = true;
+                }
+            }
+        }
+    }
+    summary.time = make_statistics(times);
+    summary.private_memory = make_statistics(private_memory);
+    summary.working_set = make_statistics(working_set);
+    return summary;
+}
+
+bool valid_config(const BenchmarkConfig& config) {
+    const unsigned int logical_cpus = CpuAffinityGuard::logical_processor_count();
+    const bool affinity_valid = config.cpu_affinity < 0 ||
+        (config.cpu_affinity < 64 &&
+         static_cast<unsigned int>(config.cpu_affinity) < logical_cpus);
+
+    return config.warmup_runs >= 0 && config.iterations > 0 &&
+        !config.input_sizes.empty() && !config.input_cases.empty() &&
+        (config.use_rdtsc || config.use_high_resolution_timer) &&
+        affinity_valid &&
+        std::all_of(config.input_sizes.begin(), config.input_sizes.end(),
+            [] (size_t size) { return size > 0; });
+}
+
+} // namespace
+
+BenchmarkRunner::BenchmarkRunner(BenchmarkConfig config)
+    : benchmark_config(std::move(config)) {
+    if (benchmark_config.use_rdtsc) {
+        overhead = measure_overhead();
     }
 }
 
-bool BenchmarkRunner::run_selected(const std::string&key){
-    const double tsc_frequency=get_tsc_frequency();
+void BenchmarkRunner::add(
+    const std::string& key,
+    const std::string& name,
+    const std::string& theoretical_complexity,
+    BenchmarkSetupFunction setup,
+    BenchmarkFunction function,
+    BenchmarkVerificationFunction verify
+) {
+    benchmarks.push_back({key, name, theoretical_complexity, setup, function, verify});
+}
 
-    for(const Benchmark&benchmark:benchmarks){
-        if(benchmark.key==key){
-            std::cout
-                <<"========================================\n"
-                <<"       CODE PERFORMANCE ANALYZER V2\n"
-                <<"========================================\n\n"
-                <<"TSC frequency : "<<std::fixed<<std::setprecision(3)
-                <<tsc_frequency<<" GHz\n\n";
+void BenchmarkRunner::set_input_sizes(const std::vector<size_t>& sizes) {
+    benchmark_config.input_sizes = sizes;
+}
 
-            std::vector<BenchmarkSummary>selected_summaries;
+void BenchmarkRunner::set_input_cases(const std::vector<InputDataCase>& input_cases) {
+    benchmark_config.input_cases = input_cases;
+}
 
-            for(InputDataCase input_case:input_cases()){
-                for(size_t input_size:input_sizes){
-                    std::cout
-                        <<"Running "<<benchmark.name
-                        <<" | "<<input_case_name(input_case)
-                        <<" | N="<<input_size<<"\n";
+const BenchmarkConfig& BenchmarkRunner::config() const {
+    return benchmark_config;
+}
 
-                    selected_summaries.push_back(run_single_benchmark(
-                        benchmark,
-                        input_size,
-                        input_case,
-                        warmup_runs,
-                        iterations,
-                        overhead
-                    ));
+const std::vector<BenchmarkSummary>& BenchmarkRunner::results() const {
+    return summaries;
+}
 
-                    std::cout<<'\n';
-                }
+const std::vector<BenchmarkMeasurement>& BenchmarkRunner::raw_measurements() const {
+    return measurements;
+}
+
+void BenchmarkRunner::run_experiment(const std::vector<Benchmark>& selected_benchmarks) {
+    if (selected_benchmarks.empty()) {
+        throw std::invalid_argument("No benchmarks are registered.");
+    }
+    if (!valid_config(benchmark_config)) {
+        throw std::invalid_argument(
+            "BenchmarkConfig is invalid: iterations/input sizes/input cases must be valid, "
+            "at least one timer must be enabled, and CPU affinity must be valid."
+        );
+    }
+    summaries.clear();
+    measurements.clear();
+    const auto started = std::chrono::steady_clock::now();
+    const SystemSnapshot system = system_snapshot();
+    print_header(system, benchmark_config);
+    if (benchmark_config.use_rdtsc) {
+        std::cout << "RDTSC timer overhead : " << overhead << " cycles\n\n";
+    }
+
+    for (InputDataCase input_case : benchmark_config.input_cases) {
+        for (size_t input_size : benchmark_config.input_sizes) {
+            for (const Benchmark& benchmark : selected_benchmarks) {
+                summaries.push_back(run_single_benchmark(
+                    benchmark, input_size, input_case, benchmark_config, overhead, measurements
+                ));
             }
+        }
+    }
 
-            for(InputDataCase input_case:input_cases()){
-                const MeasuredComplexity complexity=
-                    estimate_measured_complexity(
-                        selected_summaries,
-                        benchmark.key,
-                        input_case
-                    );
+    print_summary_table(summaries, selected_benchmarks, benchmark_config);
+    print_detailed_result(summaries, measurements, selected_benchmarks, benchmark_config);
+    print_memory_analysis(summaries, selected_benchmarks, benchmark_config);
+    print_complexity_analysis(summaries, selected_benchmarks, benchmark_config);
+    print_performance_comparison(summaries, selected_benchmarks, benchmark_config);
+    print_distribution_analysis(summaries, selected_benchmarks, benchmark_config);
 
-                std::cout
-                    <<"Measured growth ("<<input_case_name(input_case)
-                    <<"): "<<format_measured_complexity(complexity)
-                    <<'\n';
-            }
+    try {
+        const ReportPaths paths = create_report_paths();
+        const bool csv_ok = write_csv_report(paths, measurements);
+        const bool json_ok = write_json_report(
+            paths, system, benchmark_config, summaries, measurements
+        );
+        std::cout << "OUTPUT\n" << divider << '\n';
+        if (csv_ok) {
+            std::cout << "CSV report          : " << paths.csv.generic_string() << '\n';
+        } else {
+            std::cerr << "Error: unable to write CSV report\n";
+        }
+        if (json_ok) {
+            std::cout << "JSON report         : " << paths.json.generic_string() << '\n';
+        } else {
+            std::cerr << "Error: unable to write JSON report\n";
+        }
+    } catch (const std::filesystem::filesystem_error& error) {
+        std::cerr << "Error: unable to create results directory: " << error.what() << '\n';
+    }
 
-            if(write_csv_report(selected_summaries)){
-                std::cout<<"CSV report written: benchmark_report.csv\n";
-            }else{
-                std::cerr<<"Error: could not write benchmark_report.csv\n";
-            }
+    const double elapsed = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - started
+    ).count();
+    std::cout
+        << "\nBenchmark completed successfully.\n"
+        << "Total execution time: " << std::fixed << std::setprecision(2)
+        << elapsed << " seconds\n\n"
+        << "╔══════════════════════════════════════════════════════════════════════╗\n"
+        << "║                    BENCHMARK COMPLETE ✓                             ║\n"
+        << "╚══════════════════════════════════════════════════════════════════════╝\n";
+}
 
+void BenchmarkRunner::run_all() {
+    run_experiment(benchmarks);
+}
+
+bool BenchmarkRunner::run_selected(const std::string& key) {
+    for (const Benchmark& benchmark : benchmarks) {
+        if (benchmark.key == key) {
+            run_experiment({benchmark});
             return true;
         }
     }
-
     return false;
 }
 
-void BenchmarkRunner::list_benchmarks() const{
-    std::cout<<"Available benchmarks:\n\n";
-
-    for(const Benchmark&benchmark:benchmarks){
+void BenchmarkRunner::list_benchmarks() const {
+    std::cout << "Available benchmarks:\n\n";
+    for (const Benchmark& benchmark : benchmarks) {
         std::cout
-            <<"  --"
-            <<std::left
-            <<std::setw(12)<<benchmark.key
-            <<benchmark.name<<'\n';
+            << "  --" << std::left << std::setw(18) << benchmark.key
+            << benchmark.name << " (" << benchmark.theoretical_complexity << ")\n";
     }
-
-    std::cout<<"\nInput sizes:\n";
-    for(size_t size:input_sizes){
-        std::cout<<"  N="<<size<<'\n';
-    }
-
     std::cout
-        <<"\nInput data: Random, Sorted, Reverse\n"
-        <<"Each sorting result is verified after timing.\n"
-        <<"CSV report: benchmark_report.csv\n"
-        <<"\n  --all         Run all benchmarks\n"
-        <<"  --help        Show available benchmarks\n"
-        <<"\nMeasured growth needs at least 3 input sizes.\n";
+        << "\nInput cases: Random, Sorted, Reverse, Nearly Sorted, Many Duplicates, All Equal\n"
+        << "CSV contains raw measurements; JSON records the structured experiment.\n\n"
+        << "Usage:\n"
+        << "  analyzer.exe --all\n"
+        << "  analyzer.exe --quick\n"
+        << "  analyzer.exe --quicksort --sizes 100,500,1000\n"
+        << "  analyzer.exe --all --cases random,sorted,nearly-sorted\n"
+        << "  analyzer.exe --all --iterations 20 --warmup 5 --no-rdtsc\n";
 }

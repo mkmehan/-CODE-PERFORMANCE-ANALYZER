@@ -1,81 +1,26 @@
 #include "../BenchmarkRunner.h"
+#include "SortingAlgorithms.h"
 #include "SortingData.h"
 
-#include <vector>
 #include <algorithm>
+#include <vector>
 
+namespace {
+std::vector<int> data;
 
-namespace{
-
-std::vector<int>data;
-
-
-void setup_selection_sort(
-    size_t n,
-    InputDataCase input_case
-){
-
-    data=get_sorting_input(
-        n,
-        input_case
-    );
+void setup(size_t size, InputDataCase input_case, uint32_t seed) {
+    data = get_sorting_input(size, input_case, seed);
 }
 
-
-void run_selection_sort(size_t){
-
-    int n=static_cast<int>(
-        data.size()
-    );
-
-
-    for(int i=0;i<n-1;i++){
-
-        int minimum=i;
-
-
-        for(int j=i+1;j<n;j++){
-
-            if(data[j]<data[minimum]){
-
-                minimum=j;
-            }
-        }
-
-
-        if(minimum!=i){
-
-            std::swap(
-                data[i],
-                data[minimum]
-            );
-        }
-    }
+void run(size_t) {
+    selection_sort(data);
 }
+} // namespace
 
-}
-
-
-void register_selection_sort(
-    BenchmarkRunner&runner
-){
-
+void register_selection_sort(BenchmarkRunner& runner) {
     runner.add(
-
-        "selection",
-
-        "Selection Sort",
-
-        setup_selection_sort,
-
-        run_selection_sort,
-
-        []{
-
-            return std::is_sorted(
-                data.begin(),
-                data.end()
-            );
-        }
+        "selection", "Selection Sort", "O(n^2)", setup, run,
+        [] { return std::is_sorted(data.begin(), data.end()); }
     );
 }
+

@@ -1,199 +1,93 @@
 #include "Benchmark.h"
+
+#include "HighResolutionTimer.h"
 #include "RDTSC_Timer.h"
+#include "CpuAffinity.h"
+#include "MemoryMonitor.h"
 
-#include <windows.h>
-#include <intrin.h>
+#include <algorithm>
+#include <limits>
 
+std::string input_data_case_name(InputDataCase input_case) {
+    switch (input_case) {
+    case InputDataCase::Random: return "Random";
+    case InputDataCase::Sorted: return "Sorted";
+    case InputDataCase::ReverseSorted: return "Reverse";
+    case InputDataCase::NearlySorted: return "Nearly Sorted";
+    case InputDataCase::ManyDuplicates: return "Many Duplicates";
+    case InputDataCase::AllEqual: return "All Equal";
+    }
+    return "Unknown";
+}
 
-uint64_t measure_overhead(){
+uint64_t measure_overhead() {
+    constexpr int overhead_runs = 1000;
+    uint64_t minimum = std::numeric_limits<uint64_t>::max();
 
-    const int OVERHEAD_RUNS=1000;
-
-    uint64_t minimum=UINT64_MAX;
-
-
-    for(int i=0;i<OVERHEAD_RUNS;i++){
-
+    for (int run = 0; run < overhead_runs; ++run) {
         RDTSC_Timer timer;
-
         timer.start();
-
         timer.stop();
-
-
-        uint64_t ticks=
-            timer.ticks();
-
-
-        if(ticks<minimum){
-
-            minimum=ticks;
-        }
+        minimum = std::min(minimum, timer.elapsed());
     }
 
-
-    return minimum;
+    return minimum == std::numeric_limits<uint64_t>::max() ? 0 : minimum;
 }
-
-
-double get_tsc_frequency(){
-
-    LARGE_INTEGER frequency;
-
-    LARGE_INTEGER start_time;
-    LARGE_INTEGER end_time;
-
-
-    QueryPerformanceFrequency(
-        &frequency
-    );
-
-
-    QueryPerformanceCounter(
-        &start_time
-    );
-
-
-    uint64_t start_tsc=
-        __rdtsc();
-
-
-    Sleep(200);
-
-
-    uint64_t end_tsc=
-        __rdtsc();
-
-
-    QueryPerformanceCounter(
-        &end_time
-    );
-
-
-    double elapsed_time=
-        (double)(
-            end_time.QuadPart-
-            start_time.QuadPart
-        )
-        /frequency.QuadPart;
-
-
-    double tsc_frequency=
-        (end_tsc-start_tsc)
-        /elapsed_time;
-
-
-    return
-        tsc_frequency/
-        1000000000.0;
-}
-
 
 BenchmarkResult run_benchmark(
-
     BenchmarkSetupFunction setup,
     BenchmarkFunction function,
-
     size_t input_size,
-
     InputDataCase input_case,
+    uint32_t seed,
+    bool use_rdtsc,
+    bool use_high_resolution_timer,
+    uint64_t overhead,
+    int cpu_affinity,
+    bool measure_memory
+) {
+    // Input preparation deliberately happens before either timer starts.
+    setup(input_size, input_case, seed);
 
-    uint64_t overhead
+    CpuAffinityGuard affinity(cpu_affinity);
 
-){
+    MemorySampler memory_sampler;
+    if (measure_memory) {
+        memory_sampler.start();
+    }
 
-    LARGE_INTEGER frequency;
+    RDTSC_Timer rdtsc_timer;
+    HighResolutionTimer high_resolution_timer;
 
-    LARGE_INTEGER start_time;
-    LARGE_INTEGER end_time;
-
-
-    QueryPerformanceFrequency(
-        &frequency
-    );
-
-
-    // -------------------------------
-    // Prepare the input
-    // -------------------------------
-
-    setup(
-        input_size,
-        input_case
-    );
-
-
-    // -------------------------------
-    // Start timing
-    // -------------------------------
-
-    QueryPerformanceCounter(
-        &start_time
-    );
-
-
-    RDTSC_Timer timer;
-
-    timer.start();
-
-
-    // -------------------------------
-    // Run actual code
-    // -------------------------------
+    if (use_high_resolution_timer) {
+        high_resolution_timer.start();
+    }
+    if (use_rdtsc) {
+        rdtsc_timer.start();
+    }
 
     function(input_size);
 
-
-    // -------------------------------
-    // Stop timing
-    // -------------------------------
-
-    timer.stop();
-
-
-    QueryPerformanceCounter(
-        &end_time
-    );
-
-
-    // -------------------------------
-    // TSC result
-    // -------------------------------
-
-    uint64_t measured_ticks=
-        timer.ticks();
-
-
-    uint64_t actual_ticks=0;
-
-
-    if(measured_ticks>overhead){
-
-        actual_ticks=
-            measured_ticks-overhead;
+    if (use_rdtsc) {
+        rdtsc_timer.stop();
+    }
+    if (use_high_resolution_timer) {
+        high_resolution_timer.stop();
     }
 
+    BenchmarkResult result;
+    if (measure_memory) {
+        result.memory = memory_sampler.stop();
+        result.private_memory_delta = result.memory.peak_private_increase;
+        result.working_set_delta = result.memory.peak_working_set_increase;
+    }
 
-    // -------------------------------
-    // High-resolution time
-    // -------------------------------
-
-    uint64_t counter_difference=
-        end_time.QuadPart-
-        start_time.QuadPart;
-
-
-    uint64_t time_ns=
-        (uint64_t)(
-            (double)counter_difference
-            *1000000000.0
-            /frequency.QuadPart
-        );
-
-
-    return{
-
-        actual_ticks,
-        time_ns
-    };
+    if (use_rdtsc) {
+        const uint64_t measured = rdtsc_timer.elapsed();
+        result.cycles = measured > overhead ? measured - overhead : 0;
+    }
+    if (use_high_resolution_timer) {
+        result.time_ns = high_resolution_timer.elapsed();
+    }
+    return result;
 }

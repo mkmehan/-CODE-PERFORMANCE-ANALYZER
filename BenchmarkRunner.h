@@ -1,84 +1,43 @@
 #ifndef BENCHMARK_RUNNER_H
 #define BENCHMARK_RUNNER_H
 
-#include "Benchmark.h"
+#include "BenchmarkConfig.h"
 
-#include <vector>
 #include <string>
-#include <cstdint>
+#include <vector>
 
-
-class BenchmarkRunner{
-
+class BenchmarkRunner {
 private:
+    std::vector<Benchmark> benchmarks;
+    std::vector<BenchmarkSummary> summaries;
+    std::vector<BenchmarkMeasurement> measurements;
+    BenchmarkConfig benchmark_config;
+    uint64_t overhead = 0;
 
-    std::vector<Benchmark>benchmarks;
-
-    std::vector<BenchmarkSummary>summaries;
-
-    std::vector<size_t>input_sizes;
-
-    int warmup_runs;
-    int iterations;
-
-    uint64_t overhead;
-
+    void run_experiment(const std::vector<Benchmark>& selected_benchmarks);
 
 public:
-
-    BenchmarkRunner(
-        int warmup=10,
-        int iterations=100
-    );
-
+    explicit BenchmarkRunner(BenchmarkConfig config = {});
 
     void add(
-
-        const std::string&key,
-
-        const std::string&name,
-
+        const std::string& key,
+        const std::string& name,
+        const std::string& theoretical_complexity,
         BenchmarkSetupFunction setup,
-
         BenchmarkFunction function,
-
-        BenchmarkVerificationFunction verify={}
-
+        BenchmarkVerificationFunction verify = {}
     );
 
+    void set_input_sizes(const std::vector<size_t>& sizes);
+    void set_input_cases(const std::vector<InputDataCase>& input_cases);
 
-    void add(
-
-        const std::string&key,
-
-        const std::string&name,
-
-        BenchmarkFunction setup,
-
-        BenchmarkFunction function
-
-    );
-
-
-    void set_input_sizes(
-
-        const std::vector<size_t>&sizes
-
-    );
-
+    const BenchmarkConfig& config() const;
+    const std::vector<BenchmarkSummary>& results() const;
+    const std::vector<BenchmarkMeasurement>& raw_measurements() const;
 
     void run_all();
-
-
-    bool run_selected(
-
-        const std::string&key
-
-    );
-
-
+    bool run_selected(const std::string& key);
     void list_benchmarks() const;
-
 };
 
 #endif

@@ -1,83 +1,26 @@
 #include "../BenchmarkRunner.h"
+#include "SortingAlgorithms.h"
 #include "SortingData.h"
 
-#include <vector>
 #include <algorithm>
-#include <functional>
+#include <vector>
 
-namespace{
+namespace {
+std::vector<int> data;
 
-std::vector<int>data;
-
-
-void setup_bubble_sort(
-    size_t n,
-    InputDataCase input_case
-){
-
-    data=get_sorting_input(
-        n,
-        input_case
-    );
+void setup(size_t size, InputDataCase input_case, uint32_t seed) {
+    data = get_sorting_input(size, input_case, seed);
 }
 
-
-void run_bubble_sort(size_t){
-
-    int n=static_cast<int>(
-        data.size()
-    );
-
-
-    for(int i=0;i<n-1;i++){
-
-        bool swapped=false;
-
-
-        for(int j=0;j<n-i-1;j++){
-
-            if(data[j]>data[j+1]){
-
-                std::swap(
-                    data[j],
-                    data[j+1]
-                );
-
-                swapped=true;
-            }
-        }
-
-
-        if(!swapped){
-
-            break;
-        }
-    }
+void run(size_t) {
+    bubble_sort(data);
 }
+} // namespace
 
-}
-
-
-void register_bubble_sort(
-    BenchmarkRunner&runner
-){
-
+void register_bubble_sort(BenchmarkRunner& runner) {
     runner.add(
-
-        "bubble",
-
-        "Bubble Sort",
-
-        setup_bubble_sort,
-
-        run_bubble_sort,
-
-        []{
-
-            return std::is_sorted(
-                data.begin(),
-                data.end()
-            );
-        }
+        "bubble", "Bubble Sort", "O(n^2)", setup, run,
+        [] { return std::is_sorted(data.begin(), data.end()); }
     );
 }
+

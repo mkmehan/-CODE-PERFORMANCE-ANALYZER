@@ -13,14 +13,13 @@ void setup(size_t size, InputDataCase input_case, uint32_t seed) {
 }
 
 void run(size_t) {
-    quick_sort(data);
+    heap_sort(data);
 }
 } // namespace
 
-void register_quick_sort(BenchmarkRunner& runner) {
+void register_heap_sort(BenchmarkRunner& runner) {
     runner.add(
-        "quicksort", "Quick Sort", "O(n log n)*", setup, run,
+        "heap", "Heap Sort", "O(n log n)", setup, run,
         [] { return std::is_sorted(data.begin(), data.end()); }
     );
 }
-

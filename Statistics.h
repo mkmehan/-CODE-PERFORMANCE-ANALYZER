@@ -23,9 +23,19 @@ double get_median(
     std::vector<uint64_t>results
 );
 
+double get_percentile(
+    std::vector<uint64_t> values,
+    double percentile
+);
+
 
 double get_standard_deviation(
     const std::vector<uint64_t>&results,
+    double average
+);
+
+double get_coefficient_of_variation(
+    const std::vector<uint64_t>& results,
     double average
 );
 

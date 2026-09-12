@@ -22,6 +22,18 @@ void register_quick_sort(
     BenchmarkRunner&runner
 );
 
+void register_heap_sort(
+    BenchmarkRunner&runner
+);
+
+void register_std_sort(
+    BenchmarkRunner&runner
+);
+
+void register_std_stable_sort(
+    BenchmarkRunner&runner
+);
+
 void register_all_benchmarks(
     BenchmarkRunner&runner
 ){
@@ -35,4 +47,10 @@ void register_all_benchmarks(
     register_merge_sort(runner);
 
     register_quick_sort(runner);
+
+    register_heap_sort(runner);
+
+    register_std_sort(runner);
+
+    register_std_stable_sort(runner);
 }

@@ -1,78 +1,26 @@
 #include "../BenchmarkRunner.h"
+#include "SortingAlgorithms.h"
 #include "SortingData.h"
 
-#include <vector>
 #include <algorithm>
+#include <vector>
 
-namespace{
+namespace {
+std::vector<int> data;
 
-std::vector<int>data;
-
-
-void setup_insertion_sort(
-    size_t n,
-    InputDataCase input_case
-){
-
-    data=get_sorting_input(
-        n,
-        input_case
-    );
+void setup(size_t size, InputDataCase input_case, uint32_t seed) {
+    data = get_sorting_input(size, input_case, seed);
 }
 
-
-void run_insertion_sort(size_t){
-
-    int n=static_cast<int>(
-        data.size()
-    );
-
-
-    for(int i=1;i<n;i++){
-
-        int key=data[i];
-
-        int j=i-1;
-
-
-        while(
-            j>=0 &&
-            data[j]>key
-        ){
-
-            data[j+1]=data[j];
-
-            j--;
-        }
-
-
-        data[j+1]=key;
-    }
+void run(size_t) {
+    insertion_sort(data);
 }
+} // namespace
 
-}
-
-
-void register_insertion_sort(
-    BenchmarkRunner&runner
-){
-
+void register_insertion_sort(BenchmarkRunner& runner) {
     runner.add(
-
-        "insertion",
-
-        "Insertion Sort",
-
-        setup_insertion_sort,
-
-        run_insertion_sort,
-
-        []{
-
-            return std::is_sorted(
-                data.begin(),
-                data.end()
-            );
-        }
+        "insertion", "Insertion Sort", "O(n^2)", setup, run,
+        [] { return std::is_sorted(data.begin(), data.end()); }
     );
 }
+
