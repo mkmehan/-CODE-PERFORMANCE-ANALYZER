@@ -48,10 +48,16 @@ std::string comma_number(size_t value) {
 std::string format_time(double nanoseconds) {
     std::ostringstream output;
     output << std::fixed << std::setprecision(2);
-    if (nanoseconds >= 1000000.0) {
+    if (nanoseconds < 0.0) {
+        output << "-";
+        nanoseconds = -nanoseconds;
+    }
+    if (nanoseconds >= 1000000000.0) {
+        output << nanoseconds / 1000000000.0 << " s";
+    } else if (nanoseconds >= 1000000.0) {
         output << nanoseconds / 1000000.0 << " ms";
     } else if (nanoseconds >= 1000.0) {
-        output << nanoseconds / 1000.0 << " us";
+        output << nanoseconds / 1000.0 << " µs";
     } else {
         output << nanoseconds << " ns";
     }
@@ -292,7 +298,7 @@ void print_summary_table(
     std::cout
         << divider << "\nBENCHMARK: SORTING ALGORITHMS\n" << divider << "\n\n"
         << std::left
-        << std::setw(16) << "Algorithm"
+        << std::setw(18) << "Algorithm"
         << std::setw(16) << "Input"
         << std::setw(10) << "N"
         << std::setw(14) << "Median"
@@ -307,7 +313,7 @@ void print_summary_table(
         }
         const BenchmarkStatistics& statistics = timing_statistics(*summary, config);
         std::cout
-            << std::setw(16) << benchmark.name
+            << std::setw(18) << benchmark.name
             << std::setw(16) << input_data_case_name(input_case)
             << std::setw(10) << comma_number(size)
             << std::setw(14) << format_measurement(statistics.median, config)
@@ -350,7 +356,7 @@ void print_detailed_result(
     std::cout
         << "DETAILED RESULT\n" << divider << "\n\n"
         << benchmark->name << '\n'
-        << "Input distribution : " << input_data_case_name(summary->input_case) << '\n'
+        << "Input distribution  : " << input_data_case_name(summary->input_case) << '\n'
         << "Input size          : " << comma_number(summary->input_size) << '\n'
         << "Iterations          : " << config.iterations << "\n\n"
         << "Timing\n"
@@ -380,7 +386,7 @@ void print_memory_analysis(
     if (!config.measure_memory) {
         std::cout
             << "MEMORY ANALYSIS\n"
-            << "──────────────────────────────────\n"
+            << divider << "\n\n"
             << "Disabled\n\n";
         return;
     }
@@ -397,7 +403,7 @@ void print_memory_analysis(
 
     std::cout
         << "MEMORY ANALYSIS\n"
-        << "──────────────────────────────────\n"
+        << divider << "\n\n"
         << "Private Memory\n"
         << "  Baseline          : " << format_mb(static_cast<double>(summary->memory.baseline.private_bytes)) << '\n'
         << "  Peak observed     : " << format_mb(static_cast<double>(summary->memory.peak.private_bytes)) << '\n'
@@ -466,7 +472,7 @@ void print_performance_comparison(
     for (size_t index = 0; index < ranking.size(); ++index) {
         std::cout
             << "  " << index + 1 << ". "
-            << std::left << std::setw(16) << ranking[index]->name
+            << std::left << std::setw(18) << ranking[index]->name
             << format_measurement(timing_statistics(*ranking[index], config).median, config)
             << '\n';
     }
