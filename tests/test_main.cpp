@@ -13,6 +13,13 @@
 #include "../analysis/RegressionAnalyzer.h"
 #include "../analysis/TrendAnalyzer.h"
 #include "../reporting/HtmlReportGenerator.h"
+#include "../server/DashboardServer.h"
+#include "../BenchmarkRunner.h"
+#include "../benchmarks/RegisterBenchmarks.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -1040,6 +1047,130 @@ void run_html_report_tests() {
     } catch (...) {}
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD SERVER TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+void run_server_tests() {
+    std::cout << "\n[DASHBOARD SERVER TESTS]\n";
+
+    // ── Test 1: BenchmarkRunner run_selected_keys and progress callback ──────
+    {
+        BenchmarkConfig b_cfg;
+        b_cfg.input_sizes = {100};
+        b_cfg.input_cases = {InputDataCase::Random};
+        b_cfg.iterations = 2;
+        b_cfg.warmup_runs = 1;
+        BenchmarkRunner b_runner(b_cfg);
+        register_all_benchmarks(b_runner);
+
+        bool progress_called = false;
+        b_runner.set_progress_callback([&progress_called](int, const std::string&, const std::string&, size_t, int, int, double) {
+            progress_called = true;
+        });
+
+        b_runner.run_selected_keys({"quicksort"});
+        expect(b_runner.results().size() == 1, "run_selected_keys runs only quicksort");
+        expect(b_runner.results()[0].key == "quicksort", "result key is quicksort");
+        expect(progress_called, "progress callback was invoked during run");
+    }
+
+    // ── Test 2: BenchmarkRunner cancellation check ────────────────────────────
+    {
+        BenchmarkConfig c_cfg;
+        c_cfg.input_sizes = {100};
+        c_cfg.input_cases = {InputDataCase::Random};
+        c_cfg.iterations = 2;
+        c_cfg.warmup_runs = 1;
+        BenchmarkRunner c_runner(c_cfg);
+        register_all_benchmarks(c_runner);
+
+        c_runner.set_cancellation_check([]() { return true; });
+        bool caught_cancel = false;
+        try {
+            c_runner.run_selected_keys({"quicksort"});
+        } catch (const std::exception&) {
+            caught_cancel = true;
+        }
+        expect(caught_cancel, "cancellation check successfully terminates benchmark run");
+    }
+
+    // ── Test 3: DashboardServer Lifecycle & HTTP Queries ─────────────────────
+    server::DashboardServer srv(8095, "web");
+    expect(!srv.is_running(), "Server initially not running");
+
+    bool started = srv.start();
+    expect(started, "Server starts on port 8095");
+    expect(srv.is_running(), "Server is_running returns true");
+    expect(srv.port() == 8095, "Server port is 8095");
+    expect(srv.url() == "http://localhost:8095", "Server url is correct");
+
+    auto prog = srv.get_progress();
+    expect(prog.state == server::EngineState::Idle, "Initial server state is Idle");
+    expect(prog.progress_percent == 0, "Initial progress is 0");
+
+#ifdef _WIN32
+    // Send HTTP GET /api/status request
+    {
+        SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+        if (s != INVALID_SOCKET) {
+            sockaddr_in addr{};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(8095);
+            addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+            if (connect(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0) {
+                std::string req = "GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8095\r\nConnection: close\r\n\r\n";
+                send(s, req.data(), static_cast<int>(req.size()), 0);
+                char buf[2048];
+                int n = recv(s, buf, sizeof(buf) - 1, 0);
+                if (n > 0) {
+                    buf[n] = '\0';
+                    std::string resp(buf);
+                    expect(resp.find("200 OK") != std::string::npos, "GET /api/status returns HTTP 200 OK");
+                    expect(resp.find("\"state\": \"idle\"") != std::string::npos, "GET /api/status body contains idle state");
+                }
+            }
+            closesocket(s);
+        }
+    }
+
+    // Send HTTP POST /api/benchmark request
+    {
+        SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+        if (s != INVALID_SOCKET) {
+            sockaddr_in addr{};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(8095);
+            addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+            if (connect(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0) {
+                std::string body = "{\"algorithms\": [\"quicksort\"], \"sizes\": [100], \"iterations\": 2, \"warmup\": 1}";
+                std::ostringstream ss;
+                ss << "POST /api/benchmark HTTP/1.1\r\n"
+                   << "Host: 127.0.0.1:8095\r\n"
+                   << "Content-Type: application/json\r\n"
+                   << "Content-Length: " << body.size() << "\r\n"
+                   << "Connection: close\r\n\r\n"
+                   << body;
+                std::string req = ss.str();
+                send(s, req.data(), static_cast<int>(req.size()), 0);
+                char buf[2048];
+                int n = recv(s, buf, sizeof(buf) - 1, 0);
+                if (n > 0) {
+                    buf[n] = '\0';
+                    std::string resp(buf);
+                    expect(resp.find("200 OK") != std::string::npos, "POST /api/benchmark returns HTTP 200 OK");
+                    expect(resp.find("\"status\": \"started\"") != std::string::npos, "POST /api/benchmark returns started status");
+                }
+            }
+            closesocket(s);
+        }
+    }
+#endif
+
+    srv.stop();
+    expect(!srv.is_running(), "Server is_running returns false after stop");
+}
+
 int main() {
     std::cout << "========================================\n";
     std::cout << "CODE PERFORMANCE ANALYZER TEST SUITE\n";
@@ -1058,6 +1189,7 @@ int main() {
     run_regression_tests();
     run_trend_analyzer_tests();
     run_html_report_tests();
+    run_server_tests();
     std::cout << "\n========================================\n";
     if (failures == 0) {
         std::cout << "RESULT: ALL TESTS PASSED\n";

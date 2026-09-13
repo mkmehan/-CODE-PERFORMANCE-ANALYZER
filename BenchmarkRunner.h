@@ -4,8 +4,21 @@
 #include "BenchmarkConfig.h"
 #include "analysis/BenchmarkRun.h"
 
+#include <functional>
 #include <string>
 #include <vector>
+
+using ProgressCallback = std::function<void(
+    int progress_percent,
+    const std::string& current_algorithm,
+    const std::string& current_input_case,
+    size_t current_size,
+    int current_iteration,
+    int total_iterations,
+    double elapsed_seconds
+)>;
+
+using CancellationCheck = std::function<bool()>;
 
 class BenchmarkRunner {
 private:
@@ -15,6 +28,8 @@ private:
     BenchmarkConfig benchmark_config;
     uint64_t overhead = 0;
     analysis::BenchmarkRun last_run_data;
+    ProgressCallback progress_callback;
+    CancellationCheck cancellation_check;
 
     void run_experiment(const std::vector<Benchmark>& selected_benchmarks);
 
@@ -32,6 +47,8 @@ public:
 
     void set_input_sizes(const std::vector<size_t>& sizes);
     void set_input_cases(const std::vector<InputDataCase>& input_cases);
+    void set_progress_callback(ProgressCallback cb);
+    void set_cancellation_check(CancellationCheck cb);
 
     const BenchmarkConfig& config() const;
     const std::vector<BenchmarkSummary>& results() const;
@@ -41,6 +58,7 @@ public:
 
     void run_all();
     bool run_selected(const std::string& key);
+    void run_selected_keys(const std::vector<std::string>& keys);
     void list_benchmarks() const;
 };
 

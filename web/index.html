@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Performance Analyzer V4</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Bundled offline Chart.js with CDN fallback -->
+  <script src="js/chart.min.js"></script>
+  <script>
+    if (typeof Chart === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+<div class="app-container">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h2>PerfAnalyzer</h2>
+        <span>VERSION 4.0</span>
+      </div>
+    </div>
+
+    <ul class="nav-links">
+      <li>
+        <a class="nav-item active" data-view="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Dashboard
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="benchmark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Run Benchmark
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="history">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          History
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="comparison">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Comparison
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="graphs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Graphs
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Reports
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Settings
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div><span class="status-dot"></span><span id="engine-status-text">Engine Ready</span></div>
+      <span>v4.0</span>
+    </div>
+  </aside>
+
+  <!-- ── Main Content Area ────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- 1. DASHBOARD VIEW -->
+    <section id="view-dashboard" class="view-section active">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Performance Overview</h1>
+          <p class="view-subtitle">High-level telemetry and comparative benchmarks</p>
+        </div>
+        <div>
+          <button id="btn-quick-report" class="btn btn-secondary">Open Latest HTML Report</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card success">
+          <div class="metric-label">Fastest Algorithm</div>
+          <div id="dash-fastest-name" class="metric-val">std::sort</div>
+          <div id="dash-fastest-sub" class="metric-sub">0.00 µs &bull; baseline</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Slowest Algorithm</div>
+          <div id="dash-slowest-name" class="metric-val">Bubble Sort</div>
+          <div id="dash-slowest-sub" class="metric-sub">0.00 µs</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Peak Memory Delta</div>
+          <div id="dash-peak-mem" class="metric-val">0.00 MB</div>
+          <div class="metric-sub">Private process increase</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Regression Status</div>
+          <div id="dash-regression-badge" class="metric-val"><span class="badge badge-success">✓ STABLE</span></div>
+          <div id="dash-regression-sub" class="metric-sub">Compared to baseline</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>📈 Execution Time vs Input Size (N)</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Mean Time (µs)</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="dashTimeChart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            <span>🧠 Peak Memory vs Input Size (N)</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">MB Footprint</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="dashMemoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>⚡ Algorithm Speedup Ranking</span>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Speedup vs Slowest</span>
+        </div>
+        <div class="chart-box" style="height: 240px;">
+          <canvas id="dashSpeedupChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. RUN BENCHMARK VIEW -->
+    <section id="view-benchmark" class="view-section">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Run Benchmark</h1>
+          <p class="view-subtitle">Configure dataset, algorithms, and execution parameters</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">1. Dataset Configuration</div>
+        <div class="form-group">
+          <label class="form-label">Input Source Type</label>
+          <select id="cfg-input-type" class="form-control">
+            <option value="Random">Generated: Random Distribution</option>
+            <option value="Sorted">Generated: Already Sorted</option>
+            <option value="ReverseSorted">Generated: Reverse Sorted</option>
+            <option value="NearlySorted">Generated: Nearly Sorted (95% ordered)</option>
+            <option value="ManyDuplicates">Generated: Many Duplicates (few distinct values)</option>
+            <option value="AllEqual">Generated: All Elements Equal</option>
+            <option value="CustomFile">Custom File Input (.txt file)</option>
+          </select>
+        </div>
+
+        <div id="cfg-file-group" class="form-group" style="display: none;">
+          <label class="form-label">Custom Dataset File Path</label>
+          <div style="display: flex; gap: 0.75rem;">
+            <input id="cfg-file-path" type="text" class="form-control" placeholder="e.g. sample_dataset.txt">
+            <button id="btn-validate-file" class="btn btn-secondary" style="flex-shrink: 0;">Validate File</button>
+          </div>
+          <div id="file-validation-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>2. Select Algorithms</span>
+          <div>
+            <button id="btn-select-all-alg" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Select All</button>
+            <button id="btn-clear-all-alg" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Clear All</button>
+          </div>
+        </div>
+        <div class="chips-grid" id="algorithm-chips">
+          <label class="chip-label"><input type="checkbox" value="quicksort" checked><span>Quick Sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="mergesort" checked><span>Merge Sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="heapsort" checked><span>Heap Sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="stdsort" checked><span>std::sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="stdsortstable" checked><span>std::stable_sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="insertionsort" checked><span>Insertion Sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="selectionsort" checked><span>Selection Sort</span></label>
+          <label class="chip-label"><input type="checkbox" value="bubblesort" checked><span>Bubble Sort</span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">3. Input Sizes (N) & Execution Parameters</div>
+        <div class="form-group">
+          <label class="form-label">Input Sizes (N)</label>
+          <div class="chips-grid" id="size-chips">
+            <label class="chip-label"><input type="checkbox" value="100" checked><span>100</span></label>
+            <label class="chip-label"><input type="checkbox" value="500" checked><span>500</span></label>
+            <label class="chip-label"><input type="checkbox" value="1000" checked><span>1,000</span></label>
+            <label class="chip-label"><input type="checkbox" value="5000"><span>5,000</span></label>
+            <label class="chip-label"><input type="checkbox" value="10000"><span>10,000</span></label>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Measurement Iterations</label>
+            <input id="cfg-iterations" type="number" class="form-control" value="20" min="1" max="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Warmup Runs</label>
+            <input id="cfg-warmup" type="number" class="form-control" value="5" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Memory Monitoring</label>
+            <select id="cfg-memory" class="form-control">
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center;">
+          <button id="btn-run-benchmark" class="btn btn-primary" style="padding: 0.85rem 2rem; font-size: 1rem;">
+            ▶ RUN BENCHMARK
+          </button>
+          <button id="btn-cancel-benchmark" class="btn btn-danger" style="display: none;">
+            Cancel Benchmark
+          </button>
+        </div>
+
+        <!-- Progress Box -->
+        <div id="benchmark-progress-box" class="progress-container">
+          <div class="progress-header">
+            <span id="prog-task-name" style="font-weight: 600; color: #fff;">Initializing benchmark suite...</span>
+            <span id="prog-pct" style="color: var(--accent); font-weight: 700;">0%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="prog-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+            <span id="prog-elapsed">Elapsed: 0.0s</span>
+            <span id="prog-current-detail">N = 0 &bull; Iteration 0/0</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. HISTORY VIEW -->
+    <section id="view-history" class="view-section">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Benchmark History</h1>
+          <p class="view-subtitle">Chronological archive of all benchmark runs</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Run ID</th>
+                <th>Date & Time</th>
+                <th>Input Type</th>
+                <th>Element Count (N)</th>
+                <th>Algorithms</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading history...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. COMPARISON VIEW -->
+    <section id="view-comparison" class="view-section">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Algorithm Comparison</h1>
+          <p class="view-subtitle">Head-to-head performance rankings and speedup ratios</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Select Benchmark Run</label>
+          <select id="comp-run-select" class="form-control" style="max-width: 400px;"></select>
+        </div>
+
+        <div class="table-responsive" style="margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Algorithm</th>
+                <th>Mean Time</th>
+                <th>Median Time</th>
+                <th>Speedup vs Slowest</th>
+                <th>Percentage Faster</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-table-body">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Select a run to view comparison</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. GRAPHS VIEW -->
+    <section id="view-graphs" class="view-section">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Visualization Workspace</h1>
+          <p class="view-subtitle">Interactive multi-algorithm scaling curves and memory profiles</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+          <div>
+            <label class="form-label">Metric</label>
+            <select id="graph-metric-select" class="form-control" style="width: 200px;">
+              <option value="time">Execution Time (µs)</option>
+              <option value="memory">Peak Memory Delta (MB)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Y-Scale</label>
+            <select id="graph-scale-select" class="form-control" style="width: 150px;">
+              <option value="linear">Linear Scale</option>
+              <option value="logarithmic">Logarithmic Scale</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Input Distribution Filter</label>
+            <select id="graph-dist-select" class="form-control" style="width: 220px;">
+              <option value="">All Distributions</option>
+              <option value="Random">Random</option>
+              <option value="Sorted">Sorted</option>
+              <option value="Reverse Sorted">Reverse Sorted</option>
+              <option value="Nearly Sorted">Nearly Sorted</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chart-box" style="height: 440px;">
+          <canvas id="workspaceChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. REPORTS VIEW -->
+    <section id="view-reports" class="view-section">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">HTML Reports</h1>
+          <p class="view-subtitle">Generated standalone executive performance reports</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Run ID</th>
+                <th>Timestamp</th>
+                <th>Target Dataset</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reports-table-body">
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Loading available reports...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. SETTINGS VIEW -->
+    <section id="view-settings" class="view-section">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Settings & Defaults</h1>
+          <p class="view-subtitle">Configuration parameters for the analysis engine</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="info-grid">
+          <div class="form-group">
+            <label class="form-label">Default Warmup Iterations</label>
+            <input type="number" class="form-control" value="20" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Default Benchmark Iterations</label>
+            <input type="number" class="form-control" value="100" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">History Directory</label>
+            <input type="text" class="form-control" value="results/history" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reports Directory</label>
+            <input type="text" class="form-control" value="results/reports" disabled>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
+

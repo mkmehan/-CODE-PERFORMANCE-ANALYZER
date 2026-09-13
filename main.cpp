@@ -5,6 +5,7 @@
 #include "analysis/RegressionAnalyzer.h"
 #include "analysis/TrendAnalyzer.h"
 #include "reporting/HtmlReportGenerator.h"
+#include "server/DashboardServer.h"
 #include "benchmarks/RegisterBenchmarks.h"
 
 #include <algorithm>
@@ -151,6 +152,7 @@ void print_usage(const BenchmarkRunner& runner) {
         << "  --trend [dist]        Time vs Input Size table from history (dist: random,sorted,...)\n"
         << "  --trend-memory [dist] Peak Memory vs Input Size table from history\n"
         << "  --report [run_id]     Generate and open interactive HTML report with Chart.js graphs\n"
+        << "  --gui                 Start local Web Dashboard server & open browser\n"
         << "  --help                Show this help\n\n";
     runner.list_benchmarks();
 }
@@ -162,6 +164,33 @@ int main(int argc, char* argv[]) {
 SetConsoleOutputCP(CP_UTF8);
 SetConsoleCP(CP_UTF8);
 #endif
+
+    // If invoked with no arguments or explicitly with --gui, start the Web Dashboard server:
+    if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--gui")) {
+        server::DashboardServer srv(8080, "web");
+        if (!srv.start()) {
+            std::cerr << "Error: Failed to start Dashboard server on port 8080 or 8081.\n";
+            return 1;
+        }
+
+        std::cout << "\n";
+        std::cout << "╔══════════════════════════════════════════════════════════════════════╗\n";
+        std::cout << "║               CODE PERFORMANCE ANALYZER V4 DASHBOARD                 ║\n";
+        std::cout << "╠══════════════════════════════════════════════════════════════════════╣\n";
+        std::cout << "║  Server URL        : " << srv.url() << "                           ║\n";
+        std::cout << "║  Web Assets Root   : web/                                            ║\n";
+        std::cout << "║  Browser Launch    : Opening in your default web browser...          ║\n";
+        std::cout << "║  Press Ctrl+C in terminal to stop dashboard server.                  ║\n";
+        std::cout << "╚══════════════════════════════════════════════════════════════════════╝\n\n";
+
+#ifdef _WIN32
+        ShellExecuteA(NULL, "open", srv.url().c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
+
+        srv.wait();
+        return 0;
+    }
+
     BenchmarkConfig config;
     std::string selected_benchmark;
     std::string file_path;

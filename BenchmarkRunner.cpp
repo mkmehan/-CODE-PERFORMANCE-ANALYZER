@@ -759,9 +759,13 @@ BenchmarkSummary run_single_benchmark(
     InputDataCase input_case,
     const BenchmarkConfig& config,
     uint64_t overhead,
-    std::vector<BenchmarkMeasurement>& measurements
+    std::vector<BenchmarkMeasurement>& measurements,
+    const CancellationCheck& cancel_check = nullptr
 ) {
     for (int run = 0; run < config.warmup_runs; ++run) {
+        if (cancel_check && cancel_check()) {
+            throw std::runtime_error("Benchmark cancelled by user.");
+        }
         run_benchmark(
             benchmark.setup, benchmark.function, input_size, input_case,
             sample_seed(config.random_seed, input_size, input_case, static_cast<size_t>(run), true),
@@ -775,6 +779,9 @@ BenchmarkSummary run_single_benchmark(
     const bool verification_performed = static_cast<bool>(benchmark.verify);
     bool verified = true;
     for (int run = 0; run < config.iterations; ++run) {
+        if (cancel_check && cancel_check()) {
+            throw std::runtime_error("Benchmark cancelled by user.");
+        }
         const BenchmarkResult result = run_benchmark(
             benchmark.setup, benchmark.function, input_size, input_case,
             sample_seed(config.random_seed, input_size, input_case, static_cast<size_t>(run), false),
@@ -871,6 +878,14 @@ void BenchmarkRunner::set_input_sizes(const std::vector<size_t>& sizes) {
 
 void BenchmarkRunner::set_input_cases(const std::vector<InputDataCase>& input_cases) {
     benchmark_config.input_cases = input_cases;
+}
+
+void BenchmarkRunner::set_progress_callback(ProgressCallback cb) {
+    progress_callback = std::move(cb);
+}
+
+void BenchmarkRunner::set_cancellation_check(CancellationCheck cb) {
+    cancellation_check = std::move(cb);
 }
 
 const BenchmarkConfig& BenchmarkRunner::config() const {
@@ -982,14 +997,50 @@ void BenchmarkRunner::run_experiment(const std::vector<Benchmark>& selected_benc
         std::cout << "RDTSC timer overhead : " << overhead << " cycles\n\n";
     }
 
+    const size_t total_benchmarks = benchmark_config.input_cases.size() *
+                                   benchmark_config.input_sizes.size() *
+                                   selected_benchmarks.size();
+    size_t completed_benchmarks = 0;
+
     for (InputDataCase input_case : benchmark_config.input_cases) {
         for (size_t input_size : benchmark_config.input_sizes) {
             for (const Benchmark& benchmark : selected_benchmarks) {
+                if (cancellation_check && cancellation_check()) {
+                    throw std::runtime_error("Benchmark cancelled by user.");
+                }
+
+                if (progress_callback) {
+                    const double elapsed = std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - started
+                    ).count();
+                    const int pct = total_benchmarks > 0
+                        ? static_cast<int>((completed_benchmarks * 100) / total_benchmarks)
+                        : 0;
+                    progress_callback(
+                        pct,
+                        benchmark.name,
+                        input_data_case_name(input_case),
+                        input_size,
+                        0,
+                        benchmark_config.iterations,
+                        elapsed
+                    );
+                }
+
                 summaries.push_back(run_single_benchmark(
-                    benchmark, input_size, input_case, benchmark_config, overhead, measurements
+                    benchmark, input_size, input_case, benchmark_config, overhead, measurements,
+                    cancellation_check
                 ));
+                ++completed_benchmarks;
             }
         }
+    }
+
+    if (progress_callback) {
+        const double elapsed = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - started
+        ).count();
+        progress_callback(100, "Completed", "", 0, 0, 0, elapsed);
     }
 
     print_summary_table(summaries, selected_benchmarks, benchmark_config);
@@ -1052,6 +1103,22 @@ bool BenchmarkRunner::run_selected(const std::string& key) {
         }
     }
     return false;
+}
+
+void BenchmarkRunner::run_selected_keys(const std::vector<std::string>& keys) {
+    std::vector<Benchmark> selected;
+    for (const auto& k : keys) {
+        for (const auto& b : benchmarks) {
+            if (b.key == k) {
+                selected.push_back(b);
+                break;
+            }
+        }
+    }
+    if (selected.empty()) {
+        selected = benchmarks;
+    }
+    run_experiment(selected);
 }
 
 void BenchmarkRunner::list_benchmarks() const {
