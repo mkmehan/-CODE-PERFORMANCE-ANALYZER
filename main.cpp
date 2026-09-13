@@ -4,6 +4,7 @@
 #include "analysis/ComparisonAnalyzer.h"
 #include "analysis/RegressionAnalyzer.h"
 #include "analysis/TrendAnalyzer.h"
+#include "reporting/HtmlReportGenerator.h"
 #include "benchmarks/RegisterBenchmarks.h"
 
 #include <algorithm>
@@ -149,6 +150,7 @@ void print_usage(const BenchmarkRunner& runner) {
         << "  --regression [run_id] Compare latest run against baseline (or previous compatible run)\n"
         << "  --trend [dist]        Time vs Input Size table from history (dist: random,sorted,...)\n"
         << "  --trend-memory [dist] Peak Memory vs Input Size table from history\n"
+        << "  --report [run_id]     Generate and open interactive HTML report with Chart.js graphs\n"
         << "  --help                Show this help\n\n";
     runner.list_benchmarks();
 }
@@ -165,6 +167,7 @@ SetConsoleCP(CP_UTF8);
     std::string file_path;
     bool all_selected = false;
     bool quick_mode = false;
+    bool generate_html_report = false;
 
     bool sizes_explicit = false;
     bool cases_explicit = false;
@@ -413,6 +416,55 @@ SetConsoleCP(CP_UTF8);
             }
         }
 
+        if (argument == "--report") {
+            // Case 1: Standalone with target run ID
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                const std::string target_id = argv[++i];
+                analysis::HistoryManager history;
+                const auto res = history.load_run(target_id);
+                if (!res.success) {
+                    std::cerr << "Error: " << res.error_message << "\n";
+                    return 1;
+                }
+                std::vector<analysis::BenchmarkRun> all_runs;
+                for (const auto& m : history.list_runs()) {
+                    auto r = history.load_run(m.run_id);
+                    if (r.success) all_runs.push_back(r.run);
+                }
+                reporting::ReportOptions r_opts;
+                r_opts.auto_open_in_browser = true;
+                std::string path = reporting::HtmlReportGenerator::generate_from_run(res.run, all_runs, r_opts);
+                std::cout << "\nHTML report generated: " << path << "\n";
+                std::cout << "Opened report in default web browser.\n\n";
+                return 0;
+            }
+
+            // Case 2: Standalone without argument (e.g. `analyzer.exe --report`)
+            if (argc == 2) {
+                analysis::HistoryManager history;
+                auto latest = history.get_latest_run();
+                if (!latest.has_value()) {
+                    std::cerr << "Error: No benchmark history found. Run a benchmark first.\n";
+                    return 1;
+                }
+                std::vector<analysis::BenchmarkRun> all_runs;
+                for (const auto& m : history.list_runs()) {
+                    auto r = history.load_run(m.run_id);
+                    if (r.success) all_runs.push_back(r.run);
+                }
+                reporting::ReportOptions r_opts;
+                r_opts.auto_open_in_browser = true;
+                std::string path = reporting::HtmlReportGenerator::generate_from_run(*latest, all_runs, r_opts);
+                std::cout << "\nHTML report generated: " << path << "\n";
+                std::cout << "Opened report in default web browser.\n\n";
+                return 0;
+            }
+
+            // Case 3: Flag combined with benchmark run (`analyzer.exe --all --report`)
+            generate_html_report = true;
+            continue;
+        }
+
         if (argument.size() > 2 && argument.rfind("--", 0) == 0) {
             if (all_selected || quick_mode || !selected_benchmark.empty()) {
                 std::cerr << "Error: multiple benchmark selections were specified.\n";
@@ -476,12 +528,27 @@ SetConsoleCP(CP_UTF8);
                 runner.list_benchmarks();
                 return 1;
             }
-            return 0;
+        } else {
+            // --all, --quick, and no explicit selection all run the full suite.
+            (void)all_selected;
+            runner.run_all();
         }
 
-        // --all, --quick, and no explicit selection all run the full suite.
-        (void)all_selected;
-        runner.run_all();
+        if (generate_html_report) {
+            analysis::HistoryManager history;
+            std::vector<analysis::BenchmarkRun> all_runs;
+            for (const auto& m : history.list_runs()) {
+                auto r = history.load_run(m.run_id);
+                if (r.success) all_runs.push_back(r.run);
+            }
+            reporting::ReportOptions r_opts;
+            r_opts.auto_open_in_browser = true;
+            std::string r_path = reporting::HtmlReportGenerator::generate_from_run(
+                runner.last_analysis_run(), all_runs, r_opts
+            );
+            std::cout << "\nHTML report         : " << r_path << "\n";
+            std::cout << "Opened report in default web browser.\n\n";
+        }
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "Benchmark error: " << error.what() << '\n';

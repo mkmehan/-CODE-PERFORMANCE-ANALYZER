@@ -12,6 +12,7 @@
 #include "../analysis/ComparisonAnalyzer.h"
 #include "../analysis/RegressionAnalyzer.h"
 #include "../analysis/TrendAnalyzer.h"
+#include "../reporting/HtmlReportGenerator.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -920,6 +921,125 @@ void run_trend_analyzer_tests() {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HTML REPORT GENERATOR TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+void run_html_report_tests() {
+    std::cout << "\n[HTML REPORT GENERATOR TESTS]\n";
+
+    const std::string test_dir = "tests/temp_reports";
+    std::filesystem::create_directories(test_dir);
+
+    // ── Test 1: Basic Report Generation ──────────────────────────────────────
+    {
+        analysis::BenchmarkRun run;
+        run.run_id = "RUN-TEST-001";
+        run.timestamp = "2026-09-13_14-00-00";
+        run.system.os = "Windows 11 Test OS";
+        run.system.cpu = "Test AMD Processor";
+        run.system.compiler = "GCC 14.2.0";
+        run.system.cxx_standard = "C++17";
+        run.system.optimization = "-O2";
+        run.input.type = "generated";
+        run.input.element_count = 1000;
+        run.input.order_description = "Random";
+
+        analysis::BenchmarkRecord r1;
+        r1.algorithm = "qs";
+        r1.algorithm_name = "Quick Sort";
+        r1.input_type = "Random";
+        r1.input_size = 1000;
+        r1.time_mean_ns = 50000.0;
+        r1.time_median_ns = 48000.0;
+        r1.memory_peak_increase_bytes = 1024 * 1024;
+        r1.verified = true;
+
+        analysis::BenchmarkRecord r2;
+        r2.algorithm = "ms";
+        r2.algorithm_name = "Merge Sort";
+        r2.input_type = "Random";
+        r2.input_size = 1000;
+        r2.time_mean_ns = 60000.0;
+        r2.time_median_ns = 59000.0;
+        r2.memory_peak_increase_bytes = 2 * 1024 * 1024;
+        r2.verified = true;
+
+        run.results = {r1, r2};
+
+        reporting::ReportOptions opts;
+        opts.output_directory = test_dir;
+        opts.auto_open_in_browser = false;
+        opts.include_offline_assets = true;
+
+        std::string report_file = reporting::HtmlReportGenerator::generate_from_run(run, {}, opts);
+        expect(!report_file.empty(), "Report file path returned is non-empty");
+        expect(std::filesystem::exists(report_file), "Report HTML file was created on disk");
+
+        // Inspect file contents
+        std::ifstream in(report_file);
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        std::string content = buffer.str();
+
+        expect(content.size() > 1000, "Report HTML content size > 1000 bytes");
+        expect(content.find("<!DOCTYPE html>") != std::string::npos, "Valid HTML5 doctype present");
+        expect(content.find("RUN-TEST-001") != std::string::npos, "Run ID correctly embedded in report");
+        expect(content.find("Quick Sort") != std::string::npos, "Algorithm name present in report");
+        expect(content.find("Merge Sort") != std::string::npos, "Algorithm 2 name present in report");
+        expect(content.find("id=\"timeChart\"") != std::string::npos, "Time vs N canvas present");
+        expect(content.find("id=\"memoryChart\"") != std::string::npos, "Memory vs N canvas present");
+        expect(content.find("id=\"speedupChart\"") != std::string::npos, "Speedup comparison canvas present");
+        expect(content.find("new Chart(timeCtx") != std::string::npos, "Chart.js initialization script embedded");
+        expect(content.find("Test AMD Processor") != std::string::npos, "System CPU info embedded");
+    }
+
+    // ── Test 2: Report with Regression Diagnostics ────────────────────────────
+    {
+        analysis::BenchmarkRun run_curr;
+        run_curr.run_id = "RUN-CURR";
+        run_curr.timestamp = "2026-09-13_14-10-00";
+        run_curr.input.type = "generated";
+        run_curr.input.element_count = 500;
+
+        analysis::BenchmarkRun run_base;
+        run_base.run_id = "RUN-BASE";
+        run_base.timestamp = "2026-09-13_14-05-00";
+        run_base.input.type = "generated";
+        run_base.input.element_count = 500;
+
+        analysis::BenchmarkRecord rec_c, rec_b;
+        rec_c.algorithm = "qs"; rec_c.algorithm_name = "Quick Sort";
+        rec_c.input_type = "Random"; rec_c.input_size = 500; rec_c.time_mean_ns = 8000.0;
+        rec_b.algorithm = "qs"; rec_b.algorithm_name = "Quick Sort";
+        rec_b.input_type = "Random"; rec_b.input_size = 500; rec_b.time_mean_ns = 10000.0;
+
+        run_curr.results = {rec_c};
+        run_base.results = {rec_b};
+
+        reporting::ReportOptions opts;
+        opts.output_directory = test_dir;
+        opts.auto_open_in_browser = false;
+
+        std::string report_file = reporting::HtmlReportGenerator::generate_from_run(run_curr, {run_base}, opts);
+        expect(std::filesystem::exists(report_file), "Regression report file created");
+
+        std::ifstream in(report_file);
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        std::string content = buffer.str();
+
+        expect(content.find("Run-to-Run Regression Diagnostics") != std::string::npos, "Regression section present");
+        expect(content.find("RUN-BASE") != std::string::npos, "Baseline run ID embedded in regression section");
+        expect(content.find("IMPROVED ✓") != std::string::npos, "Improvement status badge present in HTML");
+    }
+
+    // Clean up temporary test files
+    try {
+        std::filesystem::remove_all(test_dir);
+    } catch (...) {}
+}
+
 int main() {
     std::cout << "========================================\n";
     std::cout << "CODE PERFORMANCE ANALYZER TEST SUITE\n";
@@ -937,6 +1057,7 @@ int main() {
     run_comparison_tests();
     run_regression_tests();
     run_trend_analyzer_tests();
+    run_html_report_tests();
     std::cout << "\n========================================\n";
     if (failures == 0) {
         std::cout << "RESULT: ALL TESTS PASSED\n";
