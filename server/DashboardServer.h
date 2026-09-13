@@ -88,6 +88,7 @@ private:
     std::string handle_regression(const std::string& query_id);
     std::string handle_trend(const std::string& metric, const std::string& distribution);
     std::string handle_validate_file(const std::string& body);
+    std::string handle_upload_dataset(const std::string& body);
     std::string handle_benchmark(const std::string& body);
     std::string handle_cancel();
     std::string handle_report(const std::string& query_id);

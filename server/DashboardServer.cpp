@@ -62,6 +62,44 @@ std::string escape_json_str(const std::string& input) {
     return ss.str();
 }
 
+std::string unescape_json_str(const std::string& input) {
+    std::string output;
+    output.reserve(input.size());
+    for (size_t i = 0; i < input.size(); ++i) {
+        if (input[i] == '\\' && i + 1 < input.size()) {
+            char next = input[++i];
+            switch (next) {
+                case '"':  output += '"'; break;
+                case '\\': output += '\\'; break;
+                case '/':  output += '/'; break;
+                case 'b':  output += '\b'; break;
+                case 'f':  output += '\f'; break;
+                case 'n':  output += '\n'; break;
+                case 'r':  output += '\r'; break;
+                case 't':  output += '\t'; break;
+                default:   output += next; break;
+            }
+        } else {
+            output += input[i];
+        }
+    }
+    return output;
+}
+
+size_t find_closing_quote(const std::string& json, size_t start_quote) {
+    bool escaped = false;
+    for (size_t i = start_quote + 1; i < json.size(); ++i) {
+        if (escaped) {
+            escaped = false;
+        } else if (json[i] == '\\') {
+            escaped = true;
+        } else if (json[i] == '"') {
+            return i;
+        }
+    }
+    return std::string::npos;
+}
+
 std::string extract_json_string(const std::string& json, const std::string& key, const std::string& def = "") {
     std::string pattern = "\"" + key + "\"";
     size_t k_pos = json.find(pattern);
@@ -70,10 +108,26 @@ std::string extract_json_string(const std::string& json, const std::string& key,
     if (colon_pos == std::string::npos) return def;
     size_t q1 = json.find('"', colon_pos);
     if (q1 == std::string::npos) return def;
-    size_t q2 = json.find('"', q1 + 1);
+    size_t q2 = find_closing_quote(json, q1);
     if (q2 == std::string::npos) return def;
-    return json.substr(q1 + 1, q2 - q1 - 1);
+    return unescape_json_str(json.substr(q1 + 1, q2 - q1 - 1));
 }
+
+std::string sanitize_filename(const std::string& raw) {
+    std::string clean;
+    for (char c : raw) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+            clean += '_';
+        } else {
+            clean += c;
+        }
+    }
+    if (clean.empty() || clean == "." || clean == "..") {
+        clean = "custom_dataset.txt";
+    }
+    return clean;
+}
+
 
 int extract_json_int(const std::string& json, const std::string& key, int def = 0) {
     std::string pattern = "\"" + key + "\"";
@@ -432,6 +486,23 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
         body = request_str.substr(body_pos + 4);
     }
 
+    size_t cl_pos = request_str.find("Content-Length:");
+    if (cl_pos == std::string::npos) cl_pos = request_str.find("content-length:");
+    if (cl_pos != std::string::npos) {
+        size_t end_line = request_str.find("\r\n", cl_pos);
+        if (end_line != std::string::npos) {
+            std::string cl_str = request_str.substr(cl_pos + 15, end_line - (cl_pos + 15));
+            try {
+                size_t content_length = std::stoull(cl_str);
+                while (body.size() < content_length) {
+                    int more = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
+                    if (more <= 0) break;
+                    body.append(buffer, static_cast<size_t>(more));
+                }
+            } catch (...) {}
+        }
+    }
+
     if (method == "GET" && path == "/api/status") {
         send_response(sock_ptr, 200, "application/json", handle_status());
     } else if (method == "GET" && path == "/api/history") {
@@ -448,6 +519,8 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
         send_response(sock_ptr, 200, "application/json", handle_trend(metric, dist));
     } else if (method == "POST" && path == "/api/validate-file") {
         send_response(sock_ptr, 200, "application/json", handle_validate_file(body));
+    } else if (method == "POST" && path == "/api/upload-dataset") {
+        send_response(sock_ptr, 200, "application/json", handle_upload_dataset(body));
     } else if (method == "POST" && path == "/api/benchmark") {
         send_response(sock_ptr, 200, "application/json", handle_benchmark(body));
     } else if (method == "POST" && path == "/api/benchmark/cancel") {
@@ -615,24 +688,56 @@ std::string DashboardServer::handle_trend(const std::string& metric, const std::
 }
 
 std::string DashboardServer::handle_validate_file(const std::string& body) {
-    std::string key = "\"file_path\"";
-    size_t k_pos = body.find(key);
-    if (k_pos == std::string::npos) {
-        return "{\"valid\": false, \"error\": \"Missing file_path in request\"}";
+    std::string file_path = extract_json_string(body, "file_path", "");
+    if (file_path.empty()) {
+        return "{\"valid\": false, \"error_message\": \"Missing or empty file_path in request\"}";
     }
-    size_t colon_pos = body.find(':', k_pos);
-    size_t quote_start = body.find('"', colon_pos);
-    size_t quote_end = (quote_start != std::string::npos) ? body.find('"', quote_start + 1) : std::string::npos;
-    if (quote_start == std::string::npos || quote_end == std::string::npos) {
-        return "{\"valid\": false, \"error\": \"Invalid file_path formatting\"}";
-    }
-    std::string file_path = body.substr(quote_start + 1, quote_end - quote_start - 1);
 
     const ValidationResult val = FileInputLoader::load_and_validate(file_path);
     std::ostringstream ss;
     ss << "{\n"
        << "  \"valid\": " << (val.valid ? "true" : "false") << ",\n"
        << "  \"file_path\": \"" << escape_json_str(file_path) << "\",\n"
+       << "  \"error_message\": \"" << escape_json_str(val.error_message) << "\",\n"
+       << "  \"element_count\": " << val.info.element_count << ",\n"
+       << "  \"distinct_count\": " << val.info.distinct_count << ",\n"
+       << "  \"duplicate_count\": " << val.info.duplicate_count << ",\n"
+       << "  \"min_value\": " << val.info.min_value << ",\n"
+       << "  \"max_value\": " << val.info.max_value << ",\n"
+       << "  \"order\": \"" << (val.info.is_all_equal ? "All Equal" :
+                                val.info.is_sorted ? "Sorted" :
+                                val.info.is_reverse_sorted ? "Reverse Sorted" : "Unsorted") << "\"\n"
+       << "}";
+    return ss.str();
+}
+
+std::string DashboardServer::handle_upload_dataset(const std::string& body) {
+    std::string filename_raw = extract_json_string(body, "filename", "uploaded_dataset.txt");
+    std::string content = extract_json_string(body, "content", "");
+
+    if (content.empty()) {
+        return "{\"valid\": false, \"error_message\": \"Uploaded file content is empty\"}";
+    }
+
+    std::string sanitized = sanitize_filename(filename_raw);
+    std::string dir = "datasets";
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+
+    std::string file_path = dir + "/" + sanitized;
+    std::ofstream out(file_path, std::ios::binary | std::ios::trunc);
+    if (!out.is_open()) {
+        return "{\"valid\": false, \"error_message\": \"Failed to save dataset file to server\"}";
+    }
+    out << content;
+    out.close();
+
+    const ValidationResult val = FileInputLoader::load_and_validate(file_path);
+    std::ostringstream ss;
+    ss << "{\n"
+       << "  \"valid\": " << (val.valid ? "true" : "false") << ",\n"
+       << "  \"file_path\": \"" << escape_json_str(file_path) << "\",\n"
+       << "  \"filename\": \"" << escape_json_str(sanitized) << "\",\n"
        << "  \"error_message\": \"" << escape_json_str(val.error_message) << "\",\n"
        << "  \"element_count\": " << val.info.element_count << ",\n"
        << "  \"distinct_count\": " << val.info.distinct_count << ",\n"
@@ -661,11 +766,13 @@ std::string DashboardServer::handle_benchmark(const std::string& body) {
     int iterations = extract_json_int(body, "iterations", 20);
     int warmup = extract_json_int(body, "warmup", 5);
     bool memory = extract_json_bool(body, "memory", true);
+    int cpu_affinity = extract_json_int(body, "cpu_affinity", -1);
 
     BenchmarkConfig config;
     config.iterations = (iterations > 0 && iterations <= 1000) ? iterations : 20;
     config.warmup_runs = (warmup >= 0 && warmup <= 100) ? warmup : 5;
     config.measure_memory = memory;
+    config.cpu_affinity = cpu_affinity;
 
     if (input_type == "CustomFile") {
         if (file_path.empty()) {

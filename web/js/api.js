@@ -81,6 +81,20 @@ const API = {
     }
   },
 
+  async uploadDataset(filename, content) {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/upload-dataset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API.uploadDataset error:', err);
+      return { valid: false, error_message: err.message };
+    }
+  },
+
   async startBenchmark(config) {
     try {
       const res = await fetch(`${this.baseUrl}/api/benchmark`, {

@@ -214,6 +214,17 @@ const App = {
       const opt = sys.optimization || 'Enabled (-O2)';
       cxxEl.textContent = `${cxx} • ${opt}`;
     }
+
+    // Populate CPU Core Control dropdown if not already populated
+    const affinitySelect = document.getElementById('cfg-affinity');
+    if (affinitySelect && sys.logical_cpus && affinitySelect.options.length <= 1) {
+      for (let i = 0; i < sys.logical_cpus; ++i) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `Core ${i} (Pinned)`;
+        affinitySelect.appendChild(opt);
+      }
+    }
   },
 
   // ── 2. Run Benchmark Form ──────────────────────────────────────────────────
@@ -223,39 +234,150 @@ const App = {
     const btnValidate = document.getElementById('btn-validate-file');
     const filePathInput = document.getElementById('cfg-file-path');
     const validationMsg = document.getElementById('file-validation-msg');
+    const validationDetails = document.getElementById('file-validation-details');
+    const modeBadge = document.getElementById('cfg-mode-badge');
+    const sizesContainer = document.getElementById('cfg-sizes-container');
+    const customSizeNotice = document.getElementById('cfg-custom-size-notice');
+    const customSizeText = document.getElementById('cfg-custom-size-text');
+
+    const btnBrowse = document.getElementById('btn-browse-file');
+    const filePicker = document.getElementById('custom-file-picker');
+    const btnSample = document.getElementById('btn-load-sample');
+
+    const displayValidation = (res) => {
+      if (!validationDetails) return;
+      if (res.valid) {
+        validationDetails.style.display = 'block';
+        validationDetails.style.background = 'rgba(16, 185, 129, 0.08)';
+        validationDetails.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        const badge = document.getElementById('file-val-badge');
+        if (badge) {
+          badge.className = 'badge badge-success';
+          badge.textContent = '✓ VALID DATASET';
+        }
+        const valPath = document.getElementById('file-val-path');
+        if (valPath) valPath.textContent = res.file_path || '';
+        const countEl = document.getElementById('file-val-count');
+        if (countEl) countEl.textContent = (res.element_count || 0).toLocaleString();
+        const orderEl = document.getElementById('file-val-order');
+        if (orderEl) orderEl.textContent = res.order || 'Unsorted';
+        const distEl = document.getElementById('file-val-distinct');
+        if (distEl) distEl.textContent = (res.distinct_count || 0).toLocaleString();
+        const dupEl = document.getElementById('file-val-duplicates');
+        if (dupEl) dupEl.textContent = (res.duplicate_count || 0).toLocaleString();
+        const minEl = document.getElementById('file-val-min');
+        if (minEl) minEl.textContent = res.min_value !== undefined ? res.min_value.toLocaleString() : '—';
+        const maxEl = document.getElementById('file-val-max');
+        if (maxEl) maxEl.textContent = res.max_value !== undefined ? res.max_value.toLocaleString() : '—';
+
+        if (validationMsg) validationMsg.textContent = '';
+        if (customSizeText) {
+          customSizeText.textContent = `Input size is fixed to ${res.element_count.toLocaleString()} elements from ${res.file_path}.`;
+        }
+      } else {
+        validationDetails.style.display = 'none';
+        if (validationMsg) {
+          validationMsg.style.color = '#f43f5e';
+          validationMsg.textContent = `✗ Error: ${res.error_message || 'File could not be validated'}`;
+        }
+      }
+    };
+
+    const validatePath = async (path) => {
+      if (!path) {
+        if (validationMsg) {
+          validationMsg.style.color = '#f43f5e';
+          validationMsg.textContent = 'Please enter a valid file path.';
+        }
+        if (validationDetails) validationDetails.style.display = 'none';
+        return;
+      }
+      if (btnValidate) {
+        btnValidate.disabled = true;
+        btnValidate.textContent = 'Checking...';
+      }
+      const res = await API.validateFile(path);
+      if (btnValidate) {
+        btnValidate.disabled = false;
+        btnValidate.textContent = 'Validate File';
+      }
+      displayValidation(res);
+    };
 
     if (inputTypeSelect) {
       inputTypeSelect.addEventListener('change', () => {
         if (inputTypeSelect.value === 'CustomFile') {
-          fileGroup.style.display = 'block';
+          if (fileGroup) fileGroup.style.display = 'block';
+          if (modeBadge) modeBadge.textContent = 'Custom File';
+          if (sizesContainer) sizesContainer.style.display = 'none';
+          if (customSizeNotice) customSizeNotice.style.display = 'block';
+          if (filePathInput && filePathInput.value.trim()) {
+            validatePath(filePathInput.value.trim());
+          }
         } else {
-          fileGroup.style.display = 'none';
-          validationMsg.textContent = '';
+          if (fileGroup) fileGroup.style.display = 'none';
+          if (modeBadge) modeBadge.textContent = 'Generated Distribution';
+          if (sizesContainer) sizesContainer.style.display = 'block';
+          if (customSizeNotice) customSizeNotice.style.display = 'none';
+          if (validationMsg) validationMsg.textContent = '';
+          if (validationDetails) validationDetails.style.display = 'none';
         }
+      });
+    }
+
+    if (btnBrowse && filePicker) {
+      btnBrowse.addEventListener('click', () => {
+        filePicker.click();
+      });
+
+      filePicker.addEventListener('change', async () => {
+        const file = filePicker.files[0];
+        if (!file) return;
+
+        btnBrowse.disabled = true;
+        btnBrowse.textContent = 'Uploading...';
+
+        try {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target.result;
+            const res = await API.uploadDataset(file.name, content);
+            btnBrowse.disabled = false;
+            btnBrowse.textContent = '📁 Browse & Upload';
+
+            if (res && res.valid) {
+              if (filePathInput) filePathInput.value = res.file_path;
+              displayValidation(res);
+            } else {
+              if (validationMsg) {
+                validationMsg.style.color = '#f43f5e';
+                validationMsg.textContent = `✗ Upload failed: ${res.error_message || 'Unknown error'}`;
+              }
+              if (validationDetails) validationDetails.style.display = 'none';
+            }
+          };
+          reader.readAsText(file);
+        } catch (err) {
+          btnBrowse.disabled = false;
+          btnBrowse.textContent = '📁 Browse & Upload';
+          if (validationMsg) {
+            validationMsg.style.color = '#f43f5e';
+            validationMsg.textContent = `✗ Read error: ${err.message}`;
+          }
+        }
+      });
+    }
+
+    if (btnSample && filePathInput) {
+      btnSample.addEventListener('click', async () => {
+        filePathInput.value = 'sample_dataset.txt';
+        await validatePath('sample_dataset.txt');
       });
     }
 
     if (btnValidate && filePathInput) {
       btnValidate.addEventListener('click', async () => {
-        const path = filePathInput.value.trim();
-        if (!path) {
-          validationMsg.style.color = '#f43f5e';
-          validationMsg.textContent = 'Please enter a valid file path.';
-          return;
-        }
-        btnValidate.disabled = true;
-        btnValidate.textContent = 'Checking...';
-        const res = await API.validateFile(path);
-        btnValidate.disabled = false;
-        btnValidate.textContent = 'Validate File';
-
-        if (res.valid) {
-          validationMsg.style.color = '#10b981';
-          validationMsg.textContent = `✓ Valid dataset: ${res.element_count.toLocaleString()} elements, ${res.order}, min: ${res.min_value}, max: ${res.max_value}`;
-        } else {
-          validationMsg.style.color = '#f43f5e';
-          validationMsg.textContent = `✗ Error: ${res.error_message || 'File could not be parsed'}`;
-        }
+        await validatePath(filePathInput.value.trim());
       });
     }
 
@@ -309,6 +431,8 @@ const App = {
         const iterations = parseInt(document.getElementById('cfg-iterations').value, 10) || 20;
         const warmup = parseInt(document.getElementById('cfg-warmup').value, 10) || 5;
         const memory = document.getElementById('cfg-memory').value === 'true';
+        const affinityEl = document.getElementById('cfg-affinity');
+        const cpuAffinity = affinityEl ? parseInt(affinityEl.value, 10) : -1;
 
         const payload = {
           input_type: inputType,
@@ -317,7 +441,8 @@ const App = {
           sizes: sizes,
           iterations: iterations,
           warmup: warmup,
-          memory: memory
+          memory: memory,
+          cpu_affinity: isNaN(cpuAffinity) ? -1 : cpuAffinity
         };
 
         btnRun.disabled = true;
