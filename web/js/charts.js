@@ -22,7 +22,7 @@ const Charts = {
   instances: {},
 
   getColor(index, alpha = 1.0) {
-    const hex = this.palette[index % this.palette.size ? index % this.palette.length : 0];
+    const hex = this.palette[index % this.palette.length];
     if (alpha >= 0.99) return hex;
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -62,7 +62,12 @@ const Charts = {
         tension: 0.25,
         pointRadius: 4,
         pointHoverRadius: 6,
-        data: xLabels.map(x => (pointMap[x] !== undefined ? pointMap[x] : null))
+        data: xLabels.map(x => {
+          const val = pointMap[x];
+          if (val === undefined || val === null) return null;
+          if (yLogScale && val <= 0) return null;
+          return val;
+        })
       };
     });
 
@@ -83,6 +88,7 @@ const Charts = {
           },
           y: {
             type: yLogScale ? 'logarithmic' : 'linear',
+            min: yLogScale ? 0.1 : undefined,
             title: { display: true, text: chartData.y_label || `Value (${unit})`, color: '#9ca3af' },
             ...this.darkTheme
           }

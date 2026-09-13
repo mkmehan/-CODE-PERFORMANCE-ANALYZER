@@ -1105,12 +1105,37 @@ bool BenchmarkRunner::run_selected(const std::string& key) {
     return false;
 }
 
+namespace {
+std::string norm_algorithm_key(const std::string& raw) {
+    std::string s;
+    for (char c : raw) {
+        if (c != '-' && c != '_' && c != ' ' && c != ':') {
+            s.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+    }
+    if (s == "quicksort" || s == "quick") return "quicksort";
+    if (s == "mergesort" || s == "merge") return "merge";
+    if (s == "heapsort" || s == "heap") return "heap";
+    if (s == "stdsort" || s == "std" || s == "stdsortdefault") return "std-sort";
+    if (s == "stdsortstable" || s == "stdstablesort" || s == "stablesort" || s == "stable") return "std-stable-sort";
+    if (s == "insertionsort" || s == "insertion") return "insertion";
+    if (s == "selectionsort" || s == "selection") return "selection";
+    if (s == "bubblesort" || s == "bubble") return "bubble";
+    return s;
+}
+} // namespace
+
 void BenchmarkRunner::run_selected_keys(const std::vector<std::string>& keys) {
     std::vector<Benchmark> selected;
     for (const auto& k : keys) {
+        std::string nk = norm_algorithm_key(k);
         for (const auto& b : benchmarks) {
-            if (b.key == k) {
-                selected.push_back(b);
+            if (b.key == k || b.key == nk || norm_algorithm_key(b.key) == nk) {
+                if (std::find_if(selected.begin(), selected.end(), [&](const Benchmark& existing) {
+                    return existing.key == b.key;
+                }) == selected.end()) {
+                    selected.push_back(b);
+                }
                 break;
             }
         }

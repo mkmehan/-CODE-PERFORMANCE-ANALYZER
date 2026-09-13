@@ -87,7 +87,10 @@ const App = {
 
   async loadDashboard() {
     try {
-      // 1. Load latest run & comparison
+      // 1. Load latest run
+      const run = await API.getRun();
+
+      // 2. Load latest comparison
       const comp = await API.getCompare();
       if (comp && comp.valid && comp.groups && comp.groups.length > 0) {
         const group = comp.groups[0];
@@ -95,21 +98,35 @@ const App = {
         const slowest = group.rankings[group.rankings.length - 1];
 
         if (fastest) {
-          document.getElementById('dash-fastest-name').textContent = fastest.algorithm_name || fastest.algorithm;
-          const timeUs = (fastest.mean_time_ns / 1000.0).toFixed(2);
-          document.getElementById('dash-fastest-sub').textContent = `${timeUs} µs • ${fastest.speedup_factor.toFixed(1)}x vs slowest`;
+          const fname = fastest.algorithm_name || fastest.name || fastest.algorithm;
+          document.getElementById('dash-fastest-name').textContent = fname;
+          const timeUs = (fastest.time_mean_ns / 1000.0).toFixed(2);
+          const sp = fastest.speedup ?? fastest.speedup_factor ?? 1.0;
+          document.getElementById('dash-fastest-sub').textContent = `${timeUs} µs • ${sp.toFixed(1)}x vs slowest`;
         }
 
         if (slowest) {
-          document.getElementById('dash-slowest-name').textContent = slowest.algorithm_name || slowest.algorithm;
-          const timeUs = (slowest.mean_time_ns / 1000.0).toFixed(2);
+          const sname = slowest.algorithm_name || slowest.name || slowest.algorithm;
+          document.getElementById('dash-slowest-name').textContent = sname;
+          const timeUs = (slowest.time_mean_ns / 1000.0).toFixed(2);
           document.getElementById('dash-slowest-sub').textContent = `${timeUs} µs • baseline (1.0x)`;
         }
 
         // Render Speedup horizontal bar chart
-        const labels = group.rankings.map(r => r.algorithm_name || r.algorithm).reverse();
-        const speedups = group.rankings.map(r => r.speedup_factor).reverse();
+        const labels = group.rankings.map(r => r.algorithm_name || r.name || r.algorithm).reverse();
+        const speedups = group.rankings.map(r => r.speedup ?? r.speedup_factor ?? 1.0).reverse();
         Charts.renderBarChart('dashSpeedupChart', labels, speedups, 'Speedup Factor');
+      } else if (run && run.results && run.results.length > 0) {
+        // Fallback when only 1 algorithm was benchmarked or homogeneous comparison
+        const first = run.results[0];
+        const name = first.algorithm_name || first.algorithm;
+        const timeUs = (first.time_mean_ns / 1000.0).toFixed(2);
+        document.getElementById('dash-fastest-name').textContent = name;
+        document.getElementById('dash-fastest-sub').textContent = `${timeUs} µs • Benchmarked`;
+        document.getElementById('dash-slowest-name').textContent = name;
+        document.getElementById('dash-slowest-sub').textContent = `${timeUs} µs • baseline`;
+
+        Charts.renderBarChart('dashSpeedupChart', [name], [1.0], 'Speedup Factor');
       } else {
         document.getElementById('dash-fastest-name').textContent = 'No runs yet';
         document.getElementById('dash-fastest-sub').textContent = 'Run a benchmark to begin';
@@ -117,13 +134,13 @@ const App = {
         document.getElementById('dash-slowest-sub').textContent = '—';
       }
 
-      // 2. Load latest run details for peak memory
-      const run = await API.getRun();
+      // 3. Load latest run details for peak memory
       if (run && run.results && run.results.length > 0) {
         let maxMemBytes = 0;
         run.results.forEach(r => {
-          if (r.memory && r.memory.peak_private_increase_bytes > maxMemBytes) {
-            maxMemBytes = r.memory.peak_private_increase_bytes;
+          const peak = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
+          if (peak > maxMemBytes) {
+            maxMemBytes = peak;
           }
         });
         const memMB = (maxMemBytes / (1024.0 * 1024.0)).toFixed(2);
@@ -132,13 +149,14 @@ const App = {
         document.getElementById('dash-peak-mem').textContent = '0.00 MB';
       }
 
-      // 3. Load regression analysis
+      // 4. Load regression analysis
       const reg = await API.getRegression();
       const badgeContainer = document.getElementById('dash-regression-badge');
       const badgeSub = document.getElementById('dash-regression-sub');
       if (reg && reg.valid) {
-        if (reg.regression_count > 0) {
-          badgeContainer.innerHTML = `<span class="badge badge-danger">⚠️ ${reg.regression_count} REGRESSION${reg.regression_count > 1 ? 'S' : ''}</span>`;
+        const count = reg.regressed_count ?? reg.regression_count ?? 0;
+        if (count > 0 || reg.has_regressions) {
+          badgeContainer.innerHTML = `<span class="badge badge-danger">⚠️ ${count} REGRESSION${count > 1 ? 'S' : ''}</span>`;
           badgeSub.textContent = `Baseline: ${reg.baseline_run_id || 'previous run'}`;
         } else {
           badgeContainer.innerHTML = `<span class="badge badge-success">✓ STABLE</span>`;
@@ -146,10 +164,10 @@ const App = {
         }
       } else {
         badgeContainer.innerHTML = `<span class="badge badge-secondary">INITIAL</span>`;
-        badgeSub.textContent = reg.error || 'No compatible baseline in history';
+        badgeSub.textContent = (reg && reg.error) ? reg.error : 'No compatible baseline in history';
       }
 
-      // 4. Render Dashboard Trend Charts
+      // 5. Render Dashboard Trend Charts
       const timeTrend = await API.getTrend('time');
       if (timeTrend && timeTrend.valid) {
         Charts.renderLineChart('dashTimeChart', timeTrend, 'µs');
@@ -332,8 +350,12 @@ const App = {
           btnCancel.disabled = false;
           btnCancel.style.display = 'none';
           btnCancel.textContent = 'Cancel Benchmark';
-          // Auto reload dashboard and history in background
+          // Auto reload dashboard and currently active view
           this.loadDashboard();
+          if (this.activeView === 'comparison') this.loadComparisonView();
+          else if (this.activeView === 'history') this.loadHistory();
+          else if (this.activeView === 'graphs') this.loadGraphs();
+          else if (this.activeView === 'reports') this.loadReports();
         }, 1200);
       } else if (status.state === 'cancelled') {
         clearInterval(this.pollTimer);
@@ -414,8 +436,8 @@ const App = {
       `;
 
       tr.querySelector('.btn-hist-compare').addEventListener('click', () => {
+        this.targetComparisonRunId = run.run_id;
         this.switchView('comparison');
-        this.selectComparisonRun(run.run_id);
       });
 
       const repBtn = tr.querySelector('.btn-hist-report');
@@ -443,7 +465,9 @@ const App = {
     }
   },
 
-  async loadComparisonView() {
+  targetComparisonRunId: null,
+
+  async loadComparisonView(targetRunId = null) {
     const sel = document.getElementById('comp-run-select');
     if (!sel) return;
 
@@ -456,24 +480,29 @@ const App = {
       return;
     }
 
-    data.runs.forEach((r, idx) => {
+    const desiredId = targetRunId || this.targetComparisonRunId;
+    this.targetComparisonRunId = null;
+
+    let selectedId = data.runs[0].run_id;
+    if (desiredId && data.runs.some(r => r.run_id === desiredId)) {
+      selectedId = desiredId;
+    }
+
+    data.runs.forEach(r => {
       const opt = document.createElement('option');
       opt.value = r.run_id;
       opt.textContent = `${r.run_id} (${r.timestamp}) - ${r.input_type}`;
-      if (idx === 0) opt.selected = true;
+      if (r.run_id === selectedId) opt.selected = true;
       sel.appendChild(opt);
     });
 
-    if (sel.value) {
-      this.renderComparisonTable(sel.value);
-    }
+    sel.value = selectedId;
+    this.renderComparisonTable(selectedId);
   },
 
   selectComparisonRun(runId) {
-    const sel = document.getElementById('comp-run-select');
-    if (!sel) return;
-    sel.value = runId;
-    this.renderComparisonTable(runId);
+    this.targetComparisonRunId = runId;
+    this.loadComparisonView(runId);
   },
 
   async renderComparisonTable(runId) {
@@ -483,7 +512,35 @@ const App = {
 
     const comp = await API.getCompare(runId);
     if (!comp || !comp.valid || !comp.groups || comp.groups.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">${comp && comp.error_message ? comp.error_message : 'No comparison data available for this run.'}</td></tr>`;
+      // Graceful fallback: check if the run itself exists to display single-algorithm results or helpful info
+      const run = await API.getRun(runId);
+      if (run && run.results && run.results.length > 0) {
+        tbody.innerHTML = '';
+        const gTr = document.createElement('tr');
+        gTr.innerHTML = `
+          <td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; color: var(--accent);">
+            Dataset: ${run.input_type || 'Generated'} (Single Algorithm Run • No Relative Speedup)
+          </td>
+        `;
+        tbody.appendChild(gTr);
+        run.results.forEach(r => {
+          const tr = document.createElement('tr');
+          const meanUs = (((r.time_mean_ns ?? r.mean_time_ns) || 0) / 1000.0).toFixed(2);
+          const medUs = (((r.time_median_ns ?? r.median_time_ns) || 0) / 1000.0).toFixed(2);
+          const memKb = (((r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0)) || 0) / 1024.0).toFixed(1);
+          tr.innerHTML = `
+            <td><span class="badge badge-secondary">#1</span></td>
+            <td style="font-weight: 600; color: #fff;">${r.algorithm_name || r.algorithm} (N=${(r.input_size || 0).toLocaleString()})</td>
+            <td>${meanUs} µs</td>
+            <td>${medUs} µs</td>
+            <td style="color: var(--accent); font-weight: 600;">1.00x</td>
+            <td style="color: var(--text-muted);">baseline (Peak RAM: ${memKb} KB)</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">${(comp && comp.error_message) ? comp.error_message : 'No comparison data available for this run.'}</td></tr>`;
       return;
     }
 
@@ -508,16 +565,20 @@ const App = {
           ? '<span class="badge badge-secondary">🥉 #3</span>'
           : `<span style="color: var(--text-muted); padding-left: 0.5rem;">#${r.rank}</span>`;
 
-        const meanUs = (r.mean_time_ns / 1000.0).toFixed(2);
-        const medUs = (r.median_time_ns / 1000.0).toFixed(2);
-        const speedup = `${r.speedup_factor.toFixed(2)}x`;
-        const pctFaster = r.percentage_faster_than_slowest > 0
-          ? `<span style="color: #10b981; font-weight: 600;">+${r.percentage_faster_than_slowest.toFixed(1)}%</span>`
+        const meanNs = r.time_mean_ns ?? r.mean_time_ns ?? 0;
+        const medNs = r.time_median_ns ?? r.median_time_ns ?? 0;
+        const meanUs = (meanNs / 1000.0).toFixed(2);
+        const medUs = (medNs / 1000.0).toFixed(2);
+        const speedupVal = r.speedup ?? r.speedup_factor ?? 1.0;
+        const speedup = `${Number(speedupVal).toFixed(2)}x`;
+        const pctVal = r.percentage_faster ?? r.percentage_faster_than_slowest ?? 0;
+        const pctFaster = pctVal > 0
+          ? `<span style="color: #10b981; font-weight: 600;">+${Number(pctVal).toFixed(1)}%</span>`
           : '<span style="color: var(--text-muted);">baseline</span>';
 
         tr.innerHTML = `
           <td>${rankBadge}</td>
-          <td style="font-weight: 600; color: #fff;">${r.algorithm_name || r.algorithm}</td>
+          <td style="font-weight: 600; color: #fff;">${r.algorithm_name || r.name || r.algorithm}</td>
           <td>${meanUs} µs</td>
           <td>${medUs} µs</td>
           <td style="color: var(--accent); font-weight: 600;">${speedup}</td>

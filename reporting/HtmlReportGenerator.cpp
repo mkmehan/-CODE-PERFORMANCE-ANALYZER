@@ -155,15 +155,8 @@ std::string HtmlReportGenerator::generate_from_run(
         }
     }
 
-    // 3. Trend Charts (using all runs + current run)
-    std::vector<analysis::BenchmarkRun> all_runs = historical_runs;
-    bool found_current = false;
-    for (const auto& r : all_runs) {
-        if (r.run_id == run.run_id) { found_current = true; break; }
-    }
-    if (!found_current) {
-        all_runs.push_back(run);
-    }
+    // 3. Performance Curves (specific to this run, reflecting its exact benchmark measurements)
+    std::vector<analysis::BenchmarkRun> current_run_only = { run };
 
     analysis::ChartFilter filter;
     filter.input_type = run.input.type;
@@ -172,8 +165,8 @@ std::string HtmlReportGenerator::generate_from_run(
         filter.input_distribution = run.results[0].input_type;
     }
 
-    analysis::ChartData time_chart = analysis::TrendAnalyzer::build_time_vs_size(all_runs, filter);
-    analysis::ChartData memory_chart = analysis::TrendAnalyzer::build_memory_vs_size(all_runs, filter);
+    analysis::ChartData time_chart = analysis::TrendAnalyzer::build_time_vs_size(current_run_only, filter);
+    analysis::ChartData memory_chart = analysis::TrendAnalyzer::build_memory_vs_size(current_run_only, filter);
 
     return generate_report(run, comparison, regression, time_chart, memory_chart, options);
 }

@@ -203,10 +203,15 @@ std::string comparison_to_json(const analysis::ComparisonReport& rep) {
             ss << "          \"rank\": " << rk.rank << ",\n";
             ss << "          \"algorithm\": \"" << escape_json_str(rk.algorithm_key) << "\",\n";
             ss << "          \"name\": \"" << escape_json_str(rk.algorithm_name) << "\",\n";
+            ss << "          \"algorithm_name\": \"" << escape_json_str(rk.algorithm_name) << "\",\n";
             ss << "          \"time_mean_ns\": " << std::fixed << std::setprecision(0) << rk.time_mean_ns << ",\n";
+            ss << "          \"mean_time_ns\": " << std::fixed << std::setprecision(0) << rk.time_mean_ns << ",\n";
             ss << "          \"time_median_ns\": " << std::fixed << std::setprecision(0) << rk.time_median_ns << ",\n";
+            ss << "          \"median_time_ns\": " << std::fixed << std::setprecision(0) << rk.time_median_ns << ",\n";
             ss << "          \"speedup\": " << std::fixed << std::setprecision(2) << rk.speedup_vs_slowest << ",\n";
-            ss << "          \"percentage_faster\": " << std::fixed << std::setprecision(1) << rk.percentage_faster_than_slowest << "\n";
+            ss << "          \"speedup_factor\": " << std::fixed << std::setprecision(2) << rk.speedup_vs_slowest << ",\n";
+            ss << "          \"percentage_faster\": " << std::fixed << std::setprecision(1) << rk.percentage_faster_than_slowest << ",\n";
+            ss << "          \"percentage_faster_than_slowest\": " << std::fixed << std::setprecision(1) << rk.percentage_faster_than_slowest << "\n";
             ss << "        }" << (j + 1 < g.rankings.size() ? "," : "") << "\n";
         }
         ss << "      ]\n";
@@ -228,6 +233,7 @@ std::string regression_to_json(const analysis::RegressionReport& rep) {
     ss << "  \"improved_count\": " << rep.improved_count << ",\n";
     ss << "  \"stable_count\": " << rep.stable_count << ",\n";
     ss << "  \"regressed_count\": " << rep.regressed_count << ",\n";
+    ss << "  \"regression_count\": " << rep.regressed_count << ",\n";
     ss << "  \"records\": [\n";
     for (size_t i = 0; i < rep.records.size(); ++i) {
         const auto& r = rep.records[i];
