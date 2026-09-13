@@ -5,6 +5,7 @@
 #include "SystemInfo.h"
 #include "CpuAffinity.h"
 #include "FileInputLoader.h"
+#include "analysis/HistoryManager.h"
 
 #include <algorithm>
 #include <chrono>
@@ -611,7 +612,8 @@ bool write_json_report(
     const SystemSnapshot& system,
     const BenchmarkConfig& config,
     const std::vector<BenchmarkSummary>& summaries,
-    const std::vector<BenchmarkMeasurement>& measurements
+    const std::vector<BenchmarkMeasurement>& measurements,
+    const analysis::BenchmarkRun& run_data
 ) {
     std::ofstream report(paths.json);
     if (!report) {
@@ -621,7 +623,9 @@ bool write_json_report(
     report
         << "{\n"
         << "  \"format_version\": \"4.0\",\n"
-        << "  \"generated_at\": \"" << timestamp_for_file() << "\",\n";
+        << "  \"run_id\": \"" << json_escape(run_data.run_id) << "\",\n"
+        << "  \"timestamp\": \"" << json_escape(run_data.timestamp) << "\",\n"
+        << "  \"generated_at\": \"" << json_escape(run_data.timestamp) << "\",\n";
 
     if (config.is_custom_file && FileInputLoader::has_active_dataset()) {
         const DatasetInfo& info = FileInputLoader::get_active_dataset_info();
@@ -673,7 +677,31 @@ bool write_json_report(
         report << (index == 0 ? "" : ", ")
             << '"' << json_escape(input_data_case_name(config.input_cases[index])) << '"';
     }
-    report << "]\n  },\n  \"summaries\": [\n";
+    report << "]\n  },\n  \"results\": [\n";
+    for (size_t index = 0; index < run_data.results.size(); ++index) {
+        const auto& r = run_data.results[index];
+        report
+            << "    {\n"
+            << "      \"algorithm\": \"" << json_escape(r.algorithm) << "\",\n"
+            << "      \"algorithm_name\": \"" << json_escape(r.algorithm_name) << "\",\n"
+            << "      \"input_type\": \"" << json_escape(r.input_type) << "\",\n"
+            << "      \"input_size\": " << r.input_size << ",\n"
+            << "      \"verified\": " << (r.verified ? "true" : "false") << ",\n"
+            << "      \"time_mean_ns\": " << r.time_mean_ns << ",\n"
+            << "      \"time_median_ns\": " << r.time_median_ns << ",\n"
+            << "      \"time_min_ns\": " << r.time_min_ns << ",\n"
+            << "      \"time_max_ns\": " << r.time_max_ns << ",\n"
+            << "      \"time_stddev_ns\": " << r.time_stddev_ns << ",\n"
+            << "      \"cycles_mean\": " << r.cycles_mean << ",\n"
+            << "      \"cycles_median\": " << r.cycles_median << ",\n"
+            << "      \"cycles_min\": " << r.cycles_min << ",\n"
+            << "      \"cycles_max\": " << r.cycles_max << ",\n"
+            << "      \"cycles_stddev\": " << r.cycles_stddev << ",\n"
+            << "      \"memory_peak_increase_bytes\": " << r.memory_peak_increase_bytes << ",\n"
+            << "      \"memory_net_change_bytes\": " << r.memory_net_change_bytes << "\n"
+            << "    }" << (index + 1 == run_data.results.size() ? "" : ",") << "\n";
+    }
+    report << "  ],\n  \"summaries\": [\n";
     for (size_t index = 0; index < summaries.size(); ++index) {
         const BenchmarkSummary& summary = summaries[index];
         report
@@ -857,6 +885,84 @@ const std::vector<BenchmarkMeasurement>& BenchmarkRunner::raw_measurements() con
     return measurements;
 }
 
+const analysis::BenchmarkRun& BenchmarkRunner::last_analysis_run() const {
+    return last_run_data;
+}
+
+analysis::BenchmarkRun BenchmarkRunner::to_analysis_run() const {
+    analysis::BenchmarkRun run;
+    run.format_version = "4.0";
+    const std::string ts = timestamp_for_file();
+    run.timestamp = ts;
+    run.run_id = "RUN-" + ts;
+
+    const SystemSnapshot system = system_snapshot();
+    run.system.os = system.os;
+    run.system.cpu = system.cpu;
+    run.system.architecture = system.architecture;
+    run.system.physical_cores = system.physical_cores;
+    run.system.logical_cpus = system.logical_cpus;
+    run.system.compiler = system.compiler;
+    run.system.cxx_standard = system.cxx_standard;
+    run.system.optimization = system.optimization;
+
+    run.configuration.warmup_runs = benchmark_config.warmup_runs;
+    run.configuration.iterations = benchmark_config.iterations;
+    run.configuration.random_seed = benchmark_config.random_seed;
+    run.configuration.use_rdtsc = benchmark_config.use_rdtsc;
+    run.configuration.use_high_resolution_timer = benchmark_config.use_high_resolution_timer;
+    run.configuration.measure_memory = benchmark_config.measure_memory;
+    run.configuration.cpu_affinity = benchmark_config.cpu_affinity;
+    run.configuration.input_sizes = benchmark_config.input_sizes;
+    for (InputDataCase input_case : benchmark_config.input_cases) {
+        run.configuration.input_cases.push_back(input_data_case_name(input_case));
+    }
+
+    if (benchmark_config.is_custom_file && FileInputLoader::has_active_dataset()) {
+        const DatasetInfo& info = FileInputLoader::get_active_dataset_info();
+        run.input.type = "custom_file";
+        run.input.file_path = benchmark_config.custom_file_path;
+        run.input.element_count = info.element_count;
+        run.input.distinct_count = info.distinct_count;
+        run.input.duplicate_count = info.duplicate_count;
+        run.input.min_value = info.min_value;
+        run.input.max_value = info.max_value;
+        run.input.order_description = info.order_description;
+    } else {
+        run.input.type = "generated";
+        if (!benchmark_config.input_sizes.empty()) {
+            run.input.element_count = benchmark_config.input_sizes[0];
+        }
+    }
+
+    for (const BenchmarkSummary& summary : summaries) {
+        analysis::BenchmarkRecord rec;
+        rec.algorithm = summary.key;
+        rec.algorithm_name = summary.name;
+        rec.input_type = input_data_case_name(summary.input_case);
+        rec.input_size = summary.input_size;
+        rec.verified = summary.verified;
+
+        rec.time_mean_ns = summary.time.mean;
+        rec.time_median_ns = summary.time.median;
+        rec.time_min_ns = summary.time.minimum;
+        rec.time_max_ns = summary.time.maximum;
+        rec.time_stddev_ns = summary.time.standard_deviation;
+
+        rec.cycles_mean = summary.cycles.mean;
+        rec.cycles_median = summary.cycles.median;
+        rec.cycles_min = summary.cycles.minimum;
+        rec.cycles_max = summary.cycles.maximum;
+        rec.cycles_stddev = summary.cycles.standard_deviation;
+
+        rec.memory_peak_increase_bytes = summary.memory.peak_private_increase;
+        rec.memory_net_change_bytes = summary.memory.net_private_change;
+
+        run.results.push_back(rec);
+    }
+    return run;
+}
+
 void BenchmarkRunner::run_experiment(const std::vector<Benchmark>& selected_benchmarks) {
     if (selected_benchmarks.empty()) {
         throw std::invalid_argument("No benchmarks are registered.");
@@ -893,11 +999,13 @@ void BenchmarkRunner::run_experiment(const std::vector<Benchmark>& selected_benc
     print_performance_comparison(summaries, selected_benchmarks, benchmark_config);
     print_distribution_analysis(summaries, selected_benchmarks, benchmark_config);
 
+    last_run_data = to_analysis_run();
+
     try {
         const ReportPaths paths = create_report_paths();
         const bool csv_ok = write_csv_report(paths, measurements);
         const bool json_ok = write_json_report(
-            paths, system, benchmark_config, summaries, measurements
+            paths, system, benchmark_config, summaries, measurements, last_run_data
         );
         std::cout << "OUTPUT\n" << divider << '\n';
         if (csv_ok) {
@@ -909,6 +1017,12 @@ void BenchmarkRunner::run_experiment(const std::vector<Benchmark>& selected_benc
             std::cout << "JSON report         : " << paths.json.generic_string() << '\n';
         } else {
             std::cerr << "Error: unable to write JSON report\n";
+        }
+
+        analysis::HistoryManager history;
+        const std::string history_file = history.save_run(last_run_data);
+        if (!history_file.empty()) {
+            std::cout << "History archive     : " << history_file << '\n';
         }
     } catch (const std::filesystem::filesystem_error& error) {
         std::cerr << "Error: unable to create results directory: " << error.what() << '\n';

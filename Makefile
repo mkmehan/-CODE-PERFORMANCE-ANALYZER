@@ -18,6 +18,10 @@ SOURCES = main.cpp \
           MemoryMonitor.cpp \
           CpuAffinity.cpp \
           FileInputLoader.cpp \
+          analysis/ReportLoader.cpp \
+          analysis/HistoryManager.cpp \
+          analysis/ComparisonAnalyzer.cpp \
+          analysis/RegressionAnalyzer.cpp \
           benchmarks/RegisterBenchmarks.cpp \
           benchmarks/BubbleSortBenchmark.cpp \
           benchmarks/InsertionSortBenchmark.cpp \
@@ -52,7 +56,11 @@ $(TEST_TARGET): tests/test_main.cpp \
                RDTSC_Timer.cpp \
                MemoryMonitor.cpp \
                CpuAffinity.cpp \
-               FileInputLoader.cpp
+               FileInputLoader.cpp \
+               analysis/ReportLoader.cpp \
+               analysis/HistoryManager.cpp \
+               analysis/ComparisonAnalyzer.cpp \
+               analysis/RegressionAnalyzer.cpp
 	$(CXX) $(CXXFLAGS) tests/test_main.cpp \
 	       Benchmark.cpp \
 	       Statistics.cpp \
@@ -62,6 +70,10 @@ $(TEST_TARGET): tests/test_main.cpp \
 	       MemoryMonitor.cpp \
 	       CpuAffinity.cpp \
 	       FileInputLoader.cpp \
+	       analysis/ReportLoader.cpp \
+	       analysis/HistoryManager.cpp \
+	       analysis/ComparisonAnalyzer.cpp \
+	       analysis/RegressionAnalyzer.cpp \
 	       -o $@ $(LDLIBS)
 
 clean:

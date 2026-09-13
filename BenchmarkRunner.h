@@ -2,6 +2,7 @@
 #define BENCHMARK_RUNNER_H
 
 #include "BenchmarkConfig.h"
+#include "analysis/BenchmarkRun.h"
 
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@ private:
     std::vector<BenchmarkMeasurement> measurements;
     BenchmarkConfig benchmark_config;
     uint64_t overhead = 0;
+    analysis::BenchmarkRun last_run_data;
 
     void run_experiment(const std::vector<Benchmark>& selected_benchmarks);
 
@@ -34,6 +36,8 @@ public:
     const BenchmarkConfig& config() const;
     const std::vector<BenchmarkSummary>& results() const;
     const std::vector<BenchmarkMeasurement>& raw_measurements() const;
+    const analysis::BenchmarkRun& last_analysis_run() const;
+    analysis::BenchmarkRun to_analysis_run() const;
 
     void run_all();
     bool run_selected(const std::string& key);

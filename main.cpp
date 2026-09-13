@@ -1,5 +1,8 @@
 #include "BenchmarkRunner.h"
 #include "FileInputLoader.h"
+#include "analysis/HistoryManager.h"
+#include "analysis/ComparisonAnalyzer.h"
+#include "analysis/RegressionAnalyzer.h"
 #include "benchmarks/RegisterBenchmarks.h"
 
 #include <algorithm>
@@ -140,6 +143,9 @@ void print_usage(const BenchmarkRunner& runner) {
         << "  --no-qpc              Disable QueryPerformanceCounter timing\n"
         << "  --cpu <n>             Pin benchmark thread to logical CPU n\n"
         << "  --no-memory           Disable process memory measurement\n"
+        << "  --history [run_id]    List benchmark history or view specific run details\n"
+        << "  --compare [run_id]    Compare algorithms from latest run or a specific historical run\n"
+        << "  --regression [run_id] Compare latest run against baseline (or previous compatible run)\n"
         << "  --help                Show this help\n\n";
     runner.list_benchmarks();
 }
@@ -262,6 +268,97 @@ SetConsoleCP(CP_UTF8);
             }
             file_path = argv[++i];
             continue;
+        }
+
+        if (argument == "--history") {
+            analysis::HistoryManager history;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                const std::string target = argv[++i];
+                const auto res = history.load_run(target);
+                if (!res.success) {
+                    std::cerr << "Error: " << res.error_message << '\n';
+                    return 1;
+                }
+                history.print_run_details(res.run);
+                return 0;
+            } else {
+                const auto runs = history.list_runs();
+                history.print_history_table(runs);
+                return 0;
+            }
+        }
+
+        if (argument == "--compare") {
+            analysis::HistoryManager history;
+            analysis::BenchmarkRun run_to_compare;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                const std::string target = argv[++i];
+                const auto res = history.load_run(target);
+                if (!res.success) {
+                    std::cerr << "Error: " << res.error_message << '\n';
+                    return 1;
+                }
+                run_to_compare = res.run;
+            } else {
+                const auto latest = history.get_latest_run();
+                if (!latest.has_value()) {
+                    std::cerr << "Error: No benchmark history found to compare. Run a benchmark first.\n";
+                    return 1;
+                }
+                run_to_compare = *latest;
+            }
+
+            const auto report = analysis::ComparisonAnalyzer::compare_run(run_to_compare);
+            analysis::ComparisonAnalyzer::print_comparison_report(report);
+            return 0;
+        }
+
+        if (argument == "--regression") {
+            analysis::HistoryManager history;
+            const auto latest_opt = history.get_latest_run();
+            if (!latest_opt.has_value()) {
+                std::cerr << "Error: No benchmark history found for regression analysis. Run a benchmark first.\n";
+                return 1;
+            }
+            const auto current_run = *latest_opt;
+
+            analysis::BenchmarkRun baseline_run;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                const std::string target = argv[++i];
+                const auto res = history.load_run(target);
+                if (!res.success) {
+                    std::cerr << "Error: " << res.error_message << '\n';
+                    return 1;
+                }
+                baseline_run = res.run;
+            } else {
+                const auto all_runs = history.list_runs();
+                bool found_compatible = false;
+                for (const auto& meta : all_runs) {
+                    if (meta.run_id == current_run.run_id) continue;
+                    const auto loaded = history.load_run(meta.run_id);
+                    if (loaded.success && analysis::RegressionAnalyzer::are_runs_compatible(loaded.run, current_run)) {
+                        baseline_run = loaded.run;
+                        found_compatible = true;
+                        break;
+                    }
+                }
+                if (!found_compatible) {
+                    const auto prev_opt = history.get_latest_run(current_run.run_id);
+                    if (!prev_opt.has_value()) {
+                        std::cerr << "Error: Need at least 2 historical runs to perform regression analysis.\n";
+                        return 1;
+                    }
+                    baseline_run = *prev_opt;
+                }
+            }
+
+            const auto report = analysis::RegressionAnalyzer::compare_runs(current_run, baseline_run);
+            analysis::RegressionAnalyzer::print_regression_report(report);
+            if (!report.valid) {
+                return 1;
+            }
+            return 0;
         }
 
         if (argument.size() > 2 && argument.rfind("--", 0) == 0) {
