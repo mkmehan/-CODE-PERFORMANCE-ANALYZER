@@ -115,6 +115,40 @@
         </div>
       </div>
 
+      <!-- System & Environment Information -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-title">
+          <span>🖥️ System & Hardware Environment</span>
+          <span class="badge badge-secondary" id="dash-sys-host-badge">Host System</span>
+        </div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-key">Processor (CPU)</span>
+            <span id="dash-sys-cpu" class="info-val">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">Operating System</span>
+            <span id="dash-sys-os" class="info-val">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">Architecture</span>
+            <span id="dash-sys-arch" class="info-val">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">CPU Cores & Threads</span>
+            <span id="dash-sys-cores" class="info-val">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">Compiler</span>
+            <span id="dash-sys-compiler" class="info-val">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">C++ Standard & Optimizations</span>
+            <span id="dash-sys-cxx" class="info-val">—</span>
+          </div>
+        </div>
+      </div>
+
       <div class="charts-grid">
         <div class="card">
           <div class="card-title">
@@ -253,6 +287,105 @@
           <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
             <span id="prog-elapsed">Elapsed: 0.0s</span>
             <span id="prog-current-detail">N = 0 &bull; Iteration 0/0</span>
+          </div>
+        </div>
+
+        <!-- Live Benchmark Results (shown after benchmark completes) -->
+        <div id="benchmark-results-container" style="display: none; margin-top: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <div>
+              <h2 style="font-size: 1.3rem; font-weight: 700; color: #fff; margin: 0;">⚡ Benchmark Run Results</h2>
+              <p id="bench-res-subtitle" style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">Run ID: —</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+              <button id="btn-bench-report" class="btn btn-secondary btn-sm">📄 Open HTML Report</button>
+              <button id="btn-bench-compare" class="btn btn-secondary btn-sm">📊 Full Comparison</button>
+            </div>
+          </div>
+
+          <!-- Benchmark Metrics Summary Cards -->
+          <div class="metrics-grid">
+            <div class="metric-card success">
+              <div class="metric-label">Fastest Algorithm</div>
+              <div id="bench-fastest-name" class="metric-val">—</div>
+              <div id="bench-fastest-sub" class="metric-sub">—</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Slowest Algorithm</div>
+              <div id="bench-slowest-name" class="metric-val">—</div>
+              <div id="bench-slowest-sub" class="metric-sub">—</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Peak Memory Delta</div>
+              <div id="bench-peak-mem" class="metric-val">0.00 MB</div>
+              <div class="metric-sub">Max RAM increase observed</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Execution Scope</div>
+              <div id="bench-scope-val" class="metric-val">0 Algs</div>
+              <div id="bench-scope-sub" class="metric-sub">0 total runs</div>
+            </div>
+          </div>
+
+          <!-- Benchmark Visual Graphs -->
+          <div class="charts-grid">
+            <div class="card">
+              <div class="card-title">
+                <span>📈 Execution Time vs Input Size (N)</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Mean Time (µs)</span>
+              </div>
+              <div class="chart-box">
+                <canvas id="benchTimeChart"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">
+                <span>🧠 Peak Memory vs Input Size (N)</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">MB Footprint</span>
+              </div>
+              <div class="chart-box">
+                <canvas id="benchMemoryChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Speedup Ranking Bar Chart -->
+          <div class="card">
+            <div class="card-title">
+              <span>⚡ Algorithm Speedup Ranking</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Speedup vs Slowest</span>
+            </div>
+            <div class="chart-box" style="height: 240px;">
+              <canvas id="benchSpeedupChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Detailed Result Table -->
+          <div class="card">
+            <div class="card-title">
+              <span>📊 Detailed Algorithm Measurements</span>
+              <span id="bench-table-count" style="font-size: 0.8rem; color: var(--text-muted);">0 records</span>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Algorithm</th>
+                    <th>Input Size (N)</th>
+                    <th>Distribution</th>
+                    <th>Median Time</th>
+                    <th>Mean Time</th>
+                    <th>Min / Max</th>
+                    <th>Peak Memory</th>
+                    <th>Speedup</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="bench-table-body">
+                  <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">No benchmark results yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

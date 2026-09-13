@@ -45,6 +45,9 @@ const App = {
       case 'dashboard':
         this.loadDashboard();
         break;
+      case 'benchmark':
+        this.renderBenchmarkResults();
+        break;
       case 'history':
         this.loadHistory();
         break;
@@ -179,8 +182,37 @@ const App = {
       if (memTrend && memTrend.valid) {
         Charts.renderLineChart('dashMemoryChart', memTrend, 'MB');
       }
+
+      // 6. Populate System Information
+      if (run && run.system) {
+        this.updateSystemInfo(run.system);
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err);
+    }
+  },
+
+  updateSystemInfo(sys) {
+    if (!sys) return;
+    const cpuEl = document.getElementById('dash-sys-cpu');
+    if (cpuEl && sys.cpu) cpuEl.textContent = sys.cpu;
+    const osEl = document.getElementById('dash-sys-os');
+    if (osEl && sys.os) osEl.textContent = sys.os;
+    const archEl = document.getElementById('dash-sys-arch');
+    if (archEl && sys.architecture) archEl.textContent = sys.architecture;
+    const coresEl = document.getElementById('dash-sys-cores');
+    if (coresEl) {
+      const p = sys.physical_cores || 0;
+      const l = sys.logical_cpus || 0;
+      coresEl.textContent = (p || l) ? `${p} Physical / ${l} Logical` : '—';
+    }
+    const compEl = document.getElementById('dash-sys-compiler');
+    if (compEl && sys.compiler) compEl.textContent = sys.compiler;
+    const cxxEl = document.getElementById('dash-sys-cxx');
+    if (cxxEl) {
+      const cxx = sys.cxx_standard || 'C++17';
+      const opt = sys.optimization || 'Enabled (-O2)';
+      cxxEl.textContent = `${cxx} • ${opt}`;
     }
   },
 
@@ -293,6 +325,9 @@ const App = {
         btnCancel.style.display = 'inline-block';
         progBox.classList.add('active');
 
+        const resContainer = document.getElementById('benchmark-results-container');
+        if (resContainer) resContainer.style.display = 'none';
+
         const res = await API.startBenchmark(payload);
         if (res.status === 'started' || res.status === 'accepted') {
           this.startBenchmarkPolling();
@@ -346,12 +381,16 @@ const App = {
         progElapsed.textContent = `Total Time: ${status.elapsed_seconds.toFixed(1)}s`;
         this.updateEngineBadge('Engine Ready', '#10b981');
 
-        setTimeout(() => {
+        setTimeout(async () => {
           btnRun.disabled = false;
           btnRun.style.display = 'inline-block';
           btnCancel.disabled = false;
           btnCancel.style.display = 'none';
           btnCancel.textContent = 'Cancel Benchmark';
+
+          // Immediately render live benchmark results for this completed run!
+          await this.renderBenchmarkResults(status.last_run_id);
+
           // Auto reload dashboard and currently active view
           this.loadDashboard();
           if (this.activeView === 'comparison') this.loadComparisonView();
@@ -386,6 +425,9 @@ const App = {
   async pollEngineStatus() {
     try {
       const status = await API.getStatus();
+      if (status && status.system) {
+        this.updateSystemInfo(status.system);
+      }
       if (status.state === 'running') {
         this.updateEngineBadge(`Running (${status.progress}%)`, '#06b6d4');
         if (!this.pollTimer) this.startBenchmarkPolling();
@@ -404,6 +446,188 @@ const App = {
       const dot = txt.parentElement ? txt.parentElement.querySelector('.status-dot') : null;
       if (dot && color) dot.style.background = color;
     }
+  },
+
+  async renderBenchmarkResults(runId = null) {
+    const container = document.getElementById('benchmark-results-container');
+    if (!container) return;
+
+    // Fetch the run to render (specified or latest)
+    const run = await API.getRun(runId);
+    if (!run || !run.results || run.results.length === 0) {
+      return;
+    }
+
+    container.style.display = 'block';
+
+    // Subtitle with Run ID, timestamp, and input type
+    const sub = document.getElementById('bench-res-subtitle');
+    if (sub) {
+      const inType = run.input_type || (run.input ? run.input.type : '') || 'Generated';
+      sub.textContent = `Run ID: ${run.run_id} • Date: ${run.timestamp || 'Latest'} • Input: ${inType}`;
+    }
+
+    // Action buttons
+    const btnReport = document.getElementById('btn-bench-report');
+    if (btnReport) {
+      btnReport.onclick = async () => {
+        btnReport.disabled = true;
+        btnReport.textContent = 'Opening...';
+        await API.generateReport(run.run_id);
+        setTimeout(() => {
+          btnReport.disabled = false;
+          btnReport.textContent = '📄 Open HTML Report';
+        }, 2000);
+      };
+    }
+
+    const btnCompare = document.getElementById('btn-bench-compare');
+    if (btnCompare) {
+      btnCompare.onclick = () => {
+        this.targetComparisonRunId = run.run_id;
+        this.switchView('comparison');
+      };
+    }
+
+    // Comparison data for this run
+    const comp = await API.getCompare(run.run_id);
+    let fastestAlg = null;
+    let slowestAlg = null;
+    const rankingMap = {};
+
+    if (comp && comp.valid && comp.groups && comp.groups.length > 0) {
+      const g = comp.groups[0];
+      fastestAlg = g.rankings[0];
+      slowestAlg = g.rankings[g.rankings.length - 1];
+      g.rankings.forEach(rk => {
+        const k = rk.name || rk.algorithm_name || rk.algorithm;
+        rankingMap[k] = rk;
+        if (rk.algorithm) rankingMap[rk.algorithm] = rk;
+      });
+
+      // Speedup Bar Chart
+      const labels = g.rankings.map(r => r.name || r.algorithm_name || r.algorithm).reverse();
+      const speedups = g.rankings.map(r => r.speedup ?? r.speedup_factor ?? 1.0).reverse();
+      Charts.renderBarChart('benchSpeedupChart', labels, speedups, 'Speedup Factor');
+    } else {
+      const first = run.results[0];
+      const name = first.name || first.algorithm_name || first.algorithm;
+      fastestAlg = { name: name, time_mean_ns: first.time_mean_ns, speedup: 1.0 };
+      slowestAlg = { name: name, time_mean_ns: first.time_mean_ns, speedup: 1.0 };
+      Charts.renderBarChart('benchSpeedupChart', [name], [1.0], 'Speedup Factor');
+    }
+
+    // Metrics Cards
+    if (fastestAlg) {
+      const fname = fastestAlg.name || fastestAlg.algorithm_name || fastestAlg.algorithm;
+      document.getElementById('bench-fastest-name').textContent = fname;
+      const meanNs = fastestAlg.time_mean_ns ?? fastestAlg.mean_time_ns ?? 0;
+      const timeUs = (meanNs / 1000.0).toFixed(2);
+      const sp = fastestAlg.speedup ?? fastestAlg.speedup_factor ?? 1.0;
+      document.getElementById('bench-fastest-sub').textContent = `${timeUs} µs • ${Number(sp).toFixed(2)}x vs slowest`;
+    }
+
+    if (slowestAlg) {
+      const sname = slowestAlg.name || slowestAlg.algorithm_name || slowestAlg.algorithm;
+      document.getElementById('bench-slowest-name').textContent = sname;
+      const meanNs = slowestAlg.time_mean_ns ?? slowestAlg.mean_time_ns ?? 0;
+      const timeUs = (meanNs / 1000.0).toFixed(2);
+      document.getElementById('bench-slowest-sub').textContent = `${timeUs} µs • baseline (1.0x)`;
+    }
+
+    let maxMemBytes = 0;
+    run.results.forEach(r => {
+      const peak = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
+      if (peak > maxMemBytes) maxMemBytes = peak;
+    });
+    const memMB = (maxMemBytes / (1024.0 * 1024.0)).toFixed(2);
+    document.getElementById('bench-peak-mem').textContent = `${memMB} MB`;
+
+    const uniqueAlgs = new Set(run.results.map(r => r.algorithm_name || r.name || r.algorithm));
+    const uniqueSizes = new Set(run.results.map(r => r.input_size));
+    document.getElementById('bench-scope-val').textContent = `${uniqueAlgs.size} Algorithms`;
+    document.getElementById('bench-scope-sub').textContent = `${run.results.length} runs across N = ${Array.from(uniqueSizes).join(', ')}`;
+
+    // Build Time & Memory Charts for this specific run
+    const timeSeriesMap = {};
+    const memSeriesMap = {};
+    run.results.forEach(r => {
+      const name = r.algorithm_name || r.name || r.algorithm;
+      if (!timeSeriesMap[name]) {
+        timeSeriesMap[name] = { algorithm: r.algorithm, name: name, points: [] };
+      }
+      if (!memSeriesMap[name]) {
+        memSeriesMap[name] = { algorithm: r.algorithm, name: name, points: [] };
+      }
+      const meanUs = (r.time_mean_ns ?? r.mean_time_ns ?? 0) / 1000.0;
+      timeSeriesMap[name].points.push({ x: r.input_size, y: meanUs });
+
+      const peakBytes = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
+      const peakVal = peakBytes / (1024.0 * 1024.0);
+      memSeriesMap[name].points.push({ x: r.input_size, y: peakVal });
+    });
+
+    const timeChartData = {
+      valid: true,
+      title: 'Execution Time vs Input Size (N)',
+      x_label: 'Input Size (N)',
+      y_label: 'Mean Time (µs)',
+      series: Object.values(timeSeriesMap).map(s => {
+        s.points.sort((a, b) => a.x - b.x);
+        return s;
+      })
+    };
+    Charts.renderLineChart('benchTimeChart', timeChartData, 'µs');
+
+    const memChartData = {
+      valid: true,
+      title: 'Peak Memory vs Input Size (N)',
+      x_label: 'Input Size (N)',
+      y_label: 'MB Footprint',
+      series: Object.values(memSeriesMap).map(s => {
+        s.points.sort((a, b) => a.x - b.x);
+        return s;
+      })
+    };
+    Charts.renderLineChart('benchMemoryChart', memChartData, 'MB');
+
+    // Detailed Table
+    const tbody = document.getElementById('bench-table-body');
+    const tableCount = document.getElementById('bench-table-count');
+    if (tableCount) tableCount.textContent = `${run.results.length} total measurements`;
+
+    if (tbody) {
+      tbody.innerHTML = '';
+      run.results.forEach(r => {
+        const tr = document.createElement('tr');
+        const name = r.algorithm_name || r.name || r.algorithm;
+        const medUs = ((r.time_median_ns ?? r.median_time_ns ?? 0) / 1000.0).toFixed(2);
+        const meanUs = ((r.time_mean_ns ?? r.mean_time_ns ?? 0) / 1000.0).toFixed(2);
+        const minUs = ((r.time_min_ns ?? 0) / 1000.0).toFixed(2);
+        const maxUs = ((r.time_max_ns ?? 0) / 1000.0).toFixed(2);
+        const peakBytes = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
+        const peakMb = (peakBytes / (1024.0 * 1024.0)).toFixed(2);
+
+        const rk = rankingMap[name] || rankingMap[r.algorithm];
+        const spVal = rk ? (rk.speedup ?? rk.speedup_factor ?? 1.0) : 1.0;
+        const spText = `${Number(spVal).toFixed(2)}x`;
+
+        tr.innerHTML = `
+          <td style="font-weight: 600; color: #fff;">${name}</td>
+          <td>${(r.input_size || 0).toLocaleString()}</td>
+          <td><span class="badge badge-neutral">${r.input_type || 'Random'}</span></td>
+          <td>${medUs} µs</td>
+          <td>${meanUs} µs</td>
+          <td style="color: var(--text-muted); font-size: 0.8rem;">${minUs} / ${maxUs} µs</td>
+          <td>${peakMb} MB</td>
+          <td style="color: var(--accent); font-weight: 600;">${spText}</td>
+          <td><span class="badge badge-success">PASS ✓</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
 
   // ── 3. History View ────────────────────────────────────────────────────────

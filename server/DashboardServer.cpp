@@ -2,6 +2,7 @@
 #include "../analysis/ReportLoader.h"
 #include "../reporting/HtmlReportGenerator.h"
 #include "../benchmarks/RegisterBenchmarks.h"
+#include "../SystemInfo.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -481,7 +482,18 @@ std::string DashboardServer::handle_status() {
        << "  \"total_iterations\": " << current_progress.total_iterations << ",\n"
        << "  \"elapsed_seconds\": " << std::fixed << std::setprecision(2) << current_progress.elapsed_seconds << ",\n"
        << "  \"last_run_id\": \"" << escape_json_str(current_progress.last_run_id) << "\",\n"
-       << "  \"error_message\": \"" << escape_json_str(current_progress.error_message) << "\"\n"
+       << "  \"error_message\": \"" << escape_json_str(current_progress.error_message) << "\",\n";
+    SystemInfo sys;
+    ss << "  \"system\": {\n"
+       << "    \"os\": \"" << escape_json_str(sys.operating_system()) << "\",\n"
+       << "    \"cpu\": \"" << escape_json_str(sys.cpu_name()) << "\",\n"
+       << "    \"architecture\": \"" << escape_json_str(sys.architecture()) << "\",\n"
+       << "    \"physical_cores\": " << sys.physical_cores() << ",\n"
+       << "    \"logical_cpus\": " << sys.logical_processors() << ",\n"
+       << "    \"compiler\": \"" << escape_json_str(sys.compiler()) << "\",\n"
+       << "    \"cxx_standard\": \"" << escape_json_str(sys.cxx_standard()) << "\",\n"
+       << "    \"optimization\": \"" << escape_json_str(sys.optimization()) << "\"\n"
+       << "  }\n"
        << "}";
     return ss.str();
 }
