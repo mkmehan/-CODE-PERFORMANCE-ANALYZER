@@ -98,22 +98,24 @@ const App = {
         const slowest = group.rankings[group.rankings.length - 1];
 
         if (fastest) {
-          const fname = fastest.algorithm_name || fastest.name || fastest.algorithm;
+          const fname = fastest.name || fastest.algorithm_name || fastest.algorithm;
           document.getElementById('dash-fastest-name').textContent = fname;
-          const timeUs = (fastest.time_mean_ns / 1000.0).toFixed(2);
+          const meanNs = fastest.time_mean_ns ?? fastest.mean_time_ns ?? 0;
+          const timeUs = (meanNs / 1000.0).toFixed(2);
           const sp = fastest.speedup ?? fastest.speedup_factor ?? 1.0;
           document.getElementById('dash-fastest-sub').textContent = `${timeUs} µs • ${sp.toFixed(1)}x vs slowest`;
         }
 
         if (slowest) {
-          const sname = slowest.algorithm_name || slowest.name || slowest.algorithm;
+          const sname = slowest.name || slowest.algorithm_name || slowest.algorithm;
           document.getElementById('dash-slowest-name').textContent = sname;
-          const timeUs = (slowest.time_mean_ns / 1000.0).toFixed(2);
+          const meanNs = slowest.time_mean_ns ?? slowest.mean_time_ns ?? 0;
+          const timeUs = (meanNs / 1000.0).toFixed(2);
           document.getElementById('dash-slowest-sub').textContent = `${timeUs} µs • baseline (1.0x)`;
         }
 
         // Render Speedup horizontal bar chart
-        const labels = group.rankings.map(r => r.algorithm_name || r.name || r.algorithm).reverse();
+        const labels = group.rankings.map(r => r.name || r.algorithm_name || r.algorithm).reverse();
         const speedups = group.rankings.map(r => r.speedup ?? r.speedup_factor ?? 1.0).reverse();
         Charts.renderBarChart('dashSpeedupChart', labels, speedups, 'Speedup Factor');
       } else if (run && run.results && run.results.length > 0) {
@@ -578,7 +580,7 @@ const App = {
 
         tr.innerHTML = `
           <td>${rankBadge}</td>
-          <td style="font-weight: 600; color: #fff;">${r.algorithm_name || r.name || r.algorithm}</td>
+          <td style="font-weight: 600; color: #fff;">${r.name || r.algorithm_name || r.algorithm}</td>
           <td>${meanUs} µs</td>
           <td>${medUs} µs</td>
           <td style="color: var(--accent); font-weight: 600;">${speedup}</td>
