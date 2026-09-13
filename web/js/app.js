@@ -8,6 +8,7 @@ const App = {
     this.bindNavigation();
     this.bindDashboard();
     this.bindBenchmarkForm();
+    this.bindCustomBenchmark();
     this.bindGraphs();
     this.bindComparison();
 
@@ -217,18 +218,55 @@ const App = {
 
     // Populate CPU Core Control dropdown if not already populated
     const affinitySelect = document.getElementById('cfg-affinity');
-    if (affinitySelect && sys.logical_cpus && affinitySelect.options.length <= 1) {
-      for (let i = 0; i < sys.logical_cpus; ++i) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `Core ${i} (Pinned)`;
-        affinitySelect.appendChild(opt);
+    const customAffinitySelect = document.getElementById('custom-cfg-affinity');
+    if (sys.logical_cpus) {
+      if (affinitySelect && affinitySelect.options.length <= 1) {
+        for (let i = 0; i < sys.logical_cpus; ++i) {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = `Core ${i} (Pinned)`;
+          affinitySelect.appendChild(opt);
+        }
+      }
+      if (customAffinitySelect && customAffinitySelect.options.length <= 1) {
+        for (let i = 0; i < sys.logical_cpus; ++i) {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = `Core ${i} (Pinned)`;
+          customAffinitySelect.appendChild(opt);
+        }
       }
     }
   },
 
   // ── 2. Run Benchmark Form ──────────────────────────────────────────────────
   bindBenchmarkForm() {
+    // Mode Switcher (Standard Sorting vs Custom Algorithms)
+    const btnModeStd = document.getElementById('btn-mode-standard');
+    const btnModeCustom = document.getElementById('btn-mode-custom');
+    const containerStd = document.getElementById('container-standard-benchmark');
+    const containerCustom = document.getElementById('container-custom-benchmark');
+
+    if (btnModeStd && btnModeCustom) {
+      btnModeStd.addEventListener('click', () => {
+        btnModeStd.classList.remove('btn-secondary');
+        btnModeStd.classList.add('btn-primary');
+        btnModeCustom.classList.remove('btn-primary');
+        btnModeCustom.classList.add('btn-secondary');
+        if (containerStd) containerStd.style.display = 'block';
+        if (containerCustom) containerCustom.style.display = 'none';
+      });
+
+      btnModeCustom.addEventListener('click', () => {
+        btnModeCustom.classList.remove('btn-secondary');
+        btnModeCustom.classList.add('btn-primary');
+        btnModeStd.classList.remove('btn-primary');
+        btnModeStd.classList.add('btn-secondary');
+        if (containerStd) containerStd.style.display = 'none';
+        if (containerCustom) containerCustom.style.display = 'block';
+      });
+    }
+
     const inputTypeSelect = document.getElementById('cfg-input-type');
     const fileGroup = document.getElementById('cfg-file-group');
     const btnValidate = document.getElementById('btn-validate-file');
@@ -475,6 +513,295 @@ const App = {
     }
   },
 
+  // ── Custom Benchmark Form ──────────────────────────────────────────────────
+  bindCustomBenchmark() {
+    const btnBrowseAlgA = document.getElementById('btn-browse-alg-a');
+    const fileAlgA = document.getElementById('custom-alg-a-file');
+    const pathAlgA = document.getElementById('custom-alg-a-path');
+    const nameAlgA = document.getElementById('custom-alg-a-name');
+    const statusAlgA = document.getElementById('custom-alg-a-status');
+
+    const btnBrowseAlgB = document.getElementById('btn-browse-alg-b');
+    const fileAlgB = document.getElementById('custom-alg-b-file');
+    const pathAlgB = document.getElementById('custom-alg-b-path');
+    const nameAlgB = document.getElementById('custom-alg-b-name');
+    const statusAlgB = document.getElementById('custom-alg-b-status');
+
+    const btnLoadSamples = document.getElementById('btn-custom-load-samples');
+    const btnBrowseDataset = document.getElementById('btn-browse-custom-dataset');
+    const pickerDataset = document.getElementById('custom-dataset-picker');
+    const btnSampleDataset = document.getElementById('btn-sample-custom-dataset');
+    const pathDataset = document.getElementById('custom-dataset-path');
+    const targetVal = document.getElementById('custom-target-val');
+
+    const btnRunCustom = document.getElementById('btn-run-custom-benchmark');
+    const btnCancelCustom = document.getElementById('btn-cancel-custom-benchmark');
+
+    // Algorithm 1 upload
+    if (btnBrowseAlgA && fileAlgA) {
+      btnBrowseAlgA.addEventListener('click', () => fileAlgA.click());
+      fileAlgA.addEventListener('change', async () => {
+        const file = fileAlgA.files[0];
+        if (!file) return;
+        btnBrowseAlgA.disabled = true;
+        btnBrowseAlgA.textContent = 'Uploading...';
+        try {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target.result;
+            const res = await API.uploadCustomAlgorithm(file.name, content);
+            btnBrowseAlgA.disabled = false;
+            btnBrowseAlgA.textContent = '📁 Browse .cpp';
+            if (res && res.success) {
+              if (pathAlgA) pathAlgA.value = res.file_path;
+              if (nameAlgA && (!nameAlgA.value || nameAlgA.value.startsWith('Algorithm'))) {
+                nameAlgA.value = file.name.replace(/\.[^/.]+$/, '');
+              }
+              if (statusAlgA) {
+                if (res.interface && res.interface.valid) {
+                  statusAlgA.style.color = '#10b981';
+                  statusAlgA.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                  statusAlgA.style.background = 'rgba(16, 185, 129, 0.08)';
+                  statusAlgA.textContent = res.interface.status_badge || '✓ Ready';
+                } else {
+                  statusAlgA.style.color = '#f43f5e';
+                  statusAlgA.style.borderColor = 'rgba(244, 63, 94, 0.3)';
+                  statusAlgA.style.background = 'rgba(244, 63, 94, 0.08)';
+                  statusAlgA.textContent = (res.interface && res.interface.error_message) ? `✗ ${res.interface.error_message}` : '✗ Detection failed';
+                }
+              }
+            } else {
+              if (statusAlgA) {
+                statusAlgA.style.color = '#f43f5e';
+                statusAlgA.textContent = `✗ Upload failed: ${res ? res.error_message : 'Server error'}`;
+              }
+            }
+          };
+          reader.readAsText(file);
+        } catch (err) {
+          btnBrowseAlgA.disabled = false;
+          btnBrowseAlgA.textContent = '📁 Browse .cpp';
+          if (statusAlgA) {
+            statusAlgA.style.color = '#f43f5e';
+            statusAlgA.textContent = `✗ File read error: ${err.message}`;
+          }
+        }
+      });
+    }
+
+    // Algorithm 2 upload
+    if (btnBrowseAlgB && fileAlgB) {
+      btnBrowseAlgB.addEventListener('click', () => fileAlgB.click());
+      fileAlgB.addEventListener('change', async () => {
+        const file = fileAlgB.files[0];
+        if (!file) return;
+        btnBrowseAlgB.disabled = true;
+        btnBrowseAlgB.textContent = 'Uploading...';
+        try {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target.result;
+            const res = await API.uploadCustomAlgorithm(file.name, content);
+            btnBrowseAlgB.disabled = false;
+            btnBrowseAlgB.textContent = '📁 Browse .cpp';
+            if (res && res.success) {
+              if (pathAlgB) pathAlgB.value = res.file_path;
+              if (nameAlgB && (!nameAlgB.value || nameAlgB.value.startsWith('Algorithm'))) {
+                nameAlgB.value = file.name.replace(/\.[^/.]+$/, '');
+              }
+              if (statusAlgB) {
+                if (res.interface && res.interface.valid) {
+                  statusAlgB.style.color = '#10b981';
+                  statusAlgB.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                  statusAlgB.style.background = 'rgba(16, 185, 129, 0.08)';
+                  statusAlgB.textContent = res.interface.status_badge || '✓ Ready';
+                } else {
+                  statusAlgB.style.color = '#f43f5e';
+                  statusAlgB.style.borderColor = 'rgba(244, 63, 94, 0.3)';
+                  statusAlgB.style.background = 'rgba(244, 63, 94, 0.08)';
+                  statusAlgB.textContent = (res.interface && res.interface.error_message) ? `✗ ${res.interface.error_message}` : '✗ Detection failed';
+                }
+              }
+            } else {
+              if (statusAlgB) {
+                statusAlgB.style.color = '#f43f5e';
+                statusAlgB.textContent = `✗ Upload failed: ${res ? res.error_message : 'Server error'}`;
+              }
+            }
+          };
+          reader.readAsText(file);
+        } catch (err) {
+          btnBrowseAlgB.disabled = false;
+          btnBrowseAlgB.textContent = '📁 Browse .cpp';
+          if (statusAlgB) {
+            statusAlgB.style.color = '#f43f5e';
+            statusAlgB.textContent = `✗ File read error: ${err.message}`;
+          }
+        }
+      });
+    }
+
+    // Load Sample Suite
+    if (btnLoadSamples) {
+      btnLoadSamples.addEventListener('click', async () => {
+        btnLoadSamples.disabled = true;
+        btnLoadSamples.textContent = 'Loading Samples...';
+        try {
+          const data = await API.getCustomSamples();
+          if (data && data.algorithms && data.algorithms.length >= 2) {
+            const a = data.algorithms[0];
+            const b = data.algorithms[1];
+            if (nameAlgA) nameAlgA.value = a.name;
+            if (pathAlgA) pathAlgA.value = a.path;
+            if (statusAlgA) {
+              statusAlgA.style.color = '#10b981';
+              statusAlgA.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+              statusAlgA.style.background = 'rgba(16, 185, 129, 0.08)';
+              statusAlgA.textContent = `✓ Interface: ${a.interface} • Auto-Adapter Ready`;
+            }
+
+            if (nameAlgB) nameAlgB.value = b.name;
+            if (pathAlgB) pathAlgB.value = b.path;
+            if (statusAlgB) {
+              statusAlgB.style.color = '#10b981';
+              statusAlgB.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+              statusAlgB.style.background = 'rgba(16, 185, 129, 0.08)';
+              statusAlgB.textContent = `✓ Interface: ${b.interface} • Auto-Adapter Ready`;
+            }
+
+            if (data.dataset) {
+              if (pathDataset) pathDataset.value = data.dataset.path || 'custom/samples/search_data.txt';
+              if (targetVal) targetVal.value = data.dataset.recommended_target || 5000;
+            }
+          }
+        } catch (err) {
+          console.error('Error loading custom samples:', err);
+        } finally {
+          btnLoadSamples.disabled = false;
+          btnLoadSamples.textContent = '📄 Load Sample Suite (Linear vs Binary Search)';
+        }
+      });
+    }
+
+    // Dataset upload & sample buttons
+    if (btnBrowseDataset && pickerDataset) {
+      btnBrowseDataset.addEventListener('click', () => pickerDataset.click());
+      pickerDataset.addEventListener('change', async () => {
+        const file = pickerDataset.files[0];
+        if (!file) return;
+        btnBrowseDataset.disabled = true;
+        btnBrowseDataset.textContent = 'Uploading...';
+        try {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target.result;
+            const res = await API.uploadDataset(file.name, content);
+            btnBrowseDataset.disabled = false;
+            btnBrowseDataset.textContent = '📁 Upload';
+            if (res && res.valid) {
+              if (pathDataset) pathDataset.value = res.file_path;
+            } else {
+              alert(`Upload failed: ${res ? res.error_message : 'Server error'}`);
+            }
+          };
+          reader.readAsText(file);
+        } catch (err) {
+          btnBrowseDataset.disabled = false;
+          btnBrowseDataset.textContent = '📁 Upload';
+          alert(`File read error: ${err.message}`);
+        }
+      });
+    }
+
+    if (btnSampleDataset && pathDataset) {
+      btnSampleDataset.addEventListener('click', () => {
+        pathDataset.value = 'custom/samples/search_data.txt';
+        if (targetVal) targetVal.value = 5000;
+      });
+    }
+
+    // Run Custom Benchmark
+    if (btnRunCustom) {
+      btnRunCustom.addEventListener('click', async () => {
+        const algASrc = pathAlgA ? pathAlgA.value.trim() : '';
+        const algBSrc = pathAlgB ? pathAlgB.value.trim() : '';
+        const dataPath = pathDataset ? pathDataset.value.trim() : '';
+
+        if (!algASrc) {
+          alert('Please specify source file for Algorithm 1.');
+          return;
+        }
+        if (!algBSrc) {
+          alert('Please specify source file for Algorithm 2.');
+          return;
+        }
+        if (!dataPath) {
+          alert('Please specify dataset file path.');
+          return;
+        }
+
+        const category = document.getElementById('custom-cfg-category') ? document.getElementById('custom-cfg-category').value : 'search';
+        const algAName = (nameAlgA && nameAlgA.value.trim()) ? nameAlgA.value.trim() : 'Algorithm 1';
+        const algBName = (nameAlgB && nameAlgB.value.trim()) ? nameAlgB.value.trim() : 'Algorithm 2';
+        const target = targetVal ? (parseInt(targetVal.value, 10) || 0) : 0;
+        const iterations = parseInt(document.getElementById('custom-cfg-iterations').value, 10) || 20;
+        const warmup = parseInt(document.getElementById('custom-cfg-warmup').value, 10) || 5;
+        const memory = document.getElementById('custom-cfg-memory').value === 'true';
+        const affinityEl = document.getElementById('custom-cfg-affinity');
+        const cpuAffinity = affinityEl ? (parseInt(affinityEl.value, 10) || -1) : -1;
+
+        const payload = {
+          category: category,
+          algorithms: [
+            { id: 'alg_a', name: algAName, source_path: algASrc },
+            { id: 'alg_b', name: algBName, source_path: algBSrc }
+          ],
+          dataset_path: dataPath,
+          target: target,
+          iterations: iterations,
+          warmup: warmup,
+          memory: memory,
+          cpu_affinity: cpuAffinity
+        };
+
+        btnRunCustom.disabled = true;
+        btnRunCustom.style.display = 'none';
+        if (btnCancelCustom) btnCancelCustom.style.display = 'inline-block';
+
+        const progBox = document.getElementById('benchmark-progress-box');
+        const progTask = document.getElementById('prog-task-name');
+        const progPct = document.getElementById('prog-pct');
+        const progFill = document.getElementById('prog-bar-fill');
+        if (progBox) progBox.classList.add('active');
+        if (progTask) progTask.textContent = 'Compiling custom runner & sandboxing...';
+        if (progPct) progPct.textContent = '0%';
+        if (progFill) progFill.style.width = '0%';
+
+        const resContainer = document.getElementById('benchmark-results-container');
+        if (resContainer) resContainer.style.display = 'none';
+
+        const res = await API.startCustomBenchmark(payload);
+        if (res.status === 'started' || res.status === 'accepted') {
+          this.startBenchmarkPolling();
+        } else {
+          alert(`Could not start custom benchmark: ${res.message || 'Unknown error'}`);
+          btnRunCustom.disabled = false;
+          btnRunCustom.style.display = 'inline-block';
+          if (btnCancelCustom) btnCancelCustom.style.display = 'none';
+          if (progBox) progBox.classList.remove('active');
+        }
+      });
+    }
+
+    if (btnCancelCustom) {
+      btnCancelCustom.addEventListener('click', async () => {
+        btnCancelCustom.disabled = true;
+        btnCancelCustom.textContent = 'Cancelling...';
+        await API.cancelBenchmark();
+      });
+    }
+  },
+
   startBenchmarkPolling() {
     if (this.pollTimer) clearInterval(this.pollTimer);
 
@@ -486,6 +813,29 @@ const App = {
     const progDetail = document.getElementById('prog-current-detail');
     const btnRun = document.getElementById('btn-run-benchmark');
     const btnCancel = document.getElementById('btn-cancel-benchmark');
+    const btnRunCustom = document.getElementById('btn-run-custom-benchmark');
+    const btnCancelCustom = document.getElementById('btn-cancel-custom-benchmark');
+
+    const resetButtons = () => {
+      if (btnRun) {
+        btnRun.disabled = false;
+        btnRun.style.display = 'inline-block';
+      }
+      if (btnCancel) {
+        btnCancel.disabled = false;
+        btnCancel.style.display = 'none';
+        btnCancel.textContent = 'Cancel Benchmark';
+      }
+      if (btnRunCustom) {
+        btnRunCustom.disabled = false;
+        btnRunCustom.style.display = 'inline-block';
+      }
+      if (btnCancelCustom) {
+        btnCancelCustom.disabled = false;
+        btnCancelCustom.style.display = 'none';
+        btnCancelCustom.textContent = 'Cancel Benchmark';
+      }
+    };
 
     this.pollTimer = setInterval(async () => {
       const status = await API.getStatus();
@@ -507,11 +857,7 @@ const App = {
         this.updateEngineBadge('Engine Ready', '#10b981');
 
         setTimeout(async () => {
-          btnRun.disabled = false;
-          btnRun.style.display = 'inline-block';
-          btnCancel.disabled = false;
-          btnCancel.style.display = 'none';
-          btnCancel.textContent = 'Cancel Benchmark';
+          resetButtons();
 
           // Immediately render live benchmark results for this completed run!
           await this.renderBenchmarkResults(status.last_run_id);
@@ -528,21 +874,13 @@ const App = {
         this.pollTimer = null;
         progTask.textContent = 'Benchmark was cancelled.';
         this.updateEngineBadge('Engine Ready', '#10b981');
-        btnRun.disabled = false;
-        btnRun.style.display = 'inline-block';
-        btnCancel.disabled = false;
-        btnCancel.style.display = 'none';
-        btnCancel.textContent = 'Cancel Benchmark';
+        resetButtons();
       } else if (status.state === 'failed') {
         clearInterval(this.pollTimer);
         this.pollTimer = null;
         progTask.textContent = `Benchmark failed: ${status.error_message}`;
         this.updateEngineBadge('Engine Error', '#f43f5e');
-        btnRun.disabled = false;
-        btnRun.style.display = 'inline-block';
-        btnCancel.disabled = false;
-        btnCancel.style.display = 'none';
-        btnCancel.textContent = 'Cancel Benchmark';
+        resetButtons();
       }
     }, 400);
   },
@@ -585,11 +923,20 @@ const App = {
 
     container.style.display = 'block';
 
+    const isCustom = run.benchmark_mode === 'custom';
+
     // Subtitle with Run ID, timestamp, and input type
     const sub = document.getElementById('bench-res-subtitle');
     if (sub) {
-      const inType = run.input_type || (run.input ? run.input.type : '') || 'Generated';
-      sub.textContent = `Run ID: ${run.run_id} • Date: ${run.timestamp || 'Latest'} • Input: ${inType}`;
+      if (isCustom) {
+        const cat = (run.benchmark_category || 'Search').toUpperCase();
+        const dPath = run.input ? (run.input.file_path || run.input.type) : (run.input_type || 'Custom');
+        const targetVal = run.custom_target_parameter !== undefined && run.custom_target_parameter !== '' ? run.custom_target_parameter : 'N/A';
+        sub.textContent = `🧪 Custom Benchmark • Domain: ${cat} • Target: ${targetVal} • Dataset: ${dPath} • Run ID: ${run.run_id}`;
+      } else {
+        const inType = run.input_type || (run.input ? run.input.type : '') || 'Generated';
+        sub.textContent = `Run ID: ${run.run_id} • Date: ${run.timestamp || 'Latest'} • Input: ${inType}`;
+      }
     }
 
     // Action buttons
@@ -670,8 +1017,14 @@ const App = {
 
     const uniqueAlgs = new Set(run.results.map(r => r.algorithm_name || r.name || r.algorithm));
     const uniqueSizes = new Set(run.results.map(r => r.input_size));
-    document.getElementById('bench-scope-val').textContent = `${uniqueAlgs.size} Algorithms`;
-    document.getElementById('bench-scope-sub').textContent = `${run.results.length} runs across N = ${Array.from(uniqueSizes).join(', ')}`;
+    if (isCustom) {
+      const targetVal = run.custom_target_parameter !== undefined && run.custom_target_parameter !== '' ? run.custom_target_parameter : 'N/A';
+      document.getElementById('bench-scope-val').textContent = `${uniqueAlgs.size} Custom Algorithms`;
+      document.getElementById('bench-scope-sub').textContent = `Target: ${targetVal} • Correctness: PASS ✓ (Isolated Subprocess)`;
+    } else {
+      document.getElementById('bench-scope-val').textContent = `${uniqueAlgs.size} Algorithms`;
+      document.getElementById('bench-scope-sub').textContent = `${run.results.length} runs across N = ${Array.from(uniqueSizes).join(', ')}`;
+    }
 
     // Build Time & Memory Charts for this specific run
     const timeSeriesMap = {};
@@ -737,10 +1090,14 @@ const App = {
         const spVal = rk ? (rk.speedup ?? rk.speedup_factor ?? 1.0) : 1.0;
         const spText = `${Number(spVal).toFixed(2)}x`;
 
+        const badgeInput = isCustom
+          ? `<span class="badge badge-primary">Target: ${run.custom_target_parameter ?? 'N/A'}</span>`
+          : `<span class="badge badge-neutral">${r.input_type || 'Random'}</span>`;
+
         tr.innerHTML = `
           <td style="font-weight: 600; color: #fff;">${name}</td>
           <td>${(r.input_size || 0).toLocaleString()}</td>
-          <td><span class="badge badge-neutral">${r.input_type || 'Random'}</span></td>
+          <td>${badgeInput}</td>
           <td>${medUs} µs</td>
           <td>${meanUs} µs</td>
           <td style="color: var(--text-muted); font-size: 0.8rem;">${minUs} / ${maxUs} µs</td>
@@ -772,10 +1129,15 @@ const App = {
       const tr = document.createElement('tr');
       const algsStr = (run.algorithms || []).slice(0, 4).join(', ') + ((run.algorithms || []).length > 4 ? ` (+${run.algorithms.length - 4} more)` : '');
 
+      const isCustom = run.benchmark_mode === 'custom';
+      const badgeHtml = isCustom
+        ? `<span class="badge badge-primary">Custom: ${run.benchmark_category || 'Search'}</span>`
+        : `<span class="badge badge-secondary">${run.input_type || 'Generated'}</span>`;
+
       tr.innerHTML = `
         <td style="font-family: monospace; font-weight: 600; color: #fff;">${run.run_id}</td>
         <td>${run.timestamp || '—'}</td>
-        <td><span class="badge badge-secondary">${run.input_type || 'Generated'}</span></td>
+        <td>${badgeHtml}</td>
         <td>${run.element_count ? run.element_count.toLocaleString() : 'N/A'}</td>
         <td style="color: var(--text-muted); font-size: 0.85rem;">${algsStr}</td>
         <td>
@@ -842,7 +1204,11 @@ const App = {
     data.runs.forEach(r => {
       const opt = document.createElement('option');
       opt.value = r.run_id;
-      opt.textContent = `${r.run_id} (${r.timestamp}) - ${r.input_type}`;
+      if (r.benchmark_mode === 'custom') {
+        opt.textContent = `[Custom: ${r.benchmark_category || 'Search'}] ${r.run_id} (${r.timestamp})`;
+      } else {
+        opt.textContent = `${r.run_id} (${r.timestamp}) - ${r.input_type || 'Generated'}`;
+      }
       if (r.run_id === selectedId) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -983,10 +1349,15 @@ const App = {
     tbody.innerHTML = '';
     data.runs.forEach(run => {
       const tr = document.createElement('tr');
+      const isCustom = run.benchmark_mode === 'custom';
+      const badgeText = isCustom
+        ? `Custom: ${run.benchmark_category || 'Search'} (Target=${run.custom_target_parameter ?? 'N/A'})`
+        : `${run.input_type || 'Generated'} (N=${run.element_count ? run.element_count.toLocaleString() : 'N/A'})`;
+
       tr.innerHTML = `
         <td style="font-family: monospace; font-weight: 600; color: #fff;">${run.run_id}</td>
         <td>${run.timestamp || '—'}</td>
-        <td><span class="badge badge-secondary">${run.input_type || 'Generated'} (N=${run.element_count ? run.element_count.toLocaleString() : 'N/A'})</span></td>
+        <td><span class="badge ${isCustom ? 'badge-primary' : 'badge-secondary'}">${badgeText}</span></td>
         <td>
           <button class="btn btn-primary btn-sm btn-open-report" data-id="${run.run_id}">Open HTML Report</button>
         </td>

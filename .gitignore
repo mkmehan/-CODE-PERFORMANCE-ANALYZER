@@ -14,3 +14,9 @@ benchmark_report.csv
 .idea/
 *.user
 *.suo
+
+# Custom benchmark runner output & uploads
+custom/bin/
+custom/bin_test/
+custom/uploads/
+datasets/

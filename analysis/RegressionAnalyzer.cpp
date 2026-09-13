@@ -38,6 +38,11 @@ bool RegressionAnalyzer::are_runs_compatible(
     const BenchmarkRun& a,
     const BenchmarkRun& b
 ) {
+    // Mode and category must match (e.g. standard sorting vs custom search)
+    if (a.benchmark_mode != b.benchmark_mode || a.benchmark_category != b.benchmark_category) {
+        return false;
+    }
+
     // If one or both are custom files, the custom dataset should match
     if (a.input.type == "custom_file" && b.input.type == "custom_file") {
         if (!a.input.file_path.empty() && !b.input.file_path.empty() &&

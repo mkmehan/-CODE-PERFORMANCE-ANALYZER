@@ -3,6 +3,10 @@
 #include "../reporting/HtmlReportGenerator.h"
 #include "../benchmarks/RegisterBenchmarks.h"
 #include "../SystemInfo.h"
+#include "../custom/CustomAlgorithm.h"
+#include "../custom/InterfaceDetector.h"
+#include "../custom/CustomBenchmarkCompiler.h"
+#include "../custom/CustomBenchmarkRunner.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -354,8 +358,10 @@ bool DashboardServer::start() {
             break;
         }
 
+#ifndef _WIN32
         int opt = 1;
         setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
+#endif
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
@@ -411,6 +417,13 @@ void DashboardServer::stop() {
     }
     listener_thread.reset();
 
+    // Wait up to 1 second for active client threads to finish
+    auto start_wait = std::chrono::steady_clock::now();
+    while (active_client_count.load() > 0 &&
+           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_wait).count() < 1000) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
     if (worker_thread && worker_thread->joinable()) {
         worker_thread->join();
     }
@@ -422,6 +435,9 @@ void DashboardServer::stop() {
 }
 
 void DashboardServer::wait() {
+    while (running.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     if (listener_thread && listener_thread->joinable()) {
         listener_thread->join();
     }
@@ -437,7 +453,7 @@ void DashboardServer::run_listener() {
 
         timeval timeout{};
         timeout.tv_sec = 0;
-        timeout.tv_usec = 200000; // 200 ms timeout to check running flag
+        timeout.tv_usec = 100000; // 100 ms timeout to check running flag
 
         int sel = select(0, &read_fds, nullptr, nullptr, &timeout);
         if (sel > 0 && FD_ISSET(listen_sock, &read_fds)) {
@@ -445,7 +461,21 @@ void DashboardServer::run_listener() {
             int client_len = sizeof(client_addr);
             SOCKET client_sock = accept(listen_sock, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
             if (client_sock != INVALID_SOCKET) {
-                handle_client(static_cast<uintptr_t>(client_sock));
+#ifdef _WIN32
+                DWORD tv = 5000;
+                setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+                setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+#else
+                timeval tv{};
+                tv.tv_sec = 5;
+                setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+                setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+#endif
+                active_client_count++;
+                std::thread([this, client_sock]() {
+                    handle_client(static_cast<uintptr_t>(client_sock));
+                    active_client_count--;
+                }).detach();
             }
         }
     }
@@ -454,9 +484,28 @@ void DashboardServer::run_listener() {
 void DashboardServer::handle_client(uintptr_t sock_ptr) {
     SOCKET client_sock = static_cast<SOCKET>(sock_ptr);
 
+    std::string request_str;
     char buffer[4096];
-    int bytes_read = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_read <= 0) {
+    size_t header_end = std::string::npos;
+
+    while (header_end == std::string::npos) {
+        int bytes_read = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_read <= 0) {
+#ifdef _WIN32
+            closesocket(client_sock);
+#else
+            close(client_sock);
+#endif
+            return;
+        }
+        request_str.append(buffer, static_cast<size_t>(bytes_read));
+        header_end = request_str.find("\r\n\r\n");
+        if (request_str.size() > 65536) {
+            break;
+        }
+    }
+
+    if (header_end == std::string::npos) {
 #ifdef _WIN32
         closesocket(client_sock);
 #else
@@ -464,10 +513,11 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
 #endif
         return;
     }
-    buffer[bytes_read] = '\0';
 
-    std::string request_str(buffer, static_cast<size_t>(bytes_read));
-    std::istringstream req_stream(request_str);
+    std::string headers = request_str.substr(0, header_end);
+    std::string body = request_str.substr(header_end + 4);
+
+    std::istringstream req_stream(headers);
     std::string method, full_uri, protocol;
     req_stream >> method >> full_uri >> protocol;
 
@@ -480,27 +530,21 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
     }
     auto query_map = parse_query(query_str);
 
-    std::string body;
-    size_t body_pos = request_str.find("\r\n\r\n");
-    if (body_pos != std::string::npos) {
-        body = request_str.substr(body_pos + 4);
-    }
-
-    size_t cl_pos = request_str.find("Content-Length:");
-    if (cl_pos == std::string::npos) cl_pos = request_str.find("content-length:");
+    size_t cl_pos = headers.find("Content-Length:");
+    if (cl_pos == std::string::npos) cl_pos = headers.find("content-length:");
     if (cl_pos != std::string::npos) {
-        size_t end_line = request_str.find("\r\n", cl_pos);
-        if (end_line != std::string::npos) {
-            std::string cl_str = request_str.substr(cl_pos + 15, end_line - (cl_pos + 15));
-            try {
-                size_t content_length = std::stoull(cl_str);
-                while (body.size() < content_length) {
-                    int more = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
-                    if (more <= 0) break;
-                    body.append(buffer, static_cast<size_t>(more));
-                }
-            } catch (...) {}
-        }
+        size_t end_line = headers.find("\r\n", cl_pos);
+        std::string cl_str = (end_line != std::string::npos)
+            ? headers.substr(cl_pos + 15, end_line - (cl_pos + 15))
+            : headers.substr(cl_pos + 15);
+        try {
+            size_t content_length = std::stoull(cl_str);
+            while (body.size() < content_length) {
+                int more = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
+                if (more <= 0) break;
+                body.append(buffer, static_cast<size_t>(more));
+            }
+        } catch (...) {}
     }
 
     if (method == "GET" && path == "/api/status") {
@@ -523,6 +567,14 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
         send_response(sock_ptr, 200, "application/json", handle_upload_dataset(body));
     } else if (method == "POST" && path == "/api/benchmark") {
         send_response(sock_ptr, 200, "application/json", handle_benchmark(body));
+    } else if (method == "POST" && path == "/api/custom-benchmark/start") {
+        send_response(sock_ptr, 200, "application/json", handle_custom_benchmark(body));
+    } else if (method == "POST" && path == "/api/custom-benchmark/detect-interface") {
+        send_response(sock_ptr, 200, "application/json", handle_detect_interface(body));
+    } else if (method == "POST" && path == "/api/custom-benchmark/upload-algorithm") {
+        send_response(sock_ptr, 200, "application/json", handle_upload_custom_algorithm(body));
+    } else if (method == "GET" && path == "/api/custom-benchmark/samples") {
+        send_response(sock_ptr, 200, "application/json", handle_custom_samples());
     } else if (method == "POST" && path == "/api/benchmark/cancel") {
         send_response(sock_ptr, 200, "application/json", handle_cancel());
     } else if (method == "POST" && path == "/api/report") {
@@ -875,6 +927,200 @@ std::string DashboardServer::handle_benchmark(const std::string& body) {
     return "{\"status\": \"started\", \"message\": \"Benchmark started in background\"}";
 }
 
+std::string DashboardServer::handle_detect_interface(const std::string& body) {
+    std::string source_code = extract_json_string(body, "source_code", "");
+    std::string file_path = extract_json_string(body, "file_path", "");
+    std::string cat_str = extract_json_string(body, "category", "search");
+    custom::CustomCategory cat = custom::string_to_custom_category(cat_str);
+
+    custom::DetectionResult res;
+    if (!source_code.empty()) {
+        res = custom::InterfaceDetector::detect(source_code, cat);
+    } else if (!file_path.empty()) {
+        res = custom::InterfaceDetector::detect_from_file(file_path, cat);
+    } else {
+        return "{\"recognized\": false, \"diagnostic_message\": \"No source code or file path provided.\"}";
+    }
+
+    std::ostringstream ss;
+    ss << "{\n"
+       << "  \"recognized\": " << (res.recognized ? "true" : "false") << ",\n"
+       << "  \"function_name\": \"" << escape_json_str(res.detected_function_name) << "\",\n"
+       << "  \"signature\": \"" << escape_json_str(res.detected_signature) << "\",\n"
+       << "  \"interface_type\": \"" << escape_json_str(custom::search_interface_type_to_string(res.interface_type)) << "\",\n"
+       << "  \"interface_type_enum\": " << static_cast<int>(res.interface_type) << ",\n"
+       << "  \"display_name\": \"" << escape_json_str(res.suggested_display_name) << "\",\n"
+       << "  \"diagnostic_message\": \"" << escape_json_str(res.diagnostic_message) << "\",\n"
+       << "  \"generated_adapter\": \"" << escape_json_str(res.generated_adapter_code) << "\"\n"
+       << "}";
+    return ss.str();
+}
+
+std::string DashboardServer::handle_upload_custom_algorithm(const std::string& body) {
+    std::string filename_raw = extract_json_string(body, "filename", "custom_alg.cpp");
+    std::string content = extract_json_string(body, "content", "");
+
+    if (content.empty()) {
+        return "{\"recognized\": false, \"diagnostic_message\": \"Uploaded file content is empty\"}";
+    }
+
+    std::string sanitized = sanitize_filename(filename_raw);
+    std::string dir = "custom/uploads";
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+
+    std::string file_path = dir + "/" + sanitized;
+    std::ofstream out(file_path, std::ios::binary | std::ios::trunc);
+    if (!out.is_open()) {
+        return "{\"recognized\": false, \"diagnostic_message\": \"Failed to save algorithm file on server\"}";
+    }
+    out << content;
+    out.close();
+
+    auto det = custom::InterfaceDetector::detect(content, custom::CustomCategory::Search);
+
+    std::ostringstream ss;
+    ss << "{\n"
+       << "  \"recognized\": " << (det.recognized ? "true" : "false") << ",\n"
+       << "  \"file_path\": \"" << escape_json_str(file_path) << "\",\n"
+       << "  \"filename\": \"" << escape_json_str(sanitized) << "\",\n"
+       << "  \"function_name\": \"" << escape_json_str(det.detected_function_name) << "\",\n"
+       << "  \"signature\": \"" << escape_json_str(det.detected_signature) << "\",\n"
+       << "  \"interface_type\": \"" << escape_json_str(custom::search_interface_type_to_string(det.interface_type)) << "\",\n"
+       << "  \"interface_type_enum\": " << static_cast<int>(det.interface_type) << ",\n"
+       << "  \"display_name\": \"" << escape_json_str(det.suggested_display_name) << "\",\n"
+       << "  \"diagnostic_message\": \"" << escape_json_str(det.diagnostic_message) << "\",\n"
+       << "  \"generated_adapter\": \"" << escape_json_str(det.generated_adapter_code) << "\"\n"
+       << "}";
+    return ss.str();
+}
+
+std::string DashboardServer::handle_custom_samples() {
+    auto read_file_or_default = [](const std::string& path) -> std::string {
+        std::ifstream f(path);
+        if (!f.is_open()) return "";
+        std::ostringstream ss;
+        ss << f.rdbuf();
+        return ss.str();
+    };
+
+    std::string lin_src = read_file_or_default("custom/samples/linear_search.cpp");
+    std::string bin_src = read_file_or_default("custom/samples/binary_search.cpp");
+
+    std::ostringstream ss;
+    ss << "{\n"
+       << "  \"algorithm_a\": {\n"
+       << "    \"name\": \"Linear Search\",\n"
+       << "    \"file_path\": \"custom/samples/linear_search.cpp\",\n"
+       << "    \"function_name\": \"linear_search\",\n"
+       << "    \"interface_type\": 3,\n"
+       << "    \"source\": \"" << escape_json_str(lin_src) << "\"\n"
+       << "  },\n"
+       << "  \"algorithm_b\": {\n"
+       << "    \"name\": \"Binary Search\",\n"
+       << "    \"file_path\": \"custom/samples/binary_search.cpp\",\n"
+       << "    \"function_name\": \"binarySearch\",\n"
+       << "    \"interface_type\": 0,\n"
+       << "    \"source\": \"" << escape_json_str(bin_src) << "\"\n"
+       << "  },\n"
+       << "  \"dataset\": {\n"
+       << "    \"file_path\": \"custom/samples/search_data.txt\",\n"
+       << "    \"target\": 5000\n"
+       << "  }\n"
+       << "}";
+    return ss.str();
+}
+
+std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
+    {
+        std::lock_guard<std::mutex> lock(status_mutex);
+        if (current_progress.state == EngineState::Running) {
+            return "{\"status\": \"busy\", \"message\": \"A benchmark is already running\"}";
+        }
+    }
+
+    custom::CustomBenchmarkConfig cfg;
+    cfg.dataset_path = extract_json_string(body, "dataset_path", "custom/samples/search_data.txt");
+    cfg.target_value = extract_json_int(body, "target_value", 5000);
+    cfg.iterations = extract_json_int(body, "iterations", 20);
+    cfg.warmup_runs = extract_json_int(body, "warmup", 5);
+    cfg.cpu_affinity = extract_json_int(body, "cpu_affinity", -1);
+    cfg.measure_memory = extract_json_bool(body, "memory", true);
+    cfg.timeout_seconds = extract_json_int(body, "timeout_seconds", 15);
+
+    std::string alg_a_name = extract_json_string(body, "alg_a_name", "Linear Search");
+    std::string alg_a_path = extract_json_string(body, "alg_a_path", "custom/samples/linear_search.cpp");
+    std::string alg_a_func = extract_json_string(body, "alg_a_func", "linear_search");
+    int alg_a_type = extract_json_int(body, "alg_a_type", static_cast<int>(custom::SearchInterfaceType::VectorRefTarget));
+
+    std::string alg_b_name = extract_json_string(body, "alg_b_name", "Binary Search");
+    std::string alg_b_path = extract_json_string(body, "alg_b_path", "custom/samples/binary_search.cpp");
+    std::string alg_b_func = extract_json_string(body, "alg_b_func", "binarySearch");
+    int alg_b_type = extract_json_int(body, "alg_b_type", static_cast<int>(custom::SearchInterfaceType::PointerSizeTarget));
+
+    custom::AlgorithmSourceSpec a1;
+    a1.algorithm_name = alg_a_name;
+    a1.source_file_path = alg_a_path;
+    a1.detected_function = alg_a_func;
+    a1.interface_type = static_cast<custom::SearchInterfaceType>(alg_a_type);
+    cfg.algorithms.push_back(a1);
+
+    custom::AlgorithmSourceSpec a2;
+    a2.algorithm_name = alg_b_name;
+    a2.source_file_path = alg_b_path;
+    a2.detected_function = alg_b_func;
+    a2.interface_type = static_cast<custom::SearchInterfaceType>(alg_b_type);
+    cfg.algorithms.push_back(a2);
+
+    cancel_requested.store(false);
+
+    {
+        std::lock_guard<std::mutex> lock(status_mutex);
+        current_progress.state = EngineState::Running;
+        current_progress.progress_percent = 10;
+        current_progress.current_algorithm = "Compiling custom algorithms...";
+        current_progress.current_input_type = "Custom Search";
+        current_progress.current_size = 0;
+        current_progress.current_iteration = 0;
+        current_progress.total_iterations = cfg.iterations;
+        current_progress.elapsed_seconds = 0.0;
+        current_progress.error_message = "";
+    }
+
+    if (worker_thread && worker_thread->joinable()) {
+        worker_thread->join();
+    }
+
+    worker_thread = std::make_unique<std::thread>([this, cfg]() {
+        try {
+            {
+                std::lock_guard<std::mutex> lock(status_mutex);
+                current_progress.progress_percent = 35;
+                current_progress.current_algorithm = "Running isolated benchmark process...";
+            }
+
+            auto res = custom::CustomBenchmarkRunner::execute(cfg);
+
+            std::lock_guard<std::mutex> lock(status_mutex);
+            if (res.success) {
+                current_progress.state = EngineState::Completed;
+                current_progress.progress_percent = 100;
+                current_progress.last_run_id = res.run.run_id;
+                current_progress.current_algorithm = "Completed ✓";
+            } else {
+                current_progress.state = EngineState::Failed;
+                current_progress.error_message = res.error_message;
+            }
+        } catch (const std::exception& ex) {
+            std::lock_guard<std::mutex> lock(status_mutex);
+            current_progress.state = EngineState::Failed;
+            current_progress.error_message = ex.what();
+        }
+    });
+
+    return "{\"status\": \"started\", \"message\": \"Custom benchmark started\"}";
+}
+
 std::string DashboardServer::handle_cancel() {
     cancel_requested.store(true);
     {
@@ -974,7 +1220,22 @@ void DashboardServer::send_response(uintptr_t sock_ptr, int status_code, const s
     ss << body;
 
     std::string resp = ss.str();
-    send(client_sock, resp.c_str(), static_cast<int>(resp.size()), 0);
+    const char* ptr = resp.c_str();
+    int remaining = static_cast<int>(resp.size());
+    while (remaining > 0) {
+        int sent = send(client_sock, ptr, remaining, 0);
+        if (sent <= 0) {
+            break;
+        }
+        ptr += sent;
+        remaining -= sent;
+    }
+
+#ifdef _WIN32
+    shutdown(client_sock, SD_SEND);
+#else
+    shutdown(client_sock, SHUT_WR);
+#endif
 }
 
 std::map<std::string, std::string> DashboardServer::parse_query(const std::string& query_str) {

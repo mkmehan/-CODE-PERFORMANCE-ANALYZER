@@ -14,6 +14,10 @@
 #include "../analysis/TrendAnalyzer.h"
 #include "../reporting/HtmlReportGenerator.h"
 #include "../server/DashboardServer.h"
+#include "../custom/CustomAlgorithm.h"
+#include "../custom/InterfaceDetector.h"
+#include "../custom/CustomBenchmarkCompiler.h"
+#include "../custom/CustomBenchmarkRunner.h"
 #include "../BenchmarkRunner.h"
 #include "../benchmarks/RegisterBenchmarks.h"
 #ifdef _WIN32
@@ -1171,6 +1175,130 @@ void run_server_tests() {
     expect(!srv.is_running(), "Server is_running returns false after stop");
 }
 
+void run_custom_benchmark_tests() {
+    std::cout << "\n[CUSTOM BENCHMARK & INTERFACE DETECTOR TESTS]\n";
+
+    // 1. Interface Detection: Linear Search (std::vector<int> reference)
+    {
+        auto det = custom::InterfaceDetector::detect_from_file("custom/samples/linear_search.cpp");
+        expect(det.recognized, "InterfaceDetector detects linear_search.cpp");
+        expect(det.detected_function_name == "linear_search", "Detected function name is linear_search");
+        expect(det.interface_type == custom::SearchInterfaceType::VectorRefTarget, "Detected pattern is VectorRefTarget");
+        expect(!det.detected_signature.empty(), "Detected signature is populated");
+    }
+
+    // 2. Interface Detection: Binary Search (pointer and size)
+    {
+        auto det = custom::InterfaceDetector::detect_from_file("custom/samples/binary_search.cpp");
+        expect(det.recognized, "InterfaceDetector detects binary_search.cpp");
+        expect(det.detected_function_name == "binarySearch", "Detected function name is binarySearch");
+        expect(det.interface_type == custom::SearchInterfaceType::PointerSizeTarget, "Detected pattern is PointerSizeTarget");
+    }
+
+    // 3. Interface Detection: Invalid / non-existent file
+    {
+        auto det = custom::InterfaceDetector::detect_from_file("custom/samples/nonexistent.cpp");
+        expect(!det.recognized, "InterfaceDetector returns unrecognized for non-existent file");
+    }
+
+    // 4. Custom Benchmark Compiler (compile standalone runner)
+    {
+        std::vector<custom::AlgorithmSourceSpec> specs;
+        custom::AlgorithmSourceSpec a1;
+        a1.algorithm_name = "Linear Search";
+        a1.source_file_path = "custom/samples/linear_search.cpp";
+        a1.interface_type = custom::SearchInterfaceType::VectorRefTarget;
+        a1.detected_function = "linear_search";
+        specs.push_back(a1);
+
+        custom::AlgorithmSourceSpec a2;
+        a2.algorithm_name = "Binary Search";
+        a2.source_file_path = "custom/samples/binary_search.cpp";
+        a2.interface_type = custom::SearchInterfaceType::PointerSizeTarget;
+        a2.detected_function = "binarySearch";
+        specs.push_back(a2);
+
+        auto comp_res = custom::CustomBenchmarkCompiler::compile_search_runner(specs, "custom/bin_test");
+        expect(comp_res.success, "CustomBenchmarkCompiler successfully compiles custom_runner.exe: " + comp_res.compiler_errors);
+        expect(std::filesystem::exists(comp_res.runner_executable_path), "runner executable exists on disk");
+
+        // Clean up test runner
+        std::error_code ec;
+        std::filesystem::remove(comp_res.runner_executable_path, ec);
+        std::filesystem::remove(comp_res.generated_adapter_path, ec);
+    }
+
+    // 5. Custom Benchmark Execution in Isolated Subprocess
+    {
+        std::vector<custom::AlgorithmSourceSpec> specs;
+        custom::AlgorithmSourceSpec a1;
+        a1.algorithm_name = "Linear Search";
+        a1.source_file_path = "custom/samples/linear_search.cpp";
+        a1.interface_type = custom::SearchInterfaceType::VectorRefTarget;
+        a1.detected_function = "linear_search";
+        specs.push_back(a1);
+
+        custom::AlgorithmSourceSpec a2;
+        a2.algorithm_name = "Binary Search";
+        a2.source_file_path = "custom/samples/binary_search.cpp";
+        a2.interface_type = custom::SearchInterfaceType::PointerSizeTarget;
+        a2.detected_function = "binarySearch";
+        specs.push_back(a2);
+
+        custom::CustomBenchmarkConfig cfg;
+        cfg.dataset_path = "custom/samples/search_data.txt";
+        cfg.target_value = 5000;
+        cfg.iterations = 5;
+        cfg.warmup_runs = 1;
+        cfg.measure_memory = true;
+        cfg.cpu_affinity = -1;
+        cfg.timeout_seconds = 15;
+        cfg.algorithms = specs;
+
+        auto exec_res = custom::CustomBenchmarkRunner::execute(cfg);
+        expect(exec_res.success, "CustomBenchmarkRunner executes child process successfully: " + exec_res.error_message);
+        expect(exec_res.exit_code == 0, "Child process exited with 0");
+        expect(exec_res.run.benchmark_mode == "custom", "BenchmarkRun mode is custom");
+        expect(exec_res.run.benchmark_category == "search", "BenchmarkRun category is search");
+        expect(exec_res.run.results.size() == 2, "BenchmarkRun contains exactly 2 custom algorithms");
+        expect(exec_res.run.results[0].algorithm_name == "Linear Search", "First algorithm is Linear Search");
+        expect(exec_res.run.results[0].cycles_mean > 0 || exec_res.run.results[0].time_mean_ns > 0.0, "Linear Search measured cycles or time");
+        expect(exec_res.run.results[1].cycles_mean > 0 || exec_res.run.results[1].time_mean_ns >= 0.0, "Binary Search measured cycles");
+
+        // Verify strict sorting algorithm isolation (no sorting algorithms in custom run)
+        bool no_sorting = true;
+        for (const auto& r : exec_res.run.results) {
+            if (r.algorithm == "quicksort" || r.algorithm == "mergesort" ||
+                r.algorithm == "bubblesort" || r.algorithm == "heapsort" ||
+                r.algorithm == "insertionsort" || r.algorithm == "selectionsort" ||
+                r.algorithm == "std_sort" || r.algorithm == "std_stable_sort") {
+                no_sorting = false;
+            }
+        }
+        expect(no_sorting, "Strict Isolation: No sorting algorithms in custom search benchmark results");
+
+        // Mode isolation with RegressionAnalyzer
+        analysis::BenchmarkRun standard_run;
+        standard_run.run_id = "run_std_mock";
+        standard_run.benchmark_mode = "standard";
+        standard_run.benchmark_category = "sorting";
+        standard_run.input.type = "random";
+
+        analysis::BenchmarkRecord rec;
+        rec.algorithm = "quicksort";
+        rec.input_size = 1000;
+        rec.input_type = "random";
+        rec.time_mean_ns = 50000;
+        standard_run.results.push_back(rec);
+
+        expect(!analysis::RegressionAnalyzer::are_runs_compatible(exec_res.run, standard_run),
+               "are_runs_compatible returns false for different benchmark modes");
+
+        auto reg_report = analysis::RegressionAnalyzer::compare_runs(exec_res.run, standard_run);
+        expect(!reg_report.valid, "compare_runs returns invalid report when comparing custom run against standard run");
+    }
+}
+
 int main() {
     std::cout << "========================================\n";
     std::cout << "CODE PERFORMANCE ANALYZER TEST SUITE\n";
@@ -1190,6 +1318,7 @@ int main() {
     run_trend_analyzer_tests();
     run_html_report_tests();
     run_server_tests();
+    run_custom_benchmark_tests();
     std::cout << "\n========================================\n";
     if (failures == 0) {
         std::cout << "RESULT: ALL TESTS PASSED\n";

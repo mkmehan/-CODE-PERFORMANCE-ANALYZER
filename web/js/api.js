@@ -128,6 +128,58 @@ const API = {
       console.error('API.generateReport error:', err);
       return { success: false };
     }
+  },
+
+  async detectInterface(sourceCode = '', filePath = '', category = 'search') {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/custom-benchmark/detect-interface`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_code: sourceCode, file_path: filePath, category })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API.detectInterface error:', err);
+      return { recognized: false, diagnostic_message: err.message };
+    }
+  },
+
+  async uploadCustomAlgorithm(filename, content) {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/custom-benchmark/upload-algorithm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API.uploadCustomAlgorithm error:', err);
+      return { recognized: false, diagnostic_message: err.message };
+    }
+  },
+
+  async getCustomSamples() {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/custom-benchmark/samples`);
+      return await res.json();
+    } catch (err) {
+      console.error('API.getCustomSamples error:', err);
+      return null;
+    }
+  },
+
+  async startCustomBenchmark(config) {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/custom-benchmark/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API.startCustomBenchmark error:', err);
+      return { status: 'failed', error_message: err.message };
+    }
   }
 };
 

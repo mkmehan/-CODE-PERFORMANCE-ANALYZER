@@ -48,6 +48,9 @@ struct BenchmarkRun {
     std::string format_version = "4.0";
     std::string run_id;            // e.g. "RUN-20260913-024701"
     std::string timestamp;         // e.g. "2026-09-13_02-47-01"
+    std::string benchmark_mode = "standard";    // "standard" or "custom"
+    std::string benchmark_category = "sorting"; // "sorting", "search", "matrix", etc.
+    std::string custom_target_parameter;        // e.g. "Target: 5000"
     SystemMetadata system;
     ConfigMetadata configuration;
     InputMetadata input;

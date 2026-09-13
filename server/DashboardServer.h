@@ -68,6 +68,7 @@ private:
 
     std::atomic<bool> running{false};
     std::atomic<bool> cancel_requested{false};
+    std::atomic<int> active_client_count{0};
 
     mutable std::mutex status_mutex;
     BenchmarkProgress current_progress;
@@ -90,6 +91,10 @@ private:
     std::string handle_validate_file(const std::string& body);
     std::string handle_upload_dataset(const std::string& body);
     std::string handle_benchmark(const std::string& body);
+    std::string handle_custom_benchmark(const std::string& body);
+    std::string handle_detect_interface(const std::string& body);
+    std::string handle_upload_custom_algorithm(const std::string& body);
+    std::string handle_custom_samples();
     std::string handle_cancel();
     std::string handle_report(const std::string& query_id);
     bool serve_static_file(uintptr_t client_sock, const std::string& raw_path);

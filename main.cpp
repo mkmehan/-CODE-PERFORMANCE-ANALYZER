@@ -159,17 +159,36 @@ void print_usage(const BenchmarkRunner& runner) {
 
 } // namespace
 
+#ifdef _WIN32
+static server::DashboardServer* g_active_server = nullptr;
+
+BOOL WINAPI console_ctrl_handler(DWORD signal) {
+    if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT || signal == CTRL_CLOSE_EVENT) {
+        if (g_active_server) {
+            std::cout << "\nStopping dashboard server...\n" << std::flush;
+            g_active_server->stop();
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 int main(int argc, char* argv[]) {
     #ifdef _WIN32
-SetConsoleOutputCP(CP_UTF8);
-SetConsoleCP(CP_UTF8);
-#endif
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    #endif
 
     // If invoked with no arguments or explicitly with --gui, start the Web Dashboard server:
     if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--gui")) {
         server::DashboardServer srv(8080, "web");
+#ifdef _WIN32
+        g_active_server = &srv;
+        SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
+#endif
         if (!srv.start()) {
-            std::cerr << "Error: Failed to start Dashboard server on port 8080 or 8081.\n";
+            std::cerr << "Error: Failed to start Dashboard server on port 8080 or 8081.\n" << std::flush;
             return 1;
         }
 
@@ -181,7 +200,7 @@ SetConsoleCP(CP_UTF8);
         std::cout << "║  Web Assets Root   : web/                                            ║\n";
         std::cout << "║  Browser Launch    : Opening in your default web browser...          ║\n";
         std::cout << "║  Press Ctrl+C in terminal to stop dashboard server.                  ║\n";
-        std::cout << "╚══════════════════════════════════════════════════════════════════════╝\n\n";
+        std::cout << "╚══════════════════════════════════════════════════════════════════════╝\n\n" << std::flush;
 
 #ifdef _WIN32
         ShellExecuteA(NULL, "open", srv.url().c_str(), NULL, NULL, SW_SHOWNORMAL);

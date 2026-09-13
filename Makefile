@@ -25,6 +25,9 @@ SOURCES = main.cpp \
           analysis/TrendAnalyzer.cpp \
           reporting/HtmlReportGenerator.cpp \
           server/DashboardServer.cpp \
+          custom/InterfaceDetector.cpp \
+          custom/CustomBenchmarkCompiler.cpp \
+          custom/CustomBenchmarkRunner.cpp \
           benchmarks/RegisterBenchmarks.cpp \
           benchmarks/BubbleSortBenchmark.cpp \
           benchmarks/InsertionSortBenchmark.cpp \
@@ -69,6 +72,9 @@ $(TEST_TARGET): tests/test_main.cpp \
                analysis/TrendAnalyzer.cpp \
                reporting/HtmlReportGenerator.cpp \
                server/DashboardServer.cpp \
+               custom/InterfaceDetector.cpp \
+               custom/CustomBenchmarkCompiler.cpp \
+               custom/CustomBenchmarkRunner.cpp \
                benchmarks/RegisterBenchmarks.cpp \
                benchmarks/BubbleSortBenchmark.cpp \
                benchmarks/InsertionSortBenchmark.cpp \
@@ -95,6 +101,9 @@ $(TEST_TARGET): tests/test_main.cpp \
 	       analysis/TrendAnalyzer.cpp \
 	       reporting/HtmlReportGenerator.cpp \
 	       server/DashboardServer.cpp \
+	       custom/InterfaceDetector.cpp \
+	       custom/CustomBenchmarkCompiler.cpp \
+	       custom/CustomBenchmarkRunner.cpp \
 	       benchmarks/RegisterBenchmarks.cpp \
 	       benchmarks/BubbleSortBenchmark.cpp \
 	       benchmarks/InsertionSortBenchmark.cpp \
@@ -106,5 +115,4 @@ $(TEST_TARGET): tests/test_main.cpp \
 	       -o $@ $(LDLIBS)
 
 clean:
-	cmd /C "del /Q $(TARGET) $(TEST_TARGET) 2>nul"
-	cmd /C "del /Q *.o benchmarks\*.o analysis\*.o reporting\*.o server\*.o tests\*.o 2>nul"
+	powershell -Command "Get-ChildItem -Include *.o -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue; Remove-Item $(TARGET), $(TEST_TARGET) -ErrorAction SilentlyContinue"
