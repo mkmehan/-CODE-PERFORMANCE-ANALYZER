@@ -3,6 +3,7 @@
 #include "analysis/HistoryManager.h"
 #include "analysis/ComparisonAnalyzer.h"
 #include "analysis/RegressionAnalyzer.h"
+#include "analysis/TrendAnalyzer.h"
 #include "benchmarks/RegisterBenchmarks.h"
 
 #include <algorithm>
@@ -146,6 +147,8 @@ void print_usage(const BenchmarkRunner& runner) {
         << "  --history [run_id]    List benchmark history or view specific run details\n"
         << "  --compare [run_id]    Compare algorithms from latest run or a specific historical run\n"
         << "  --regression [run_id] Compare latest run against baseline (or previous compatible run)\n"
+        << "  --trend [dist]        Time vs Input Size table from history (dist: random,sorted,...)\n"
+        << "  --trend-memory [dist] Peak Memory vs Input Size table from history\n"
         << "  --help                Show this help\n\n";
     runner.list_benchmarks();
 }
@@ -359,6 +362,55 @@ SetConsoleCP(CP_UTF8);
                 return 1;
             }
             return 0;
+        }
+
+        if (argument == "--trend" || argument == "--trend-memory") {
+            const bool memory_mode = (argument == "--trend-memory");
+
+            // Optional distribution argument (e.g. "random", "sorted")
+            analysis::ChartFilter filter;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                const std::string dist_arg = argv[++i];
+                if      (dist_arg == "random")                               filter.input_distribution = "Random";
+                else if (dist_arg == "sorted")                               filter.input_distribution = "Sorted";
+                else if (dist_arg == "reverse" || dist_arg == "reverse-sorted") filter.input_distribution = "Reverse Sorted";
+                else if (dist_arg == "nearly-sorted" || dist_arg == "nearly_sorted") filter.input_distribution = "Nearly Sorted";
+                else if (dist_arg == "many-duplicates" || dist_arg == "many_duplicates") filter.input_distribution = "Many Duplicates";
+                else if (dist_arg == "all-equal" || dist_arg == "all_equal") filter.input_distribution = "All Equal";
+                else {
+                    std::cerr << "Error: unknown distribution '" << dist_arg
+                              << "' for " << argument << ".\n"
+                              << "Valid values: random, sorted, reverse, nearly-sorted, many-duplicates, all-equal\n";
+                    return 1;
+                }
+            }
+
+            // Load all historical runs
+            analysis::HistoryManager history;
+            const auto metas = history.list_runs();
+            if (metas.empty()) {
+                std::cerr << "Error: No benchmark history found. Run a benchmark first.\n";
+                return 1;
+            }
+
+            std::vector<analysis::BenchmarkRun> all_runs;
+            all_runs.reserve(metas.size());
+            for (const auto& meta : metas) {
+                const auto res = history.load_run(meta.run_id);
+                if (res.success) {
+                    all_runs.push_back(res.run);
+                }
+            }
+
+            if (memory_mode) {
+                const auto chart = analysis::TrendAnalyzer::build_memory_vs_size(all_runs, filter);
+                analysis::TrendAnalyzer::print_memory_table(chart);
+                return chart.valid ? 0 : 1;
+            } else {
+                const auto chart = analysis::TrendAnalyzer::build_time_vs_size(all_runs, filter);
+                analysis::TrendAnalyzer::print_time_table(chart);
+                return chart.valid ? 0 : 1;
+            }
         }
 
         if (argument.size() > 2 && argument.rfind("--", 0) == 0) {

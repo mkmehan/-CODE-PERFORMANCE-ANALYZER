@@ -11,7 +11,7 @@
 #include "../analysis/HistoryManager.h"
 #include "../analysis/ComparisonAnalyzer.h"
 #include "../analysis/RegressionAnalyzer.h"
-
+#include "../analysis/TrendAnalyzer.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -671,6 +671,255 @@ void run_regression_tests() {
 }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TREND ANALYZER TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+void run_trend_analyzer_tests() {
+    std::cout << "\n[TREND ANALYZER TESTS]\n";
+
+    // Helper: Build a single-record BenchmarkRun
+    auto make_run = [](
+        const std::string& run_id,
+        const std::string& input_type,   // run-level: "generated" or "custom_file"
+        const std::string& distribution, // record-level: "Random", "Sorted", etc.
+        size_t n,
+        const std::string& alg_key,
+        const std::string& alg_name,
+        double time_mean_ns,
+        uint64_t mem_peak_bytes
+    ) {
+        analysis::BenchmarkRun run;
+        run.run_id      = run_id;
+        run.input.type  = input_type;
+        analysis::BenchmarkRecord rec;
+        rec.algorithm   = alg_key;
+        rec.algorithm_name = alg_name;
+        rec.input_type  = distribution;
+        rec.input_size  = n;
+        rec.time_mean_ns = time_mean_ns;
+        rec.memory_peak_increase_bytes = mem_peak_bytes;
+        run.results.push_back(rec);
+        return run;
+    };
+
+    // ── Test 1: Single run → 1 point per algorithm ──────────────────────────
+    {
+        auto r1 = make_run("R1", "generated", "Random", 500, "qs", "Quick Sort", 10000.0, 1024u);
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1});
+        expect(data.valid,                         "Single-run chart is valid");
+        expect(data.series.size() == 1,            "Single-run chart has 1 series");
+        expect(data.series[0].points.size() == 1,  "Single-run chart has 1 point");
+        expect(data.series[0].points[0].x == 500.0,"Single-run x equals input_size 500");
+        const double expected_us = 10000.0 / 1000.0;
+        expect(std::abs(data.series[0].points[0].y - expected_us) < 0.001,
+               "Single-run y is time_mean_ns converted to µs");
+    }
+
+    // ── Test 2: Two runs at different N → 2 points, sorted by x ─────────────
+    {
+        auto r1 = make_run("R1", "generated", "Random", 100, "qs", "Quick Sort", 2100.0, 0u);
+        auto r2 = make_run("R2", "generated", "Random", 500, "qs", "Quick Sort", 9700.0, 0u);
+        // Insert r2 before r1 to verify that sorting is applied
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r2, r1});
+        expect(data.valid,                         "Two-run chart is valid");
+        expect(data.series[0].points.size() == 2,  "Two different N values produce 2 points");
+        expect(data.series[0].points[0].x < data.series[0].points[1].x,
+               "Points are sorted by x ascending");
+        expect(data.series[0].points[0].x == 100.0,"First point x = 100");
+        expect(data.series[0].points[1].x == 500.0,"Second point x = 500");
+    }
+
+    // ── Test 3: Duplicate N across compatible runs → averaged ────────────────
+    {
+        auto r1 = make_run("R1", "generated", "Random", 500, "qs", "Quick Sort",  9700.0, 0u);
+        auto r2 = make_run("R2", "generated", "Random", 500, "qs", "Quick Sort", 10100.0, 0u);
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1, r2});
+        expect(data.valid,                         "Duplicate-N chart is valid");
+        expect(data.series[0].points.size() == 1,  "Duplicate N produces 1 averaged point");
+        const double avg_us = (9700.0 + 10100.0) / 2.0 / 1000.0;
+        expect(std::abs(data.series[0].points[0].y - avg_us) < 0.001,
+               "Duplicate N values are correctly averaged");
+    }
+
+    // ── Test 4: Three-run average ────────────────────────────────────────────
+    {
+        auto r1 = make_run("R1", "generated", "Random", 500, "qs", "Quick Sort",  9000.0, 0u);
+        auto r2 = make_run("R2", "generated", "Random", 500, "qs", "Quick Sort", 10000.0, 0u);
+        auto r3 = make_run("R3", "generated", "Random", 500, "qs", "Quick Sort", 11000.0, 0u);
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1, r2, r3});
+        const double avg_us = (9000.0 + 10000.0 + 11000.0) / 3.0 / 1000.0;
+        expect(std::abs(data.series[0].points[0].y - avg_us) < 0.001,
+               "Three-run average computed correctly");
+    }
+
+    // ── Test 5: Filter by input_distribution excludes mismatched records ─────
+    {
+        auto r1 = make_run("R1", "generated", "Random",  500, "qs", "Quick Sort",  9700.0, 0u);
+        auto r2 = make_run("R2", "generated", "Sorted", 1000, "qs", "Quick Sort",  1000.0, 0u);
+        analysis::ChartFilter f;
+        f.input_distribution = "Random";
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1, r2}, f);
+        expect(data.valid,                          "Distribution-filter chart is valid");
+        expect(data.series[0].points.size() == 1,   "Sorted record excluded by distribution filter");
+        expect(data.series[0].points[0].x == 500.0, "Only Random record (N=500) included");
+    }
+
+    // ── Test 6: Filter by input_type excludes mismatched runs (run-level) ────
+    {
+        auto r1 = make_run("R1", "generated",    "Random",  500, "qs", "Quick Sort",  9700.0, 0u);
+        auto r2 = make_run("R2", "custom_file",  "Custom",  1000, "qs", "Quick Sort", 50000.0, 0u);
+        analysis::ChartFilter f;
+        f.input_type = "generated";
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1, r2}, f);
+        expect(data.valid,                          "input_type filter chart is valid");
+        expect(data.series[0].points.size() == 1,   "custom_file run excluded by input_type filter");
+        expect(data.series[0].points[0].x == 500.0, "Only generated run (N=500) included");
+    }
+
+    // ── Test 7: Filter by algorithm list ─────────────────────────────────────
+    {
+        analysis::BenchmarkRun run;
+        run.run_id = "R1"; run.input.type = "generated";
+        analysis::BenchmarkRecord qs_rec, ms_rec;
+        qs_rec.algorithm = "qs"; qs_rec.algorithm_name = "Quick Sort";
+        qs_rec.input_type = "Random"; qs_rec.input_size = 500; qs_rec.time_mean_ns = 9700.0;
+        ms_rec.algorithm = "ms"; ms_rec.algorithm_name = "Merge Sort";
+        ms_rec.input_type = "Random"; ms_rec.input_size = 500; ms_rec.time_mean_ns = 15000.0;
+        run.results = {qs_rec, ms_rec};
+        analysis::ChartFilter f;
+        f.algorithms = {"qs"};
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({run}, f);
+        expect(data.valid,                   "Algorithm-filter chart is valid");
+        expect(data.series.size() == 1,      "Only 1 algorithm after filter");
+        expect(data.series[0].algorithm_key == "qs", "Filtered to Quick Sort");
+    }
+
+    // ── Test 8: Partial series — algorithm absent in some runs is still kept ─
+    {
+        analysis::BenchmarkRun r1, r2;
+        r1.run_id = "R1"; r1.input.type = "generated";
+        r2.run_id = "R2"; r2.input.type = "generated";
+
+        analysis::BenchmarkRecord qs_small, ms_small, ms_large;
+        qs_small.algorithm = "qs"; qs_small.algorithm_name = "Quick Sort";
+        qs_small.input_type = "Random"; qs_small.input_size = 100; qs_small.time_mean_ns = 2100.0;
+        ms_small.algorithm = "ms"; ms_small.algorithm_name = "Merge Sort";
+        ms_small.input_type = "Random"; ms_small.input_size = 100; ms_small.time_mean_ns = 3000.0;
+        ms_large.algorithm = "ms"; ms_large.algorithm_name = "Merge Sort";
+        ms_large.input_type = "Random"; ms_large.input_size = 1000; ms_large.time_mean_ns = 34500.0;
+
+        r1.results = {qs_small, ms_small}; // Both at N=100
+        r2.results = {ms_large};            // Only Merge Sort at N=1000
+
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1, r2});
+        expect(data.valid,               "Partial-series chart is valid");
+        expect(data.series.size() == 2,  "Both algorithms present despite partial N coverage");
+
+        const analysis::AlgorithmSeries* qs_s = nullptr;
+        const analysis::AlgorithmSeries* ms_s = nullptr;
+        for (const auto& s : data.series) {
+            if (s.algorithm_key == "qs") qs_s = &s;
+            if (s.algorithm_key == "ms") ms_s = &s;
+        }
+        expect(qs_s != nullptr, "Quick Sort partial series exists");
+        expect(ms_s != nullptr, "Merge Sort full series exists");
+        expect(qs_s && qs_s->points.size() == 1, "Quick Sort has 1 point (partial)");
+        expect(ms_s && ms_s->points.size() == 2, "Merge Sort has 2 points (full coverage)");
+    }
+
+    // ── Test 9: Empty runs → invalid ChartData ───────────────────────────────
+    {
+        const auto time_data = analysis::TrendAnalyzer::build_time_vs_size({});
+        const auto mem_data  = analysis::TrendAnalyzer::build_memory_vs_size({});
+        expect(!time_data.valid,                     "Empty runs: time chart is invalid");
+        expect(!time_data.error_message.empty(),     "Empty runs: time chart has error message");
+        expect(!mem_data.valid,                      "Empty runs: memory chart is invalid");
+        expect(!mem_data.error_message.empty(),      "Empty runs: memory chart has error message");
+    }
+
+    // ── Test 10: Memory chart — bytes converted to MB ───────────────────────
+    {
+        const uint64_t mem_bytes = 2u * 1024u * 1024u; // 2 MB exactly
+        auto r1 = make_run("R1", "generated", "Random", 1000, "ms", "Merge Sort", 0.0, mem_bytes);
+        const auto data = analysis::TrendAnalyzer::build_memory_vs_size({r1});
+        expect(data.valid,                     "Memory chart is valid");
+        expect(data.series.size() == 1,        "Memory chart has 1 series");
+        const double expected_mb = static_cast<double>(mem_bytes) / (1024.0 * 1024.0);
+        expect(std::abs(data.series[0].points[0].y - expected_mb) < 1e-9,
+               "Memory y-value is bytes correctly converted to MB");
+    }
+
+    // ── Test 11: Memory chart — two-run average ──────────────────────────────
+    {
+        const uint64_t mem1 = 1024u * 1024u; // 1 MB
+        const uint64_t mem2 = 3u * 1024u * 1024u; // 3 MB
+        auto r1 = make_run("R1", "generated", "Random", 500, "hs", "Heap Sort", 0.0, mem1);
+        auto r2 = make_run("R2", "generated", "Random", 500, "hs", "Heap Sort", 0.0, mem2);
+        const auto data = analysis::TrendAnalyzer::build_memory_vs_size({r1, r2});
+        const double avg_mb = (static_cast<double>(mem1) + static_cast<double>(mem2))
+                              / 2.0 / (1024.0 * 1024.0);
+        expect(std::abs(data.series[0].points[0].y - avg_mb) < 1e-9,
+               "Memory duplicate-N values averaged correctly");
+    }
+
+    // ── Test 12: ChartData titles and labels ─────────────────────────────────
+    {
+        auto r1 = make_run("R1", "generated", "Random", 500, "qs", "Quick Sort", 9700.0, 0u);
+        const auto td = analysis::TrendAnalyzer::build_time_vs_size({r1});
+        const auto md = analysis::TrendAnalyzer::build_memory_vs_size({r1});
+        expect(td.x_label == "Input Size (N)",         "Time chart x-label correct");
+        expect(!td.y_label.empty(),                    "Time chart y-label not empty");
+        expect(!md.y_label.empty(),                    "Memory chart y-label not empty");
+        expect(td.y_label != md.y_label,               "Time and memory charts have distinct y-labels");
+    }
+
+    // ── Test 13: filter_used preserved in ChartData ──────────────────────────
+    {
+        auto r1 = make_run("R1", "generated", "Random", 500, "qs", "Quick Sort", 9700.0, 0u);
+        analysis::ChartFilter f;
+        f.input_distribution = "Random";
+        f.input_type = "generated";
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1}, f);
+        expect(data.filter_used.input_distribution == "Random",  "filter_used.input_distribution preserved");
+        expect(data.filter_used.input_type == "generated",       "filter_used.input_type preserved");
+    }
+
+    // ── Test 14: Multiple algorithms from the same run ───────────────────────
+    {
+        analysis::BenchmarkRun run;
+        run.run_id = "R1"; run.input.type = "generated";
+        auto make_rec = [](const std::string& key, const std::string& name, double t) {
+            analysis::BenchmarkRecord r;
+            r.algorithm = key; r.algorithm_name = name;
+            r.input_type = "Random"; r.input_size = 1000; r.time_mean_ns = t;
+            return r;
+        };
+        run.results = {
+            make_rec("qs", "Quick Sort", 21000.0),
+            make_rec("ms", "Merge Sort", 34000.0),
+            make_rec("hs", "Heap Sort",  41000.0),
+        };
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({run});
+        expect(data.valid,                 "Multi-algorithm chart is valid");
+        expect(data.series.size() == 3,    "Three algorithm series created");
+    }
+
+    // ── Test 15: filter.input_file excludes incompatible custom file runs ─────
+    {
+        auto r1 = make_run("R1", "custom_file", "Custom", 500, "qs", "Quick Sort", 9700.0, 0u);
+        auto r2 = make_run("R2", "custom_file", "Custom", 1000, "qs", "Quick Sort", 50000.0, 0u);
+        r1.input.file_path = "file_a.txt";
+        r2.input.file_path = "file_b.txt";
+        analysis::ChartFilter f;
+        f.input_file = "file_a.txt";
+        const auto data = analysis::TrendAnalyzer::build_time_vs_size({r1, r2}, f);
+        expect(data.valid,                          "input_file filter chart is valid");
+        expect(data.series[0].points.size() == 1,   "Only file_a.txt run included");
+        expect(data.series[0].points[0].x == 500.0, "Correct run included (N=500)");
+    }
+}
+
 int main() {
     std::cout << "========================================\n";
     std::cout << "CODE PERFORMANCE ANALYZER TEST SUITE\n";
@@ -687,7 +936,7 @@ int main() {
     run_history_tests();
     run_comparison_tests();
     run_regression_tests();
-
+    run_trend_analyzer_tests();
     std::cout << "\n========================================\n";
     if (failures == 0) {
         std::cout << "RESULT: ALL TESTS PASSED\n";

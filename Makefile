@@ -22,6 +22,7 @@ SOURCES = main.cpp \
           analysis/HistoryManager.cpp \
           analysis/ComparisonAnalyzer.cpp \
           analysis/RegressionAnalyzer.cpp \
+          analysis/TrendAnalyzer.cpp \
           benchmarks/RegisterBenchmarks.cpp \
           benchmarks/BubbleSortBenchmark.cpp \
           benchmarks/InsertionSortBenchmark.cpp \
@@ -60,7 +61,8 @@ $(TEST_TARGET): tests/test_main.cpp \
                analysis/ReportLoader.cpp \
                analysis/HistoryManager.cpp \
                analysis/ComparisonAnalyzer.cpp \
-               analysis/RegressionAnalyzer.cpp
+               analysis/RegressionAnalyzer.cpp \
+               analysis/TrendAnalyzer.cpp
 	$(CXX) $(CXXFLAGS) tests/test_main.cpp \
 	       Benchmark.cpp \
 	       Statistics.cpp \
@@ -74,8 +76,9 @@ $(TEST_TARGET): tests/test_main.cpp \
 	       analysis/HistoryManager.cpp \
 	       analysis/ComparisonAnalyzer.cpp \
 	       analysis/RegressionAnalyzer.cpp \
+	       analysis/TrendAnalyzer.cpp \
 	       -o $@ $(LDLIBS)
 
 clean:
 	cmd /C "del /Q $(TARGET) $(TEST_TARGET) 2>nul"
-	cmd /C "del /Q *.o benchmarks\*.o tests\*.o 2>nul"
+	cmd /C "del /Q *.o benchmarks\*.o analysis\*.o tests\*.o 2>nul"
