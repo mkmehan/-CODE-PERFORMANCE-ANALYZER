@@ -9,7 +9,23 @@ mingw32-make clean
 mingw32-make -B
 ```
 
-## CLI
+## Graphical Web Dashboard (Default)
+
+Running `analyzer.exe` with no arguments (or double-clicking it) launches the embedded dashboard server and automatically opens your default web browser:
+
+```powershell
+.\analyzer.exe
+```
+
+Or explicitly:
+
+```powershell
+.\analyzer.exe --gui
+.\analyzer.exe --gui --port 8080
+.\analyzer.exe --gui --no-browser
+```
+
+## Terminal Benchmark CLI
 
 ```powershell
 .\analyzer.exe --help
