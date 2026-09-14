@@ -58,6 +58,9 @@ std::vector<RunMetadata> HistoryManager::list_runs() const {
                 meta.element_count = load_res.run.input.element_count;
                 meta.algorithm_count = load_res.run.results.size();
                 meta.filepath_on_disk = entry.path().string();
+                meta.benchmark_mode = load_res.run.benchmark_mode.empty() ? "standard" : load_res.run.benchmark_mode;
+                meta.benchmark_category = load_res.run.benchmark_category;
+                meta.custom_target_parameter = load_res.run.custom_target_parameter;
 
                 for (const auto& rec : load_res.run.results) {
                     meta.algorithms.push_back(rec.algorithm_name);

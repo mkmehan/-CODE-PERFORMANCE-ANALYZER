@@ -1,5 +1,25 @@
 // Code Performance Analyzer V4 - Main Web Application Controller
 
+function formatTimeSmart(ns) {
+  if (ns === undefined || ns === null || isNaN(ns)) return '0 µs';
+  const val = Number(ns);
+  if (val < 1000) {
+    return `${val.toFixed(1)} ns`;
+  } else if (val < 1000000) {
+    return `${(val / 1000.0).toFixed(2)} µs`;
+  } else if (val < 1000000000) {
+    return `${(val / 1000000.0).toFixed(2)} ms`;
+  } else {
+    return `${(val / 1000000000.0).toFixed(2)} s`;
+  }
+}
+
+function formatMemorySmart(bytes) {
+  if (!bytes || bytes <= 0) return '0 KB';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024.0).toFixed(1)} KB`;
+  return `${(bytes / (1024.0 * 1024.0)).toFixed(2)} MB`;
+}
+
 const App = {
   activeView: 'dashboard',
   pollTimer: null,
@@ -105,17 +125,17 @@ const App = {
           const fname = fastest.name || fastest.algorithm_name || fastest.algorithm;
           document.getElementById('dash-fastest-name').textContent = fname;
           const meanNs = fastest.time_mean_ns ?? fastest.mean_time_ns ?? 0;
-          const timeUs = (meanNs / 1000.0).toFixed(2);
+          const timeStr = formatTimeSmart(meanNs);
           const sp = fastest.speedup ?? fastest.speedup_factor ?? 1.0;
-          document.getElementById('dash-fastest-sub').textContent = `${timeUs} µs • ${sp.toFixed(1)}x vs slowest`;
+          document.getElementById('dash-fastest-sub').textContent = `${timeStr} • ${sp.toFixed(1)}x vs slowest`;
         }
 
         if (slowest) {
           const sname = slowest.name || slowest.algorithm_name || slowest.algorithm;
           document.getElementById('dash-slowest-name').textContent = sname;
           const meanNs = slowest.time_mean_ns ?? slowest.mean_time_ns ?? 0;
-          const timeUs = (meanNs / 1000.0).toFixed(2);
-          document.getElementById('dash-slowest-sub').textContent = `${timeUs} µs • baseline (1.0x)`;
+          const timeStr = formatTimeSmart(meanNs);
+          document.getElementById('dash-slowest-sub').textContent = `${timeStr} • baseline (1.0x)`;
         }
 
         // Render Speedup horizontal bar chart
@@ -126,11 +146,11 @@ const App = {
         // Fallback when only 1 algorithm was benchmarked or homogeneous comparison
         const first = run.results[0];
         const name = first.algorithm_name || first.algorithm;
-        const timeUs = (first.time_mean_ns / 1000.0).toFixed(2);
+        const timeStr = formatTimeSmart(first.time_mean_ns);
         document.getElementById('dash-fastest-name').textContent = name;
-        document.getElementById('dash-fastest-sub').textContent = `${timeUs} µs • Benchmarked`;
+        document.getElementById('dash-fastest-sub').textContent = `${timeStr} • Benchmarked`;
         document.getElementById('dash-slowest-name').textContent = name;
-        document.getElementById('dash-slowest-sub').textContent = `${timeUs} µs • baseline`;
+        document.getElementById('dash-slowest-sub').textContent = `${timeStr} • baseline`;
 
         Charts.renderBarChart('dashSpeedupChart', [name], [1.0], 'Speedup Factor');
       } else {
@@ -1022,17 +1042,17 @@ const App = {
       const fname = fastestAlg.name || fastestAlg.algorithm_name || fastestAlg.algorithm;
       document.getElementById('bench-fastest-name').textContent = fname;
       const meanNs = fastestAlg.time_mean_ns ?? fastestAlg.mean_time_ns ?? 0;
-      const timeUs = (meanNs / 1000.0).toFixed(2);
+      const timeStr = formatTimeSmart(meanNs);
       const sp = fastestAlg.speedup ?? fastestAlg.speedup_factor ?? 1.0;
-      document.getElementById('bench-fastest-sub').textContent = `${timeUs} µs • ${Number(sp).toFixed(2)}x vs slowest`;
+      document.getElementById('bench-fastest-sub').textContent = `${timeStr} • ${Number(sp).toFixed(2)}x vs slowest`;
     }
 
     if (slowestAlg) {
       const sname = slowestAlg.name || slowestAlg.algorithm_name || slowestAlg.algorithm;
       document.getElementById('bench-slowest-name').textContent = sname;
       const meanNs = slowestAlg.time_mean_ns ?? slowestAlg.mean_time_ns ?? 0;
-      const timeUs = (meanNs / 1000.0).toFixed(2);
-      document.getElementById('bench-slowest-sub').textContent = `${timeUs} µs • baseline (1.0x)`;
+      const timeStr = formatTimeSmart(meanNs);
+      document.getElementById('bench-slowest-sub').textContent = `${timeStr} • baseline (1.0x)`;
     }
 
     let maxMemBytes = 0;
@@ -1208,12 +1228,12 @@ const App = {
       run.results.forEach(r => {
         const tr = document.createElement('tr');
         const name = r.algorithm_name || r.name || r.algorithm;
-        const medUs = ((r.time_median_ns ?? r.median_time_ns ?? 0) / 1000.0).toFixed(2);
-        const meanUs = ((r.time_mean_ns ?? r.mean_time_ns ?? 0) / 1000.0).toFixed(2);
-        const minUs = ((r.time_min_ns ?? 0) / 1000.0).toFixed(2);
-        const maxUs = ((r.time_max_ns ?? 0) / 1000.0).toFixed(2);
+        const medStr = formatTimeSmart(r.time_median_ns ?? r.median_time_ns ?? 0);
+        const meanStr = formatTimeSmart(r.time_mean_ns ?? r.mean_time_ns ?? 0);
+        const minStr = formatTimeSmart(r.time_min_ns ?? 0);
+        const maxStr = formatTimeSmart(r.time_max_ns ?? 0);
         const peakBytes = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
-        const peakMb = (peakBytes / (1024.0 * 1024.0)).toFixed(2);
+        const peakStr = formatMemorySmart(peakBytes);
 
         const rk = rankingMap[name] || rankingMap[r.algorithm];
         const spVal = rk ? (rk.speedup ?? rk.speedup_factor ?? 1.0) : 1.0;
@@ -1231,10 +1251,10 @@ const App = {
           <td style="font-weight: 600; color: #fff;">${name}</td>
           <td>${(r.input_size || 0).toLocaleString()}</td>
           <td>${badgeInput}</td>
-          <td>${medUs} µs</td>
-          <td>${meanUs} µs</td>
-          <td style="color: var(--text-muted); font-size: 0.8rem;">${minUs} / ${maxUs} µs</td>
-          <td>${peakMb} MB</td>
+          <td>${medStr}</td>
+          <td>${meanStr}</td>
+          <td style="color: var(--text-muted); font-size: 0.8rem;">${minStr} / ${maxStr}</td>
+          <td>${peakStr}</td>
           <td style="color: var(--accent); font-weight: 600;">${spText}</td>
           <td>${statusBadge}</td>
         `;
@@ -1375,14 +1395,14 @@ const App = {
         tbody.appendChild(gTr);
         run.results.forEach(r => {
           const tr = document.createElement('tr');
-          const meanUs = (((r.time_mean_ns ?? r.mean_time_ns) || 0) / 1000.0).toFixed(2);
-          const medUs = (((r.time_median_ns ?? r.median_time_ns) || 0) / 1000.0).toFixed(2);
+          const meanStr = formatTimeSmart((r.time_mean_ns ?? r.mean_time_ns) || 0);
+          const medStr = formatTimeSmart((r.time_median_ns ?? r.median_time_ns) || 0);
           const memKb = (((r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0)) || 0) / 1024.0).toFixed(1);
           tr.innerHTML = `
             <td><span class="badge badge-secondary">#1</span></td>
             <td style="font-weight: 600; color: #fff;">${r.algorithm_name || r.algorithm} (N=${(r.input_size || 0).toLocaleString()})</td>
-            <td>${meanUs} µs</td>
-            <td>${medUs} µs</td>
+            <td>${meanStr}</td>
+            <td>${medStr}</td>
             <td style="color: var(--accent); font-weight: 600;">1.00x</td>
             <td style="color: var(--text-muted);">baseline (Peak RAM: ${memKb} KB)</td>
           `;
@@ -1417,8 +1437,8 @@ const App = {
 
         const meanNs = r.time_mean_ns ?? r.mean_time_ns ?? 0;
         const medNs = r.time_median_ns ?? r.median_time_ns ?? 0;
-        const meanUs = (meanNs / 1000.0).toFixed(2);
-        const medUs = (medNs / 1000.0).toFixed(2);
+        const meanStr = formatTimeSmart(meanNs);
+        const medStr = formatTimeSmart(medNs);
         const speedupVal = r.speedup ?? r.speedup_factor ?? 1.0;
         const speedup = `${Number(speedupVal).toFixed(2)}x`;
         const pctVal = r.percentage_faster ?? r.percentage_faster_than_slowest ?? 0;
@@ -1429,8 +1449,8 @@ const App = {
         tr.innerHTML = `
           <td>${rankBadge}</td>
           <td style="font-weight: 600; color: #fff;">${r.name || r.algorithm_name || r.algorithm}</td>
-          <td>${meanUs} µs</td>
-          <td>${medUs} µs</td>
+          <td>${meanStr}</td>
+          <td>${medStr}</td>
           <td style="color: var(--accent); font-weight: 600;">${speedup}</td>
           <td>${pctFaster}</td>
         `;
@@ -1462,8 +1482,31 @@ const App = {
 
     const data = await API.getTrend(metric, dist);
     const unit = metric === 'memory' ? 'MB' : 'µs';
-    if (data && data.valid) {
+    const canvas = document.getElementById('workspaceChart');
+    let emptyMsg = document.getElementById('workspaceChartEmpty');
+
+    if (!emptyMsg && canvas && canvas.parentElement) {
+      emptyMsg = document.createElement('div');
+      emptyMsg.id = 'workspaceChartEmpty';
+      emptyMsg.style.cssText = 'display:none; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:1rem; text-align:center; padding: 2rem;';
+      canvas.parentElement.style.position = 'relative';
+      canvas.parentElement.appendChild(emptyMsg);
+    }
+
+    if (data && data.valid && data.series && data.series.length > 0) {
+      if (emptyMsg) emptyMsg.style.display = 'none';
+      if (canvas) canvas.style.display = 'block';
       Charts.renderLineChart('workspaceChart', data, unit, isLog);
+    } else {
+      if (Charts.instances['workspaceChart']) {
+        Charts.instances['workspaceChart'].destroy();
+        delete Charts.instances['workspaceChart'];
+      }
+      if (canvas) canvas.style.display = 'none';
+      if (emptyMsg) {
+        emptyMsg.textContent = 'No historical benchmark data found matching the selected filter. Run a benchmark to view scaling trends.';
+        emptyMsg.style.display = 'flex';
+      }
     }
   },
 

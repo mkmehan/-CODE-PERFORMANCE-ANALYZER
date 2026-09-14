@@ -249,34 +249,46 @@ int main(int argc, char* argv[]) {
             HighResolutionTimer hr_timer;
             RDTSC_Timer rdtsc_timer;
 
-            for (int it = 0; it < iterations; ++it) {
-                MemorySnapshot before_mem{};
-                if (measure_memory) {
-                    before_mem = MemoryMonitor::snapshot();
-                }
+            const int BATCH_SIZE = 1000;
 
+            MemorySnapshot before_mem{};
+            if (measure_memory) {
+                before_mem = MemoryMonitor::snapshot();
+            }
+
+            for (int it = 0; it < iterations; ++it) {
                 rdtsc_timer.start();
                 hr_timer.start();
 
-                volatile int res = alg->search(slice_data, sz, target_value);
+                volatile int sink = 0;
+                for (int b = 0; b < BATCH_SIZE; ++b) {
+                    sink ^= alg->search(slice_data, sz, target_value);
+                }
 
                 hr_timer.stop();
                 rdtsc_timer.stop();
-                (void)res;
+                (void)sink;
 
-                uint64_t time_ns = hr_timer.elapsed();
+                uint64_t elapsed_ns = hr_timer.elapsed();
                 uint64_t raw_cycles = rdtsc_timer.elapsed();
                 uint64_t net_cycles = (raw_cycles > rdtsc_overhead) ? (raw_cycles - rdtsc_overhead) : raw_cycles;
 
-                time_samples.push_back(time_ns);
-                cycle_samples.push_back(net_cycles);
+                uint64_t per_call_ns = (elapsed_ns + BATCH_SIZE / 2) / BATCH_SIZE;
+                uint64_t per_call_cycles = (net_cycles + BATCH_SIZE / 2) / BATCH_SIZE;
 
-                if (measure_memory) {
-                    MemorySnapshot after_mem = MemoryMonitor::snapshot();
-                    uint64_t peak = (after_mem.private_bytes > before_mem.private_bytes) ? (after_mem.private_bytes - before_mem.private_bytes) : 0;
-                    if (peak > max_peak_increase) max_peak_increase = peak;
-                    total_net_change += (static_cast<int64_t>(after_mem.private_bytes) - static_cast<int64_t>(before_mem.private_bytes));
+                if (per_call_ns == 0 && per_call_cycles > 0) {
+                    per_call_ns = std::max<uint64_t>(1, (per_call_cycles + 1) / 3);
                 }
+
+                time_samples.push_back(per_call_ns);
+                cycle_samples.push_back(per_call_cycles);
+            }
+
+            if (measure_memory) {
+                MemorySnapshot after_mem = MemoryMonitor::snapshot();
+                uint64_t peak = (after_mem.private_bytes > before_mem.private_bytes) ? (after_mem.private_bytes - before_mem.private_bytes) : 0;
+                max_peak_increase = peak;
+                total_net_change = (static_cast<int64_t>(after_mem.private_bytes) - static_cast<int64_t>(before_mem.private_bytes));
             }
 
             MeasurementRecord rec;

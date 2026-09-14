@@ -19,6 +19,9 @@ struct RunMetadata {
     size_t algorithm_count = 0;
     std::vector<std::string> algorithms;
     std::string filepath_on_disk;
+    std::string benchmark_mode = "standard";
+    std::string benchmark_category;
+    std::string custom_target_parameter;
 };
 
 class HistoryManager {
