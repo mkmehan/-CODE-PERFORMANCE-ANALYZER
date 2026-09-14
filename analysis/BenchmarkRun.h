@@ -44,6 +44,23 @@ struct ConfigMetadata {
     std::vector<std::string> input_cases;
 };
 
+struct TargetDetectionMetadata {
+    int target_value = 0;
+    bool available_in_dataset = false;
+    size_t occurrences = 0;
+    int expected_index = -1; // -1 if not present
+    std::string mode_description; // "Present-target benchmark" or "Absent-target negative test"
+};
+
+struct SearchComplexityEntry {
+    std::string algorithm;
+    std::string algorithm_name;
+    std::string theoretical;
+    std::string observed_model;       // e.g. "n^1.01" or "n^0.08"
+    std::string observed_complexity;  // e.g. "O(n) - Linear" or "O(log n) - Sub-linear"
+    double fit_quality = 0.0;         // R^2 fit quality
+};
+
 struct BenchmarkRun {
     std::string format_version = "4.0";
     std::string run_id;            // e.g. "RUN-20260913-024701"
@@ -51,6 +68,8 @@ struct BenchmarkRun {
     std::string benchmark_mode = "standard";    // "standard" or "custom"
     std::string benchmark_category = "sorting"; // "sorting", "search", "matrix", etc.
     std::string custom_target_parameter;        // e.g. "Target: 5000"
+    TargetDetectionMetadata target_detection;
+    std::vector<SearchComplexityEntry> complexity;
     SystemMetadata system;
     ConfigMetadata configuration;
     InputMetadata input;

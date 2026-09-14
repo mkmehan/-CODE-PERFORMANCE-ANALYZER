@@ -14,6 +14,10 @@ struct BenchmarkRecord {
     size_t input_size = 0;
     bool verified = false;
 
+    // Search-specific verification telemetry
+    int search_result_index = -1;
+    bool search_target_found = false;
+
     // Time statistics (nanoseconds)
     double time_min_ns = 0.0;
     double time_max_ns = 0.0;

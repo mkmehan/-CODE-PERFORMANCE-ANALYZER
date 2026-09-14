@@ -537,6 +537,40 @@ const App = {
     const btnRunCustom = document.getElementById('btn-run-custom-benchmark');
     const btnCancelCustom = document.getElementById('btn-cancel-custom-benchmark');
 
+    // Target pre-check helper
+    const updateTargetBadge = async () => {
+      const path = pathDataset ? pathDataset.value.trim() : '';
+      const target = targetVal ? targetVal.value.trim() : '';
+      const statusEl = document.getElementById('custom-target-status');
+      if (!statusEl) return;
+      if (!path || target === '') {
+        statusEl.textContent = '🎯 Target Status: Enter dataset and target value';
+        statusEl.style.color = 'var(--text-muted)';
+        return;
+      }
+      const res = await API.detectTarget(path, target);
+      if (res && res.valid) {
+        if (res.available) {
+          statusEl.style.color = '#10b981';
+          statusEl.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+          statusEl.style.background = 'rgba(16, 185, 129, 0.08)';
+          statusEl.textContent = `🎯 Target Status: 🟢 Available at index ${res.first_index} (${res.occurrences} occurrence${res.occurrences > 1 ? 's' : ''}) • Present-Target Benchmark`;
+        } else {
+          statusEl.style.color = '#f59e0b';
+          statusEl.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+          statusEl.style.background = 'rgba(245, 158, 11, 0.08)';
+          statusEl.textContent = `🎯 Target Status: ⚪ Absent from Dataset (${res.total_elements} elements) • Negative Search Test`;
+        }
+      } else {
+        statusEl.style.color = '#f43f5e';
+        statusEl.textContent = `🎯 Target Status: ✗ ${res ? res.error_message : 'Check failed'}`;
+      }
+    };
+
+    if (targetVal) targetVal.addEventListener('input', updateTargetBadge);
+    if (pathDataset) pathDataset.addEventListener('change', updateTargetBadge);
+    setTimeout(updateTargetBadge, 300);
+
     // Algorithm 1 upload
     if (btnBrowseAlgA && fileAlgA) {
       btnBrowseAlgA.addEventListener('click', () => fileAlgA.click());
@@ -552,28 +586,21 @@ const App = {
             const res = await API.uploadCustomAlgorithm(file.name, content);
             btnBrowseAlgA.disabled = false;
             btnBrowseAlgA.textContent = '📁 Browse .cpp';
-            if (res && res.success) {
+            if (res && (res.success || res.recognized)) {
               if (pathAlgA) pathAlgA.value = res.file_path;
               if (nameAlgA && (!nameAlgA.value || nameAlgA.value.startsWith('Algorithm'))) {
                 nameAlgA.value = file.name.replace(/\.[^/.]+$/, '');
               }
               if (statusAlgA) {
-                if (res.interface && res.interface.valid) {
-                  statusAlgA.style.color = '#10b981';
-                  statusAlgA.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                  statusAlgA.style.background = 'rgba(16, 185, 129, 0.08)';
-                  statusAlgA.textContent = res.interface.status_badge || '✓ Ready';
-                } else {
-                  statusAlgA.style.color = '#f43f5e';
-                  statusAlgA.style.borderColor = 'rgba(244, 63, 94, 0.3)';
-                  statusAlgA.style.background = 'rgba(244, 63, 94, 0.08)';
-                  statusAlgA.textContent = (res.interface && res.interface.error_message) ? `✗ ${res.interface.error_message}` : '✗ Detection failed';
-                }
+                statusAlgA.style.color = '#10b981';
+                statusAlgA.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                statusAlgA.style.background = 'rgba(16, 185, 129, 0.08)';
+                statusAlgA.textContent = `✓ Interface: ${res.interface_type || 'Auto-detected'} • Function: ${res.function_name || 'Ready'}`;
               }
             } else {
               if (statusAlgA) {
                 statusAlgA.style.color = '#f43f5e';
-                statusAlgA.textContent = `✗ Upload failed: ${res ? res.error_message : 'Server error'}`;
+                statusAlgA.textContent = `✗ Upload failed: ${res ? res.diagnostic_message || res.error_message : 'Server error'}`;
               }
             }
           };
@@ -604,28 +631,21 @@ const App = {
             const res = await API.uploadCustomAlgorithm(file.name, content);
             btnBrowseAlgB.disabled = false;
             btnBrowseAlgB.textContent = '📁 Browse .cpp';
-            if (res && res.success) {
+            if (res && (res.success || res.recognized)) {
               if (pathAlgB) pathAlgB.value = res.file_path;
               if (nameAlgB && (!nameAlgB.value || nameAlgB.value.startsWith('Algorithm'))) {
                 nameAlgB.value = file.name.replace(/\.[^/.]+$/, '');
               }
               if (statusAlgB) {
-                if (res.interface && res.interface.valid) {
-                  statusAlgB.style.color = '#10b981';
-                  statusAlgB.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                  statusAlgB.style.background = 'rgba(16, 185, 129, 0.08)';
-                  statusAlgB.textContent = res.interface.status_badge || '✓ Ready';
-                } else {
-                  statusAlgB.style.color = '#f43f5e';
-                  statusAlgB.style.borderColor = 'rgba(244, 63, 94, 0.3)';
-                  statusAlgB.style.background = 'rgba(244, 63, 94, 0.08)';
-                  statusAlgB.textContent = (res.interface && res.interface.error_message) ? `✗ ${res.interface.error_message}` : '✗ Detection failed';
-                }
+                statusAlgB.style.color = '#10b981';
+                statusAlgB.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                statusAlgB.style.background = 'rgba(16, 185, 129, 0.08)';
+                statusAlgB.textContent = `✓ Interface: ${res.interface_type || 'Auto-detected'} • Function: ${res.function_name || 'Ready'}`;
               }
             } else {
               if (statusAlgB) {
                 statusAlgB.style.color = '#f43f5e';
-                statusAlgB.textContent = `✗ Upload failed: ${res ? res.error_message : 'Server error'}`;
+                statusAlgB.textContent = `✗ Upload failed: ${res ? res.diagnostic_message || res.error_message : 'Server error'}`;
               }
             }
           };
@@ -674,6 +694,7 @@ const App = {
               if (targetVal) targetVal.value = data.dataset.recommended_target || 5000;
             }
           }
+          await updateTargetBadge();
         } catch (err) {
           console.error('Error loading custom samples:', err);
         } finally {
@@ -700,6 +721,7 @@ const App = {
             btnBrowseDataset.textContent = '📁 Upload';
             if (res && res.valid) {
               if (pathDataset) pathDataset.value = res.file_path;
+              await updateTargetBadge();
             } else {
               alert(`Upload failed: ${res ? res.error_message : 'Server error'}`);
             }
@@ -714,9 +736,10 @@ const App = {
     }
 
     if (btnSampleDataset && pathDataset) {
-      btnSampleDataset.addEventListener('click', () => {
+      btnSampleDataset.addEventListener('click', async () => {
         pathDataset.value = 'custom/samples/search_data.txt';
         if (targetVal) targetVal.value = 5000;
+        await updateTargetBadge();
       });
     }
 
@@ -752,12 +775,17 @@ const App = {
 
         const payload = {
           category: category,
+          alg_a_name: algAName,
+          alg_a_path: algASrc,
+          alg_b_name: algBName,
+          alg_b_path: algBSrc,
           algorithms: [
             { id: 'alg_a', name: algAName, source_path: algASrc },
             { id: 'alg_b', name: algBName, source_path: algBSrc }
           ],
           dataset_path: dataPath,
           target: target,
+          target_value: target,
           iterations: iterations,
           warmup: warmup,
           memory: memory,
@@ -1069,6 +1097,107 @@ const App = {
     };
     Charts.renderLineChart('benchMemoryChart', memChartData, 'MB');
 
+    // ── Target Status & Decisions Card (Custom Search) ──────────────────────
+    const targetCard = document.getElementById('custom-target-card');
+    if (targetCard) {
+      if (isCustom && (run.target_detection || run.custom_target_parameter)) {
+        targetCard.style.display = 'block';
+        const td = run.target_detection || {};
+        const tVal = td.target_value !== undefined ? td.target_value : (run.input ? run.input.min_value : '—');
+        const isAvail = td.available_in_dataset !== undefined ? td.available_in_dataset : true;
+        const occ = td.occurrences !== undefined ? td.occurrences : 1;
+        const refIdx = td.expected_index !== undefined ? td.expected_index : '—';
+
+        const tValEl = document.getElementById('target-stat-val');
+        if (tValEl) tValEl.textContent = tVal;
+
+        const tAvailEl = document.getElementById('target-stat-avail');
+        if (tAvailEl) {
+          tAvailEl.innerHTML = isAvail
+            ? '<span style="color: #10b981;">✓ Present in Dataset</span>'
+            : '<span style="color: #f59e0b;">⚪ Absent (Negative Test)</span>';
+        }
+
+        const tCountEl = document.getElementById('target-stat-count');
+        if (tCountEl) tCountEl.textContent = occ;
+
+        const tIdxEl = document.getElementById('target-stat-idx');
+        if (tIdxEl) {
+          tIdxEl.textContent = isAvail ? `Index ${refIdx}` : '-1 (Not in dataset)';
+        }
+
+        const tModeEl = document.getElementById('target-mode-badge');
+        if (tModeEl) {
+          tModeEl.textContent = td.mode_description || (isAvail ? 'Present-Target Benchmark' : 'Absent-Target Negative Test');
+          tModeEl.className = isAvail ? 'badge badge-primary' : 'badge badge-secondary';
+        }
+
+        // Decisions grid per algorithm at max input size
+        const grid = document.getElementById('target-decisions-grid');
+        if (grid) {
+          grid.innerHTML = '';
+          const byAlg = {};
+          run.results.forEach(r => {
+            const k = r.algorithm_name || r.name || r.algorithm;
+            if (!byAlg[k] || r.input_size >= byAlg[k].input_size) {
+              byAlg[k] = r;
+            }
+          });
+          Object.values(byAlg).forEach(r => {
+            const card = document.createElement('div');
+            card.style.cssText = 'padding: 0.85rem 1rem; background: rgba(0, 0, 0, 0.35); border-radius: 6px; border: 1px solid var(--border-color);';
+            const passBadge = r.verified
+              ? '<span class="badge badge-success">PASS ✓</span>'
+              : '<span class="badge badge-danger">MISMATCH ✗</span>';
+            const foundBadge = (r.search_target_found || r.search_result_index >= 0)
+              ? '<span style="color: #10b981; font-weight: 600;">YES</span>'
+              : '<span style="color: var(--text-muted); font-weight: 600;">NO (-1)</span>';
+            const retIdxText = r.search_result_index !== undefined ? r.search_result_index : (r.verified ? refIdx : -1);
+            card.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <strong style="color: #fff; font-size: 0.95rem;">${r.algorithm_name || r.name || r.algorithm}</strong>
+                ${passBadge}
+              </div>
+              <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
+                <div>Returned Index: <strong style="color: var(--accent); font-family: monospace;">${retIdxText}</strong></div>
+                <div>Target Found: ${foundBadge}</div>
+                <div>Decision Accuracy: <strong style="color: ${r.verified ? '#10b981' : '#f43f5e'};">${r.verified ? 'CORRECT DECISION' : 'INCORRECT'}</strong></div>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+        }
+      } else {
+        targetCard.style.display = 'none';
+      }
+    }
+
+    // ── Observed Time Complexity Card ────────────────────────────────────────
+    const compCard = document.getElementById('custom-complexity-card');
+    if (compCard) {
+      if (run.complexity && run.complexity.length > 0) {
+        compCard.style.display = 'block';
+        const cTbody = document.getElementById('custom-complexity-tbody');
+        if (cTbody) {
+          cTbody.innerHTML = '';
+          run.complexity.forEach(c => {
+            const tr = document.createElement('tr');
+            const r2 = (c.fit_quality !== undefined ? Number(c.fit_quality).toFixed(2) : '—');
+            tr.innerHTML = `
+              <td style="font-weight: 600; color: #fff;">${c.algorithm_name || c.algorithm}</td>
+              <td style="font-family: monospace; color: var(--accent);">${c.theoretical || '—'}</td>
+              <td style="font-family: monospace; color: #a5f3fc;">${c.observed_model || '—'}</td>
+              <td><strong style="color: #10b981;">${c.observed_complexity || '—'}</strong></td>
+              <td><span class="badge badge-secondary">R² = ${r2}</span></td>
+            `;
+            cTbody.appendChild(tr);
+          });
+        }
+      } else {
+        compCard.style.display = 'none';
+      }
+    }
+
     // Detailed Table
     const tbody = document.getElementById('bench-table-body');
     const tableCount = document.getElementById('bench-table-count');
@@ -1094,6 +1223,10 @@ const App = {
           ? `<span class="badge badge-primary">Target: ${run.custom_target_parameter ?? 'N/A'}</span>`
           : `<span class="badge badge-neutral">${r.input_type || 'Random'}</span>`;
 
+        const statusBadge = (r.verified !== false)
+          ? `<span class="badge badge-success">PASS ✓</span>`
+          : `<span class="badge badge-danger">FAIL ✗</span>`;
+
         tr.innerHTML = `
           <td style="font-weight: 600; color: #fff;">${name}</td>
           <td>${(r.input_size || 0).toLocaleString()}</td>
@@ -1103,7 +1236,7 @@ const App = {
           <td style="color: var(--text-muted); font-size: 0.8rem;">${minUs} / ${maxUs} µs</td>
           <td>${peakMb} MB</td>
           <td style="color: var(--accent); font-weight: 600;">${spText}</td>
-          <td><span class="badge badge-success">PASS ✓</span></td>
+          <td>${statusBadge}</td>
         `;
         tbody.appendChild(tr);
       });

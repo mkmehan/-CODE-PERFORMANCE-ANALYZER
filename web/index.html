@@ -441,6 +441,9 @@
             <div class="form-group">
               <label class="form-label">Search Target Value</label>
               <input id="custom-target-val" type="number" class="form-control" value="5000">
+              <div id="custom-target-status" style="margin-top: 0.4rem; font-size: 0.8rem; color: #10b981; padding: 0.35rem 0.6rem; background: rgba(16, 185, 129, 0.08); border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                🎯 Target Status: Checking dataset...
+              </div>
             </div>
           </div>
         </div>
@@ -532,6 +535,65 @@
               <div class="metric-label">Execution Scope</div>
               <div id="bench-scope-val" class="metric-val">0 Algs</div>
               <div id="bench-scope-sub" class="metric-sub">0 total runs</div>
+            </div>
+          </div>
+
+          <!-- TARGET STATUS & ALGORITHM DECISIONS CARD (Search Benchmarks) -->
+          <div id="custom-target-card" class="card" style="display: none; border-left: 4px solid var(--accent); margin-bottom: 1.25rem;">
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>🎯 Target Status &amp; Algorithm Decisions</span>
+              <span id="target-mode-badge" class="badge badge-primary">Present-Target Benchmark</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; padding: 0.85rem 1rem; background: rgba(255, 255, 255, 0.02); border-radius: 6px;">
+              <div>
+                <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">TARGET VALUE</span>
+                <strong id="target-stat-val" style="font-size: 1.15rem; color: #fff;">—</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">DATASET AVAILABILITY</span>
+                <div id="target-stat-avail" style="font-weight: 600; font-size: 0.95rem;">—</div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">OCCURRENCES IN DATA</span>
+                <strong id="target-stat-count" style="font-size: 1.15rem; color: #fff;">—</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">REFERENCE INDEX</span>
+                <strong id="target-stat-idx" style="font-size: 1.15rem; font-family: monospace; color: var(--accent);">—</strong>
+              </div>
+            </div>
+
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem;">ALGORITHM SEARCH DECISIONS:</div>
+            <div id="target-decisions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem;">
+              <!-- Populated dynamically by app.js -->
+            </div>
+          </div>
+
+          <!-- OBSERVED TIME COMPLEXITY ANALYSIS CARD -->
+          <div id="custom-complexity-card" class="card" style="display: none; border-left: 4px solid #8b5cf6; margin-bottom: 1.25rem;">
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>⏱️ Observed Time Complexity Analysis</span>
+              <span class="badge badge-secondary" style="font-size: 0.75rem;">Multi-Size Empirical Model</span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: -0.25rem 0 1rem 0;">
+              Observed scaling is an empirical estimate derived from multi-size measurements via log-log regression (<code style="color: #c084fc;">ln(T) = &alpha; &bull; ln(N) + &beta;</code>). It demonstrates asymptotic growth curves, not formal mathematical proof.
+            </p>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Algorithm</th>
+                    <th>Theoretical Complexity</th>
+                    <th>Observed Model</th>
+                    <th>Observed Complexity</th>
+                    <th>Fit Quality (R&sup2;)</th>
+                  </tr>
+                </thead>
+                <tbody id="custom-complexity-tbody">
+                  <!-- Populated dynamically by app.js -->
+                </tbody>
+              </table>
             </div>
           </div>
 

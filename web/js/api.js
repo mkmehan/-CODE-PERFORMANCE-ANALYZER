@@ -168,6 +168,20 @@ const API = {
     }
   },
 
+  async detectTarget(datasetPath, target) {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/custom-benchmark/detect-target`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataset_path: datasetPath, target: parseInt(target, 10) })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API.detectTarget error:', err);
+      return { valid: false, error_message: err.message };
+    }
+  },
+
   async startCustomBenchmark(config) {
     try {
       const res = await fetch(`${this.baseUrl}/api/custom-benchmark/start`, {

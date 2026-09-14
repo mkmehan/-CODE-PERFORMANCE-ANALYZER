@@ -159,7 +159,7 @@ CompilationResult CustomBenchmarkCompiler::compile_search_runner(
         cmd << "\"" << alg.source_file_path << "\" ";
     }
 
-    cmd << "HighResolutionTimer.cpp RDTSC_Timer.cpp MemoryMonitor.cpp Statistics.cpp CpuAffinity.cpp SystemInfo.cpp ";
+    cmd << "HighResolutionTimer.cpp RDTSC_Timer.cpp MemoryMonitor.cpp Statistics.cpp CpuAffinity.cpp SystemInfo.cpp ComplexityAnalyzer.cpp ";
     cmd << "-o \"" << runner_exe << "\" -lpsapi -lshell32 2>&1";
 
     std::string cmd_str = cmd.str();

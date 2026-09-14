@@ -417,6 +417,33 @@ LoadResult ReportLoader::load_from_json_string(const std::string& json_text) {
     result.run.benchmark_category = root.has("benchmark_category") ? root.get("benchmark_category")->as_string("sorting") : "sorting";
     result.run.custom_target_parameter = root.has("custom_target_parameter") ? root.get("custom_target_parameter")->as_string("") : "";
 
+    // Target detection metadata (for search benchmarks)
+    const JsonValue* td = root.get("target_detection");
+    if (td && td->is_object()) {
+        result.run.target_detection.target_value = td->has("target_value") ? static_cast<int>(td->get("target_value")->as_int64()) : 0;
+        result.run.target_detection.available_in_dataset = td->has("available_in_dataset") ? td->get("available_in_dataset")->as_bool() : false;
+        result.run.target_detection.occurrences = td->has("occurrences") ? td->get("occurrences")->as_uint64() : 0;
+        result.run.target_detection.expected_index = td->has("expected_index") ? static_cast<int>(td->get("expected_index")->as_int64(-1)) : -1;
+        result.run.target_detection.mode_description = td->has("mode_description") ? td->get("mode_description")->as_string() : "";
+    }
+
+    // Observed complexity entries
+    const JsonValue* comp_arr = root.get("complexity");
+    if (comp_arr && comp_arr->is_array()) {
+        for (const auto& c_item : comp_arr->arr_val) {
+            if (c_item.is_object()) {
+                SearchComplexityEntry entry;
+                entry.algorithm = c_item.has("algorithm") ? c_item.get("algorithm")->as_string() : "";
+                entry.algorithm_name = c_item.has("algorithm_name") ? c_item.get("algorithm_name")->as_string() : entry.algorithm;
+                entry.theoretical = c_item.has("theoretical") ? c_item.get("theoretical")->as_string() : "";
+                entry.observed_model = c_item.has("observed_model") ? c_item.get("observed_model")->as_string() : "";
+                entry.observed_complexity = c_item.has("observed_complexity") ? c_item.get("observed_complexity")->as_string() : "";
+                entry.fit_quality = c_item.has("fit_quality") ? c_item.get("fit_quality")->as_double(0.0) : 0.0;
+                result.run.complexity.push_back(entry);
+            }
+        }
+    }
+
     // 4. Validate system metadata
     const JsonValue* sys = root.get("system");
     if (!sys || !sys->is_object()) {
@@ -504,6 +531,8 @@ LoadResult ReportLoader::load_from_json_string(const std::string& json_text) {
                         : (item.has("input_case") ? item.get("input_case")->as_string() : "");
         rec.input_size = item.has("input_size") ? item.get("input_size")->as_uint64() : 0;
         rec.verified = item.has("verified") ? item.get("verified")->as_bool(false) : false;
+        rec.search_result_index = item.has("search_result_index") ? static_cast<int>(item.get("search_result_index")->as_int64(-1)) : -1;
+        rec.search_target_found = item.has("search_target_found") ? item.get("search_target_found")->as_bool(false) : false;
 
         // Flat or nested time statistics
         if (item.has("time_mean_ns")) {
@@ -624,6 +653,34 @@ std::string ReportLoader::to_json_string(const BenchmarkRun& run) {
     out << "    \"order_description\": \"" << escape_string(run.input.order_description) << "\"\n";
     out << "  },\n";
 
+    // target_detection (for search benchmarks)
+    if (run.benchmark_mode == "custom" || run.target_detection.target_value != 0 || run.target_detection.available_in_dataset) {
+        out << "  \"target_detection\": {\n";
+        out << "    \"target_value\": " << run.target_detection.target_value << ",\n";
+        out << "    \"available_in_dataset\": " << (run.target_detection.available_in_dataset ? "true" : "false") << ",\n";
+        out << "    \"occurrences\": " << run.target_detection.occurrences << ",\n";
+        out << "    \"expected_index\": " << run.target_detection.expected_index << ",\n";
+        out << "    \"mode_description\": \"" << escape_string(run.target_detection.mode_description) << "\"\n";
+        out << "  },\n";
+    }
+
+    // complexity
+    if (!run.complexity.empty()) {
+        out << "  \"complexity\": [\n";
+        for (size_t i = 0; i < run.complexity.size(); ++i) {
+            const auto& c = run.complexity[i];
+            out << "    {\n";
+            out << "      \"algorithm\": \"" << escape_string(c.algorithm) << "\",\n";
+            out << "      \"algorithm_name\": \"" << escape_string(c.algorithm_name) << "\",\n";
+            out << "      \"theoretical\": \"" << escape_string(c.theoretical) << "\",\n";
+            out << "      \"observed_model\": \"" << escape_string(c.observed_model) << "\",\n";
+            out << "      \"observed_complexity\": \"" << escape_string(c.observed_complexity) << "\",\n";
+            out << "      \"fit_quality\": " << c.fit_quality << "\n";
+            out << "    }" << (i + 1 == run.complexity.size() ? "" : ",") << "\n";
+        }
+        out << "  ],\n";
+    }
+
     // results
     out << "  \"results\": [\n";
     for (size_t i = 0; i < run.results.size(); ++i) {
@@ -634,6 +691,8 @@ std::string ReportLoader::to_json_string(const BenchmarkRun& run) {
         out << "      \"input_type\": \"" << escape_string(r.input_type) << "\",\n";
         out << "      \"input_size\": " << r.input_size << ",\n";
         out << "      \"verified\": " << (r.verified ? "true" : "false") << ",\n";
+        out << "      \"search_result_index\": " << r.search_result_index << ",\n";
+        out << "      \"search_target_found\": " << (r.search_target_found ? "true" : "false") << ",\n";
         out << "      \"time_mean_ns\": " << r.time_mean_ns << ",\n";
         out << "      \"time_median_ns\": " << r.time_median_ns << ",\n";
         out << "      \"time_min_ns\": " << r.time_min_ns << ",\n";

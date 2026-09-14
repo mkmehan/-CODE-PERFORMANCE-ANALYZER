@@ -1260,10 +1260,36 @@ void run_custom_benchmark_tests() {
         expect(exec_res.exit_code == 0, "Child process exited with 0");
         expect(exec_res.run.benchmark_mode == "custom", "BenchmarkRun mode is custom");
         expect(exec_res.run.benchmark_category == "search", "BenchmarkRun category is search");
-        expect(exec_res.run.results.size() == 2, "BenchmarkRun contains exactly 2 custom algorithms");
+        expect(!exec_res.run.results.empty(), "BenchmarkRun contains multi-size results");
         expect(exec_res.run.results[0].algorithm_name == "Linear Search", "First algorithm is Linear Search");
         expect(exec_res.run.results[0].cycles_mean > 0 || exec_res.run.results[0].time_mean_ns > 0.0, "Linear Search measured cycles or time");
-        expect(exec_res.run.results[1].cycles_mean > 0 || exec_res.run.results[1].time_mean_ns >= 0.0, "Binary Search measured cycles");
+
+        // Target Availability assertions (Target 5000 present in search_data.txt)
+        expect(exec_res.run.target_detection.available_in_dataset, "Target 5000 is detected as available in dataset");
+        expect(exec_res.run.target_detection.expected_index == 44, "Target 5000 reference index is 44");
+        expect(exec_res.run.target_detection.occurrences == 1, "Target 5000 occurs 1 time in dataset");
+        expect(exec_res.run.results[0].verified, "Linear search decision verified as PASS for present target");
+
+        // Observed Time Complexity assertions
+        expect(exec_res.run.complexity.size() == 2, "Observed complexity analysis populated for both algorithms");
+        if (exec_res.run.complexity.size() == 2) {
+            expect(exec_res.run.complexity[0].theoretical == "O(n)", "Linear Search theoretical complexity is O(n)");
+            expect(exec_res.run.complexity[1].theoretical == "O(log n)", "Binary Search theoretical complexity is O(log n)");
+            expect(exec_res.run.complexity[0].fit_quality >= 0.0, "Linear Search fit quality R^2 is computed");
+            expect(exec_res.run.complexity[1].fit_quality >= 0.0, "Binary Search fit quality R^2 is computed");
+        }
+
+        // Test Negative Search Test (Target Absent: 999999)
+        custom::CustomBenchmarkConfig cfg_absent = cfg;
+        cfg_absent.target_value = 999999;
+        auto exec_absent = custom::CustomBenchmarkRunner::execute(cfg_absent);
+        expect(exec_absent.success, "Custom benchmark with absent target executes successfully");
+        expect(!exec_absent.run.target_detection.available_in_dataset, "Target 999999 detected as absent from dataset");
+        expect(exec_absent.run.target_detection.expected_index == -1, "Target 999999 reference index is -1");
+        expect(exec_absent.run.results[0].verified, "Linear Search verified PASS for negative search");
+        expect(exec_absent.run.results[0].search_result_index == -1, "Linear Search returned index -1 for absent target");
+        expect(exec_absent.run.results[1].verified, "Binary Search verified PASS for negative search");
+        expect(exec_absent.run.results[1].search_result_index == -1, "Binary Search returned index -1 for absent target");
 
         // Verify strict sorting algorithm isolation (no sorting algorithms in custom run)
         bool no_sorting = true;

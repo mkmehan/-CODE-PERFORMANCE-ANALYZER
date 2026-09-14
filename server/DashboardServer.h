@@ -93,6 +93,7 @@ private:
     std::string handle_benchmark(const std::string& body);
     std::string handle_custom_benchmark(const std::string& body);
     std::string handle_detect_interface(const std::string& body);
+    std::string handle_detect_target(const std::string& body);
     std::string handle_upload_custom_algorithm(const std::string& body);
     std::string handle_custom_samples();
     std::string handle_cancel();

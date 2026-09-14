@@ -571,6 +571,8 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
         send_response(sock_ptr, 200, "application/json", handle_custom_benchmark(body));
     } else if (method == "POST" && path == "/api/custom-benchmark/detect-interface") {
         send_response(sock_ptr, 200, "application/json", handle_detect_interface(body));
+    } else if (method == "POST" && path == "/api/custom-benchmark/detect-target") {
+        send_response(sock_ptr, 200, "application/json", handle_detect_target(body));
     } else if (method == "POST" && path == "/api/custom-benchmark/upload-algorithm") {
         send_response(sock_ptr, 200, "application/json", handle_upload_custom_algorithm(body));
     } else if (method == "GET" && path == "/api/custom-benchmark/samples") {
@@ -981,6 +983,7 @@ std::string DashboardServer::handle_upload_custom_algorithm(const std::string& b
 
     std::ostringstream ss;
     ss << "{\n"
+       << "  \"success\": " << (det.recognized ? "true" : "false") << ",\n"
        << "  \"recognized\": " << (det.recognized ? "true" : "false") << ",\n"
        << "  \"file_path\": \"" << escape_json_str(file_path) << "\",\n"
        << "  \"filename\": \"" << escape_json_str(sanitized) << "\",\n"
@@ -991,6 +994,58 @@ std::string DashboardServer::handle_upload_custom_algorithm(const std::string& b
        << "  \"display_name\": \"" << escape_json_str(det.suggested_display_name) << "\",\n"
        << "  \"diagnostic_message\": \"" << escape_json_str(det.diagnostic_message) << "\",\n"
        << "  \"generated_adapter\": \"" << escape_json_str(det.generated_adapter_code) << "\"\n"
+       << "}";
+    return ss.str();
+}
+
+std::string DashboardServer::handle_detect_target(const std::string& body) {
+    std::string dataset_path = extract_json_string(body, "dataset_path", "custom/samples/search_data.txt");
+    int target = extract_json_int(body, "target", extract_json_int(body, "target_value", 5000));
+
+    std::ifstream file(dataset_path);
+    if (!file.is_open()) {
+        return "{\"valid\": false, \"error_message\": \"Failed to open dataset file: " + escape_json_str(dataset_path) + "\"}";
+    }
+
+    std::vector<int> data;
+    int val = 0;
+    while (file >> val) {
+        data.push_back(val);
+    }
+    file.close();
+
+    if (data.empty()) {
+        return "{\"valid\": false, \"error_message\": \"Dataset file is empty: " + escape_json_str(dataset_path) + "\"}";
+    }
+
+    bool available = false;
+    size_t occurrences = 0;
+    int first_index = -1;
+
+    for (size_t i = 0; i < data.size(); ++i) {
+        if (data[i] == target) {
+            if (!available) {
+                available = true;
+                first_index = static_cast<int>(i);
+            }
+            occurrences++;
+        }
+    }
+
+    std::string msg = available
+        ? ("Target " + std::to_string(target) + " is present at index " + std::to_string(first_index) + " (" + std::to_string(occurrences) + " occurrence" + (occurrences > 1 ? "s" : "") + ")")
+        : ("Target " + std::to_string(target) + " is absent from dataset (Negative search test)");
+
+    std::ostringstream ss;
+    ss << "{\n"
+       << "  \"valid\": true,\n"
+       << "  \"dataset_path\": \"" << escape_json_str(dataset_path) << "\",\n"
+       << "  \"total_elements\": " << data.size() << ",\n"
+       << "  \"target\": " << target << ",\n"
+       << "  \"available\": " << (available ? "true" : "false") << ",\n"
+       << "  \"occurrences\": " << occurrences << ",\n"
+       << "  \"first_index\": " << first_index << ",\n"
+       << "  \"message\": \"" << escape_json_str(msg) << "\"\n"
        << "}";
     return ss.str();
 }
@@ -1041,22 +1096,82 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
 
     custom::CustomBenchmarkConfig cfg;
     cfg.dataset_path = extract_json_string(body, "dataset_path", "custom/samples/search_data.txt");
-    cfg.target_value = extract_json_int(body, "target_value", 5000);
+    cfg.target_value = extract_json_int(body, "target_value", extract_json_int(body, "target", 5000));
     cfg.iterations = extract_json_int(body, "iterations", 20);
     cfg.warmup_runs = extract_json_int(body, "warmup", 5);
     cfg.cpu_affinity = extract_json_int(body, "cpu_affinity", -1);
     cfg.measure_memory = extract_json_bool(body, "memory", true);
     cfg.timeout_seconds = extract_json_int(body, "timeout_seconds", 15);
 
-    std::string alg_a_name = extract_json_string(body, "alg_a_name", "Linear Search");
-    std::string alg_a_path = extract_json_string(body, "alg_a_path", "custom/samples/linear_search.cpp");
-    std::string alg_a_func = extract_json_string(body, "alg_a_func", "linear_search");
-    int alg_a_type = extract_json_int(body, "alg_a_type", static_cast<int>(custom::SearchInterfaceType::VectorRefTarget));
+    std::string alg_a_name = extract_json_string(body, "alg_a_name", "");
+    std::string alg_a_path = extract_json_string(body, "alg_a_path", "");
+    std::string alg_a_func = extract_json_string(body, "alg_a_func", "");
+    int alg_a_type = extract_json_int(body, "alg_a_type", -1);
 
-    std::string alg_b_name = extract_json_string(body, "alg_b_name", "Binary Search");
-    std::string alg_b_path = extract_json_string(body, "alg_b_path", "custom/samples/binary_search.cpp");
-    std::string alg_b_func = extract_json_string(body, "alg_b_func", "binarySearch");
-    int alg_b_type = extract_json_int(body, "alg_b_type", static_cast<int>(custom::SearchInterfaceType::PointerSizeTarget));
+    std::string alg_b_name = extract_json_string(body, "alg_b_name", "");
+    std::string alg_b_path = extract_json_string(body, "alg_b_path", "");
+    std::string alg_b_func = extract_json_string(body, "alg_b_func", "");
+    int alg_b_type = extract_json_int(body, "alg_b_type", -1);
+
+    // Fallbacks if nested in algorithms array or not provided
+    if (alg_a_path.empty()) {
+        size_t pos_alg = body.find("\"source_path\":");
+        if (pos_alg != std::string::npos) {
+            size_t q1 = body.find('"', pos_alg + 14);
+            if (q1 != std::string::npos) {
+                size_t q2 = body.find('"', q1 + 1);
+                if (q2 != std::string::npos) {
+                    alg_a_path = body.substr(q1 + 1, q2 - q1 - 1);
+                }
+            }
+        }
+    }
+    if (alg_a_path.empty()) alg_a_path = "custom/samples/linear_search.cpp";
+
+    if (alg_b_path.empty()) {
+        size_t pos_alg = body.find("\"source_path\":");
+        if (pos_alg != std::string::npos) {
+            size_t pos_second = body.find("\"source_path\":", pos_alg + 14);
+            if (pos_second != std::string::npos) {
+                size_t q1 = body.find('"', pos_second + 14);
+                if (q1 != std::string::npos) {
+                    size_t q2 = body.find('"', q1 + 1);
+                    if (q2 != std::string::npos) {
+                        alg_b_path = body.substr(q1 + 1, q2 - q1 - 1);
+                    }
+                }
+            }
+        }
+    }
+    if (alg_b_path.empty()) alg_b_path = "custom/samples/binary_search.cpp";
+
+    // Auto-detect interfaces for alg A
+    if (alg_a_func.empty() || alg_a_type < 0) {
+        auto det = custom::InterfaceDetector::detect_from_file(alg_a_path, custom::CustomCategory::Search);
+        if (det.recognized) {
+            alg_a_func = det.detected_function_name;
+            alg_a_type = static_cast<int>(det.interface_type);
+            if (alg_a_name.empty()) alg_a_name = det.suggested_display_name;
+        } else {
+            alg_a_func = "linear_search";
+            alg_a_type = static_cast<int>(custom::SearchInterfaceType::VectorRefTarget);
+        }
+    }
+    if (alg_a_name.empty()) alg_a_name = "Linear Search";
+
+    // Auto-detect interfaces for alg B
+    if (alg_b_func.empty() || alg_b_type < 0) {
+        auto det = custom::InterfaceDetector::detect_from_file(alg_b_path, custom::CustomCategory::Search);
+        if (det.recognized) {
+            alg_b_func = det.detected_function_name;
+            alg_b_type = static_cast<int>(det.interface_type);
+            if (alg_b_name.empty()) alg_b_name = det.suggested_display_name;
+        } else {
+            alg_b_func = "binarySearch";
+            alg_b_type = static_cast<int>(custom::SearchInterfaceType::PointerSizeTarget);
+        }
+    }
+    if (alg_b_name.empty()) alg_b_name = "Binary Search";
 
     custom::AlgorithmSourceSpec a1;
     a1.algorithm_name = alg_a_name;
