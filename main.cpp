@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -17,6 +18,7 @@
 #include <vector>
 #ifdef _WIN32
 #include <windows.h>
+#include <shellapi.h>
 #endif
 namespace {
 
@@ -131,11 +133,20 @@ bool parse_seed(const std::string& text, uint32_t& seed) {
 void print_usage(const BenchmarkRunner& runner) {
     std::cout
         << "Code Performance Analyzer v3.0\n\n"
-        << "Usage:\n"
-        << "  analyzer.exe --all [options]\n"
+        << "Graphical Mode (Default):\n"
+        << "  analyzer.exe                        Launch Graphical Web Dashboard on port 8080\n"
+        << "  analyzer.exe --gui [options]        Launch Graphical Web Dashboard\n"
+        << "  analyzer.exe --web [options]        Alias for --gui\n"
+        << "  analyzer.exe --server [options]     Alias for --gui\n\n"
+        << "Dashboard Server Options:\n"
+        << "  --port <p>          Set server port (default: 8080, auto-fallbacks to 8081)\n"
+        << "  --no-browser        Start server without opening web browser automatically\n\n"
+        << "Terminal Benchmark Mode:\n"
+        << "  analyzer.exe --all [options]        Run full sorting benchmark suite in terminal\n"
         << "  analyzer.exe --quick [options]      Fast smoke test of all benchmarks\n"
-        << "  analyzer.exe --quicksort [options]  Run Quick Sort only\n\n"
-        << "Options:\n"
+        << "  analyzer.exe --quicksort [options]  Run Quick Sort only\n"
+        << "  analyzer.exe --cli [options]        Explicit CLI benchmark execution\n\n"
+        << "Terminal Benchmark Options:\n"
         << "  --sizes <a,b,c>       Input sizes\n"
         << "  --cases <list>        random,sorted,reverse,nearly-sorted,many-duplicates,all-equal\n"
         << "  --file <path>         Load custom integer dataset from text file\n"
@@ -152,9 +163,26 @@ void print_usage(const BenchmarkRunner& runner) {
         << "  --trend [dist]        Time vs Input Size table from history (dist: random,sorted,...)\n"
         << "  --trend-memory [dist] Peak Memory vs Input Size table from history\n"
         << "  --report [run_id]     Generate and open interactive HTML report with Chart.js graphs\n"
-        << "  --gui                 Start local Web Dashboard server & open browser\n"
-        << "  --help                Show this help\n\n";
+        << "  --help, -h            Show this help\n\n";
     runner.list_benchmarks();
+}
+
+static std::string resolve_web_root() {
+    if (std::filesystem::exists("web/index.html")) {
+        return "web";
+    }
+#ifdef _WIN32
+    char exe_path[MAX_PATH];
+    DWORD len = GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    if (len > 0 && len < MAX_PATH) {
+        std::filesystem::path p(exe_path);
+        std::filesystem::path candidate = p.parent_path() / "web";
+        if (std::filesystem::exists(candidate / "index.html")) {
+            return candidate.string();
+        }
+    }
+#endif
+    return "web";
 }
 
 } // namespace
@@ -180,15 +208,51 @@ int main(int argc, char* argv[]) {
     SetConsoleCP(CP_UTF8);
     #endif
 
-    // If invoked with no arguments or explicitly with --gui, start the Web Dashboard server:
-    if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--gui")) {
-        server::DashboardServer srv(8080, "web");
+    // Check for help flag before anything else
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--help" || arg == "-h" || arg == "/?") {
+            BenchmarkConfig config;
+            BenchmarkRunner help_runner(config);
+            register_all_benchmarks(help_runner);
+            print_usage(help_runner);
+            return 0;
+        }
+    }
+
+    // Check if graphical dashboard mode is requested (or default if no args)
+    bool is_gui_request = (argc == 1);
+    int gui_port = 8080;
+    bool open_browser = true;
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--gui" || arg == "--web" || arg == "--server" || arg == "--dashboard") {
+            is_gui_request = true;
+        } else if (arg == "--no-browser") {
+            open_browser = false;
+        } else if (arg == "--port") {
+            is_gui_request = true;
+            if (i + 1 < argc) {
+                try {
+                    gui_port = std::stoi(argv[++i]);
+                } catch (...) {
+                    std::cerr << "Error: Invalid port number: " << argv[i] << "\n";
+                    return 1;
+                }
+            }
+        }
+    }
+
+    if (is_gui_request) {
+        std::string web_dir = resolve_web_root();
+        server::DashboardServer srv(gui_port, web_dir);
 #ifdef _WIN32
         g_active_server = &srv;
         SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 #endif
         if (!srv.start()) {
-            std::cerr << "Error: Failed to start Dashboard server on port 8080 or 8081.\n" << std::flush;
+            std::cerr << "Error: Failed to start Dashboard server on port " << gui_port << " or fallback port.\n" << std::flush;
             return 1;
         }
 
@@ -196,15 +260,24 @@ int main(int argc, char* argv[]) {
         std::cout << "╔══════════════════════════════════════════════════════════════════════╗\n";
         std::cout << "║               CODE PERFORMANCE ANALYZER V4 DASHBOARD                 ║\n";
         std::cout << "╠══════════════════════════════════════════════════════════════════════╣\n";
-        std::cout << "║  Server URL        : " << srv.url() << "                           ║\n";
-        std::cout << "║  Web Assets Root   : web/                                            ║\n";
-        std::cout << "║  Browser Launch    : Opening in your default web browser...          ║\n";
+        std::cout << "║  Server URL        : " << srv.url() << "\n";
+        std::cout << "║  Web Assets Root   : " << web_dir << "\n";
+        if (open_browser) {
+            std::cout << "║  Browser Launch    : Opening in your default web browser...          ║\n";
+        } else {
+            std::cout << "║  Browser Launch    : Disabled (--no-browser)                         ║\n";
+        }
         std::cout << "║  Press Ctrl+C in terminal to stop dashboard server.                  ║\n";
         std::cout << "╚══════════════════════════════════════════════════════════════════════╝\n\n" << std::flush;
 
+        if (open_browser) {
 #ifdef _WIN32
-        ShellExecuteA(NULL, "open", srv.url().c_str(), NULL, NULL, SW_SHOWNORMAL);
+            ShellExecuteA(NULL, "open", srv.url().c_str(), NULL, NULL, SW_SHOWNORMAL);
+#else
+            std::string cmd = "xdg-open " + srv.url() + " > /dev/null 2>&1 &";
+            (void)system(cmd.c_str());
 #endif
+        }
 
         srv.wait();
         return 0;
@@ -231,6 +304,10 @@ int main(int argc, char* argv[]) {
             register_all_benchmarks(help_runner);
             print_usage(help_runner);
             return 0;
+        }
+
+        if (argument == "--cli") {
+            continue;
         }
 
         if (argument == "--all") {

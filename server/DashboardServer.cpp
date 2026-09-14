@@ -400,8 +400,7 @@ bool DashboardServer::start() {
 }
 
 void DashboardServer::stop() {
-    if (!running.load()) return;
-    running.store(false);
+    if (!running.exchange(false)) return;
 
     if (server_socket != 0 && server_socket != static_cast<uintptr_t>(INVALID_SOCKET)) {
 #ifdef _WIN32
@@ -438,9 +437,7 @@ void DashboardServer::wait() {
     while (running.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    if (listener_thread && listener_thread->joinable()) {
-        listener_thread->join();
-    }
+    stop();
 }
 
 void DashboardServer::run_listener() {
