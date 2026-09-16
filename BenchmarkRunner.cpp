@@ -537,11 +537,18 @@ std::string json_escape(const std::string& value) {
 }
 
 std::string timestamp_for_file() {
-    const std::time_t now = std::time(nullptr);
+    const auto now = std::chrono::system_clock::now();
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    const std::time_t tt = std::chrono::system_clock::to_time_t(now);
     std::tm local_time{};
-    localtime_s(&local_time, &now);
+#ifdef _WIN32
+    localtime_s(&local_time, &tt);
+#else
+    localtime_r(&tt, &local_time);
+#endif
     std::ostringstream output;
-    output << std::put_time(&local_time, "%Y-%m-%d_%H-%M-%S");
+    output << std::put_time(&local_time, "%Y-%m-%d_%H-%M-%S")
+           << "-" << std::setw(3) << std::setfill('0') << ms.count();
     return output.str();
 }
 

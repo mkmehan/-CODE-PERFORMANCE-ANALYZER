@@ -61,6 +61,9 @@ public:
     // Direct status query
     BenchmarkProgress get_progress() const;
 
+    // Helper utilities
+    static std::map<std::string, std::string> parse_query(const std::string& query_str);
+
 private:
     int requested_port;
     int active_port = 0;
@@ -109,7 +112,6 @@ private:
     // Helper utilities
     static std::string get_mime_type(const std::string& path);
     static void send_response(uintptr_t client_sock, int status_code, const std::string& content_type, const std::string& body);
-    static std::map<std::string, std::string> parse_query(const std::string& query_str);
 };
 
 } // namespace server

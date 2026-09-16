@@ -55,6 +55,7 @@ std::string escape_json_str(const std::string& input) {
 
 std::string current_timestamp() {
     auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
     auto tt = std::chrono::system_clock::to_time_t(now);
     std::tm tm_buf{};
 #ifdef _WIN32
@@ -64,7 +65,9 @@ std::string current_timestamp() {
 #endif
     char buf[64];
     std::strftime(buf, sizeof(buf), "%Y-%m-%d_%H-%M-%S", &tm_buf);
-    return std::string(buf);
+    std::ostringstream ss;
+    ss << buf << "-" << std::setw(3) << std::setfill('0') << ms.count();
+    return ss.str();
 }
 
 } // namespace
@@ -177,13 +180,8 @@ int main(int argc, char* argv[]) {
     // 3. Build 5 consistent prefix subset sizes for empirical complexity analysis
     std::vector<size_t> test_sizes;
     if (total_elements >= 5) {
-        size_t start_size = 1;
-        if (target_available && first_expected_index >= 0) {
-            // Ensure target is in all tested prefix subsets without shifting array offsets
-            start_size = std::min<size_t>(total_elements, static_cast<size_t>(first_expected_index + 1));
-        }
         for (int k = 1; k <= 5; ++k) {
-            size_t sz = start_size + ((total_elements - start_size) * (k - 1)) / 4;
+            size_t sz = std::max<size_t>(1, (total_elements * k) / 5);
             if (test_sizes.empty() || sz > test_sizes.back()) {
                 test_sizes.push_back(sz);
             }
@@ -280,9 +278,9 @@ int main(int argc, char* argv[]) {
 
             const int BATCH_SIZE = 1000;
 
-            MemorySnapshot before_mem{};
+            MemorySampler mem_sampler;
             if (measure_memory) {
-                before_mem = MemoryMonitor::snapshot();
+                mem_sampler.start();
             }
 
             for (int it = 0; it < iterations; ++it) {
@@ -314,10 +312,15 @@ int main(int argc, char* argv[]) {
             }
 
             if (measure_memory) {
-                MemorySnapshot after_mem = MemoryMonitor::snapshot();
-                uint64_t peak = (after_mem.private_bytes > before_mem.private_bytes) ? (after_mem.private_bytes - before_mem.private_bytes) : 0;
-                max_peak_increase = peak;
-                total_net_change = (static_cast<int64_t>(after_mem.private_bytes) - static_cast<int64_t>(before_mem.private_bytes));
+                MemoryPeak peak = mem_sampler.stop();
+                uint64_t peak_inc = (peak.peak_working_set_increase > peak.peak_private_increase)
+                    ? peak.peak_working_set_increase
+                    : peak.peak_private_increase;
+                if (peak_inc == 0) {
+                    peak_inc = peak.peak_private_increase;
+                }
+                max_peak_increase = peak_inc;
+                total_net_change = peak.net_private_change;
             }
 
             MeasurementRecord rec;

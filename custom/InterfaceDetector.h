@@ -16,7 +16,8 @@ enum class SearchInterfaceType {
     VectorRefTarget,         // int func(const std::vector<int>& data, int target)
     VectorValTarget,         // int func(std::vector<int> data, int target)
     VectorTargetFirst,       // int func(int target, const std::vector<int>& data)
-    ExternCSearchAlgorithm   // extern "C" int search_algorithm(...)
+    ExternCSearchAlgorithm,  // extern "C" int search_algorithm(...)
+    DatasetOnly              // int func(const int* data, int/size_t size)
 };
 
 std::string search_interface_type_to_string(SearchInterfaceType type);

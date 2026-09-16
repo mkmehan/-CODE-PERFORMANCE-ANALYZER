@@ -24,6 +24,8 @@ std::string search_interface_type_to_string(SearchInterfaceType type) {
             return "int (int target, const std::vector<int>& data)";
         case SearchInterfaceType::ExternCSearchAlgorithm:
             return "extern \"C\" int search_algorithm(const int* data, int size, int target)";
+        case SearchInterfaceType::DatasetOnly:
+            return "int (const int* data, size_t size)";
         case SearchInterfaceType::Unknown:
             return "Unknown / Custom Interface";
     }
@@ -263,6 +265,7 @@ DetectionResult InterfaceDetector::detect(const std::string& source_code, Custom
             std::smatch m;
             if (std::regex_search(clean, m, ds_regex)) {
                 res.recognized = true;
+                res.interface_type = SearchInterfaceType::DatasetOnly;
                 res.return_type = m[1].str();
                 res.detected_function_name = m[2].str();
                 res.detected_signature = "int " + res.detected_function_name + "(const int* data, int size)";
@@ -383,6 +386,9 @@ std::string InterfaceDetector::generate_search_adapter(
         case SearchInterfaceType::ExternCSearchAlgorithm:
             ss << "extern \"C\" int search_algorithm(const int*, int, int);\n\n";
             break;
+        case SearchInterfaceType::DatasetOnly:
+            ss << "int " << user_func_name << "(const int*, int);\n\n";
+            break;
         case SearchInterfaceType::Unknown:
             ss << "// Custom or unknown interface\n\n";
             break;
@@ -431,6 +437,10 @@ std::string InterfaceDetector::generate_search_adapter(
             break;
         case SearchInterfaceType::ExternCSearchAlgorithm:
             ss << "        return search_algorithm(data, static_cast<int>(size), target);\n";
+            break;
+        case SearchInterfaceType::DatasetOnly:
+            ss << "        (void)target;\n";
+            ss << "        return " << user_func_name << "(data, static_cast<int>(size));\n";
             break;
         case SearchInterfaceType::Unknown:
             ss << "        return -1; // Unknown interface\n";

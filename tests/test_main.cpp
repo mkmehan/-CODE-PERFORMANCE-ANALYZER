@@ -1517,6 +1517,174 @@ void run_custom_benchmark_tests() {
     }
 }
 
+void run_v4_reliability_and_scalability_tests() {
+    std::cout << "\n[V4 RELIABILITY, SCALABILITY & HARNESS TESTS]\n";
+
+    // 1. Test: URL query decoding in DashboardServer::parse_query
+    {
+        std::string query = "dist=Nearly%20Sorted&mode=standard&param=hello+world&encoded=%2Fapi%2Ftest%20123";
+        auto parsed = server::DashboardServer::parse_query(query);
+        expect(parsed["dist"] == "Nearly Sorted", "parse_query URL-decodes 'Nearly%20Sorted' to 'Nearly Sorted'");
+        expect(parsed["mode"] == "standard", "parse_query preserves 'standard'");
+        expect(parsed["param"] == "hello world", "parse_query decodes '+' to space");
+        expect(parsed["encoded"] == "/api/test 123", "parse_query decodes percent-encoded slash and space");
+    }
+
+    // 2. Test: SearchInterfaceType::DatasetOnly detection & adapter generation
+    {
+        auto det = custom::InterfaceDetector::detect_from_file(
+            "custom/templates/search_dataset_template.cpp",
+            custom::CustomCategory::Search,
+            "dataset_only"
+        );
+        expect(det.recognized, "InterfaceDetector detects search_dataset_template in dataset_only mode");
+        expect(det.interface_type == custom::SearchInterfaceType::DatasetOnly,
+               "interface_type is SearchInterfaceType::DatasetOnly");
+        expect(det.detected_function_name == "search_algorithm", "detected_function_name is search_algorithm");
+
+        std::string adapter = custom::InterfaceDetector::generate_search_adapter(
+            "search_algorithm",
+            custom::SearchInterfaceType::DatasetOnly,
+            "Dataset Search"
+        );
+        expect(adapter.find("(void)target;") != std::string::npos, "DatasetOnly adapter ignores target parameter");
+        expect(adapter.find("search_algorithm(data, static_cast<int>(size))") != std::string::npos,
+               "DatasetOnly adapter invokes 2-argument signature");
+    }
+
+    // 3. Test: End-to-end execution of DatasetOnly custom search algorithm
+    {
+        std::vector<custom::AlgorithmSourceSpec> specs;
+        custom::AlgorithmSourceSpec a1;
+        a1.algorithm_name = "Dataset Search";
+        a1.source_file_path = "custom/templates/search_dataset_template.cpp";
+        a1.interface_type = custom::SearchInterfaceType::DatasetOnly;
+        a1.detected_function = "search_algorithm";
+        specs.push_back(a1);
+
+        custom::CustomBenchmarkConfig cfg;
+        cfg.category = "search";
+        cfg.interface_mode = "dataset_only";
+        cfg.has_target = false;
+        cfg.dataset_path = "custom/samples/search_data.txt";
+        cfg.iterations = 3;
+        cfg.warmup_runs = 1;
+        cfg.algorithms = specs;
+
+        auto res = custom::CustomBenchmarkRunner::execute(cfg);
+        expect(res.success, "Dataset-only custom benchmark compiles and executes successfully");
+        if (res.success) {
+            expect(res.run.interface_mode == "dataset_only", "Run interface_mode is dataset_only");
+            expect(!res.run.results.empty(), "Run contains benchmark results");
+            if (!res.run.results.empty()) {
+                expect(res.run.results[0].algorithm_name == "Dataset Search", "Algorithm name matches Dataset Search");
+            }
+        }
+    }
+
+    // 4. Test: Multi-size generation does not collapse on late targets
+    {
+        std::vector<custom::AlgorithmSourceSpec> specs;
+        custom::AlgorithmSourceSpec a1;
+        a1.algorithm_name = "Binary Search";
+        a1.source_file_path = "custom/samples/binary_search.cpp";
+        a1.interface_type = custom::SearchInterfaceType::PointerSizeTarget;
+        a1.detected_function = "binarySearch";
+        specs.push_back(a1);
+
+        custom::CustomBenchmarkConfig cfg;
+        cfg.category = "search";
+        cfg.interface_mode = "with_target";
+        cfg.has_target = true;
+        cfg.dataset_path = "custom/samples/search_data.txt";
+        cfg.target_value = 10000; // Target is at the very end of search_data.txt (index 9999)
+        cfg.iterations = 3;
+        cfg.warmup_runs = 1;
+        cfg.algorithms = specs;
+
+        auto res = custom::CustomBenchmarkRunner::execute(cfg);
+        expect(res.success, "Custom benchmark with late target (index 9999) succeeds");
+        if (res.success) {
+            std::vector<size_t> observed_sizes;
+            for (const auto& rec : res.run.results) {
+                if (observed_sizes.empty() || observed_sizes.back() != rec.input_size) {
+                    observed_sizes.push_back(rec.input_size);
+                }
+            }
+            expect(observed_sizes.size() >= 4, "Harness generated at least 4 distinct sizes for late target");
+            expect(res.run.complexity.size() == 1, "Complexity summary populated");
+            if (!res.run.complexity.empty()) {
+                expect(res.run.complexity[0].fit_quality >= 0.0, "Complexity fit quality computed");
+            }
+        }
+    }
+
+    // 5. Test: HistoryManager metadata cache (#18)
+    {
+        const std::string cache_test_dir = "results/test_meta_cache_sandbox";
+        std::error_code ec;
+        std::filesystem::remove_all(cache_test_dir, ec);
+
+        analysis::HistoryManager hm(cache_test_dir);
+        analysis::BenchmarkRun r;
+        r.format_version = "4.0";
+        r.run_id = "RUN-META-TEST-001";
+        r.timestamp = "2026-09-17_03-00-00-123";
+        r.input.type = "Random";
+        r.input.element_count = 1234;
+        analysis::BenchmarkRecord rec;
+        rec.algorithm = "qs";
+        rec.algorithm_name = "Quick Sort";
+        rec.input_size = 1234;
+        r.results.push_back(rec);
+
+        std::string saved_path = hm.save_run(r);
+        expect(!saved_path.empty(), "Saved run in sandbox");
+
+        std::filesystem::path meta_path = std::filesystem::path(cache_test_dir) / "run_RUN-META-TEST-001.meta";
+        expect(std::filesystem::exists(meta_path), "Metadata sidecar .meta file was generated");
+
+        auto list = hm.list_runs();
+        expect(list.size() == 1, "list_runs returns 1 run from metadata cache");
+        if (!list.empty()) {
+            expect(list[0].run_id == "RUN-META-TEST-001", "Cached metadata run_id matches");
+            expect(list[0].element_count == 1234, "Cached metadata element_count matches");
+            expect(!list[0].algorithms.empty() && list[0].algorithms[0] == "Quick Sort",
+                   "Cached metadata algorithm name matches");
+        }
+
+        std::filesystem::remove_all(cache_test_dir, ec);
+    }
+
+    // 6. Test: Regression detection status (#19)
+    {
+        analysis::BenchmarkRun base_run;
+        base_run.run_id = "RUN-BASE";
+        analysis::BenchmarkRecord base_rec;
+        base_rec.algorithm = "qs";
+        base_rec.algorithm_name = "Quick Sort";
+        base_rec.input_size = 1000;
+        base_rec.input_type = "Random";
+        base_rec.time_mean_ns = 1000.0;
+        base_run.results.push_back(base_rec);
+
+        analysis::BenchmarkRun slow_run;
+        slow_run.run_id = "RUN-SLOW";
+        analysis::BenchmarkRecord slow_rec;
+        slow_rec.algorithm = "qs";
+        slow_rec.algorithm_name = "Quick Sort";
+        slow_rec.input_size = 1000;
+        slow_rec.input_type = "Random";
+        slow_rec.time_mean_ns = 5000.0; // 400% slower -> severe regression
+        slow_run.results.push_back(slow_rec);
+
+        auto rep = analysis::RegressionAnalyzer::compare_runs(slow_run, base_run, 5.0);
+        expect(rep.valid, "Regression comparison is valid");
+        expect(rep.has_regressions, "Regression detected for 5x slowdown (CI gating flag true)");
+        expect(rep.regressed_count == 1, "Exactly 1 algorithm regressed");
+    }
+}
+
 int main() {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -1541,6 +1709,7 @@ int main() {
     run_html_report_tests();
     run_server_tests();
     run_custom_benchmark_tests();
+    run_v4_reliability_and_scalability_tests();
     std::cout << "\n========================================\n";
     if (failures == 0) {
         std::cout << "RESULT: ALL TESTS PASSED\n";

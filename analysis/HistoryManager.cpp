@@ -23,6 +23,76 @@ std::string HistoryManager::sanitize_filename(const std::string& id) const {
     return clean;
 }
 
+namespace {
+
+bool write_meta_cache(const RunMetadata& meta, const std::string& meta_path) {
+    std::ofstream out(meta_path, std::ios::trunc);
+    if (!out.is_open()) return false;
+    out << "run_id=" << meta.run_id << "\n";
+    out << "timestamp=" << meta.timestamp << "\n";
+    out << "input_type=" << meta.input_type << "\n";
+    out << "file_path=" << meta.file_path << "\n";
+    out << "element_count=" << meta.element_count << "\n";
+    out << "algorithm_count=" << meta.algorithm_count << "\n";
+    out << "benchmark_mode=" << meta.benchmark_mode << "\n";
+    out << "benchmark_category=" << meta.benchmark_category << "\n";
+    out << "custom_target_parameter=" << meta.custom_target_parameter << "\n";
+    out << "algorithms=";
+    for (size_t i = 0; i < meta.algorithms.size(); ++i) {
+        if (i > 0) out << "|";
+        out << meta.algorithms[i];
+    }
+    out << "\n";
+    return true;
+}
+
+std::optional<RunMetadata> read_meta_cache(const std::string& meta_path, const std::string& json_path) {
+    std::error_code ec;
+    auto meta_time = std::filesystem::last_write_time(meta_path, ec);
+    if (ec) return std::nullopt;
+    auto json_time = std::filesystem::last_write_time(json_path, ec);
+    if (ec) return std::nullopt;
+    if (meta_time < json_time) return std::nullopt;
+
+    std::ifstream in(meta_path);
+    if (!in.is_open()) return std::nullopt;
+
+    RunMetadata meta;
+    meta.filepath_on_disk = json_path;
+    std::string line;
+    while (std::getline(in, line)) {
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = line.substr(0, eq);
+        std::string val = line.substr(eq + 1);
+        if (key == "run_id") meta.run_id = val;
+        else if (key == "timestamp") meta.timestamp = val;
+        else if (key == "input_type") meta.input_type = val;
+        else if (key == "file_path") meta.file_path = val;
+        else if (key == "element_count") {
+            try { meta.element_count = std::stoull(val); } catch (...) {}
+        } else if (key == "algorithm_count") {
+            try { meta.algorithm_count = std::stoull(val); } catch (...) {}
+        } else if (key == "benchmark_mode") meta.benchmark_mode = val;
+        else if (key == "benchmark_category") meta.benchmark_category = val;
+        else if (key == "custom_target_parameter") meta.custom_target_parameter = val;
+        else if (key == "algorithms") {
+            std::stringstream ss(val);
+            std::string item;
+            while (std::getline(ss, item, '|')) {
+                if (!item.empty()) meta.algorithms.push_back(item);
+            }
+        }
+    }
+    if (meta.algorithm_count == 0 && !meta.algorithms.empty()) {
+        meta.algorithm_count = meta.algorithms.size();
+    }
+    if (meta.run_id.empty()) return std::nullopt;
+    return meta;
+}
+
+} // namespace
+
 std::string HistoryManager::save_run(const BenchmarkRun& run) {
     try {
         std::filesystem::create_directories(history_directory);
@@ -35,6 +105,22 @@ std::string HistoryManager::save_run(const BenchmarkRun& run) {
     std::filesystem::path full_path = std::filesystem::path(history_directory) / filename;
 
     if (ReportLoader::save_to_json_file(run, full_path.string())) {
+        RunMetadata meta;
+        meta.run_id = run.run_id;
+        meta.timestamp = run.timestamp;
+        meta.input_type = run.input.type;
+        meta.file_path = run.input.file_path;
+        meta.element_count = run.input.element_count;
+        meta.algorithm_count = run.results.size();
+        meta.filepath_on_disk = full_path.string();
+        meta.benchmark_mode = run.benchmark_mode.empty() ? "standard" : run.benchmark_mode;
+        meta.benchmark_category = run.benchmark_category;
+        meta.custom_target_parameter = run.custom_target_parameter;
+        for (const auto& rec : run.results) {
+            meta.algorithms.push_back(rec.algorithm_name);
+        }
+        std::filesystem::path meta_path = std::filesystem::path(history_directory) / ("run_" + sanitize_filename(base) + ".meta");
+        write_meta_cache(meta, meta_path.string());
         return full_path.string();
     }
     return "";
@@ -48,7 +134,17 @@ std::vector<RunMetadata> HistoryManager::list_runs() const {
 
     for (const auto& entry : std::filesystem::directory_iterator(history_directory)) {
         if (entry.is_regular_file() && entry.path().extension() == ".json") {
-            const auto load_res = ReportLoader::load_from_json_file(entry.path().string());
+            std::string json_path = entry.path().string();
+            std::filesystem::path meta_path = entry.path();
+            meta_path.replace_extension(".meta");
+
+            auto cached = read_meta_cache(meta_path.string(), json_path);
+            if (cached.has_value()) {
+                runs.push_back(std::move(*cached));
+                continue;
+            }
+
+            const auto load_res = ReportLoader::load_from_json_file(json_path);
             if (load_res.success) {
                 RunMetadata meta;
                 meta.run_id = load_res.run.run_id;
@@ -57,7 +153,7 @@ std::vector<RunMetadata> HistoryManager::list_runs() const {
                 meta.file_path = load_res.run.input.file_path;
                 meta.element_count = load_res.run.input.element_count;
                 meta.algorithm_count = load_res.run.results.size();
-                meta.filepath_on_disk = entry.path().string();
+                meta.filepath_on_disk = json_path;
                 meta.benchmark_mode = load_res.run.benchmark_mode.empty() ? "standard" : load_res.run.benchmark_mode;
                 meta.benchmark_category = load_res.run.benchmark_category;
                 meta.custom_target_parameter = load_res.run.custom_target_parameter;
@@ -65,6 +161,7 @@ std::vector<RunMetadata> HistoryManager::list_runs() const {
                 for (const auto& rec : load_res.run.results) {
                     meta.algorithms.push_back(rec.algorithm_name);
                 }
+                write_meta_cache(meta, meta_path.string());
                 runs.push_back(std::move(meta));
             }
         }

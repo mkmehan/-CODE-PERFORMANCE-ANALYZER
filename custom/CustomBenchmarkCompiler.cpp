@@ -48,6 +48,9 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
                 case SearchInterfaceType::ExternCSearchAlgorithm:
                     ss << "extern \"C\" int search_algorithm(const int*, int, int);\n";
                     break;
+                case SearchInterfaceType::DatasetOnly:
+                    ss << "int " << alg.detected_function << "(const int*, int);\n";
+                    break;
                 default:
                     ss << "int " << alg.detected_function << "(const int*, size_t, int);\n";
                     break;
@@ -100,6 +103,10 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
                 break;
             case SearchInterfaceType::ExternCSearchAlgorithm:
                 ss << "        return search_algorithm(data, static_cast<int>(size), target);\n";
+                break;
+            case SearchInterfaceType::DatasetOnly:
+                ss << "        (void)target;\n";
+                ss << "        return " << alg.detected_function << "(const_cast<int*>(data), static_cast<int>(size));\n";
                 break;
             default:
                 ss << "        return -1;\n";

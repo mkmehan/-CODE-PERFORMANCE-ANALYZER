@@ -43,7 +43,15 @@ bool run_passes_filter(const BenchmarkRun& run, const ChartFilter& f) {
 }
 
 bool record_passes_filter(const BenchmarkRecord& rec, const ChartFilter& f) {
-    if (!f.input_distribution.empty() && rec.input_type != f.input_distribution) return false;
+    if (!f.input_distribution.empty()) {
+        if (f.input_distribution == "Reverse Sorted" || f.input_distribution == "ReverseSorted") {
+            if (rec.input_type != "Reverse" && rec.input_type != "Reverse Sorted" && rec.input_type != "ReverseSorted") {
+                return false;
+            }
+        } else if (rec.input_type != f.input_distribution) {
+            return false;
+        }
+    }
     if (!f.algorithms.empty()) {
         bool found = false;
         for (const auto& alg : f.algorithms) {

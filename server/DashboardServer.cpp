@@ -163,6 +163,7 @@ bool extract_json_bool(const std::string& json, const std::string& key, bool def
     while (start < json.size() && (json[start] == ' ' || json[start] == '\t' || json[start] == '\r' || json[start] == '\n')) {
         ++start;
     }
+    if (start >= json.size()) return def;
     if (json.compare(start, 4, "true") == 0) return true;
     if (json.compare(start, 5, "false") == 0) return false;
     return def;
@@ -758,8 +759,12 @@ std::string DashboardServer::handle_trend(
     if (!category.empty()) {
         filter.benchmark_category = category;
     }
-    if (!distribution.empty()) {
-        filter.input_distribution = distribution;
+    std::string eff_dist = distribution;
+    if (eff_dist == "Reverse Sorted" || eff_dist == "ReverseSorted") {
+        eff_dist = "Reverse";
+    }
+    if (!eff_dist.empty()) {
+        filter.input_distribution = eff_dist;
     }
 
     if (metric == "memory") {
@@ -873,11 +878,21 @@ std::string DashboardServer::handle_benchmark(const std::string& body) {
         FileInputLoader::set_active_dataset(std::move(val.data), val.info, file_path);
     } else {
         InputDataCase idc = InputDataCase::Random;
-        if (input_type == "Sorted") idc = InputDataCase::Sorted;
-        else if (input_type == "ReverseSorted" || input_type == "Reverse Sorted") idc = InputDataCase::ReverseSorted;
-        else if (input_type == "NearlySorted" || input_type == "Nearly Sorted") idc = InputDataCase::NearlySorted;
-        else if (input_type == "ManyDuplicates" || input_type == "Many Duplicates") idc = InputDataCase::ManyDuplicates;
-        else if (input_type == "AllEqual" || input_type == "All Equal") idc = InputDataCase::AllEqual;
+        if (input_type == "Random") {
+            idc = InputDataCase::Random;
+        } else if (input_type == "Sorted") {
+            idc = InputDataCase::Sorted;
+        } else if (input_type == "ReverseSorted" || input_type == "Reverse Sorted" || input_type == "Reverse") {
+            idc = InputDataCase::ReverseSorted;
+        } else if (input_type == "NearlySorted" || input_type == "Nearly Sorted") {
+            idc = InputDataCase::NearlySorted;
+        } else if (input_type == "ManyDuplicates" || input_type == "Many Duplicates") {
+            idc = InputDataCase::ManyDuplicates;
+        } else if (input_type == "AllEqual" || input_type == "All Equal") {
+            idc = InputDataCase::AllEqual;
+        } else {
+            return "{\"status\": \"error\", \"message\": \"Unknown or unsupported input_type: " + escape_json_str(input_type) + "\"}";
+        }
         config.input_cases = { idc };
 
         if (!sizes.empty()) {
@@ -1010,7 +1025,10 @@ std::string DashboardServer::handle_upload_custom_algorithm(const std::string& b
     out << content;
     out.close();
 
-    auto det = custom::InterfaceDetector::detect(content, custom::CustomCategory::Search);
+    std::string cat_str = extract_json_string(body, "category", "search");
+    std::string iface_mode = extract_json_string(body, "interface_mode", "with_target");
+    custom::CustomCategory cat = custom::string_to_custom_category(cat_str);
+    auto det = custom::InterfaceDetector::detect(content, cat, iface_mode);
 
     std::ostringstream ss;
     ss << "{\n"
@@ -1224,7 +1242,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     // Auto-detect interfaces for alg A
     std::string alg_a_decl;
     if (alg_a_func.empty() || alg_a_type < 0) {
-        auto det = custom::InterfaceDetector::detect_from_file(alg_a_path, custom::CustomCategory::Search);
+        auto det = custom::InterfaceDetector::detect_from_file(alg_a_path, custom::CustomCategory::Search, interface_mode);
         if (det.recognized) {
             alg_a_func = det.detected_function_name;
             alg_a_type = static_cast<int>(det.interface_type);
@@ -1239,7 +1257,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     // Auto-detect interfaces for alg B
     std::string alg_b_decl;
     if (alg_b_func.empty() || alg_b_type < 0) {
-        auto det = custom::InterfaceDetector::detect_from_file(alg_b_path, custom::CustomCategory::Search);
+        auto det = custom::InterfaceDetector::detect_from_file(alg_b_path, custom::CustomCategory::Search, interface_mode);
         if (det.recognized) {
             alg_b_func = det.detected_function_name;
             alg_b_type = static_cast<int>(det.interface_type);
@@ -1433,6 +1451,37 @@ void DashboardServer::send_response(uintptr_t sock_ptr, int status_code, const s
 #endif
 }
 
+namespace {
+
+std::string url_decode(const std::string& in) {
+    std::string out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        if (in[i] == '%' && i + 2 < in.size()) {
+            auto hex_val = [](char c) -> int {
+                if (c >= '0' && c <= '9') return c - '0';
+                if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+                if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+                return -1;
+            };
+            int h1 = hex_val(in[i + 1]);
+            int h2 = hex_val(in[i + 2]);
+            if (h1 >= 0 && h2 >= 0) {
+                out += static_cast<char>((h1 << 4) | h2);
+                i += 2;
+                continue;
+            }
+        } else if (in[i] == '+') {
+            out += ' ';
+            continue;
+        }
+        out += in[i];
+    }
+    return out;
+}
+
+} // namespace
+
 std::map<std::string, std::string> DashboardServer::parse_query(const std::string& query_str) {
     std::map<std::string, std::string> result;
     std::istringstream stream(query_str);
@@ -1440,9 +1489,9 @@ std::map<std::string, std::string> DashboardServer::parse_query(const std::strin
     while (std::getline(stream, pair, '&')) {
         size_t eq = pair.find('=');
         if (eq != std::string::npos) {
-            result[pair.substr(0, eq)] = pair.substr(eq + 1);
+            result[url_decode(pair.substr(0, eq))] = url_decode(pair.substr(eq + 1));
         } else if (!pair.empty()) {
-            result[pair] = "";
+            result[url_decode(pair)] = "";
         }
     }
     return result;

@@ -494,7 +494,7 @@ int main(int argc, char* argv[]) {
 
             const auto report = analysis::RegressionAnalyzer::compare_runs(current_run, baseline_run);
             analysis::RegressionAnalyzer::print_regression_report(report);
-            if (!report.valid) {
+            if (!report.valid || report.has_regressions) {
                 return 1;
             }
             return 0;
