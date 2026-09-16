@@ -1,6 +1,7 @@
 #include "TrendAnalyzer.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -31,8 +32,13 @@ using AccumMap = std::map<std::string, std::map<size_t, PointAccum>>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 bool run_passes_filter(const BenchmarkRun& run, const ChartFilter& f) {
+    if (!f.run_id.empty() && run.run_id != f.run_id) return false;
+    if (!f.benchmark_mode.empty() && run.benchmark_mode != f.benchmark_mode) return false;
+    if (!f.benchmark_category.empty() && run.benchmark_category != f.benchmark_category) return false;
+    if (!f.interface_mode.empty() && run.interface_mode != f.interface_mode) return false;
     if (!f.input_type.empty() && run.input.type != f.input_type) return false;
     if (!f.input_file.empty() && run.input.file_path != f.input_file) return false;
+    if (!f.target_parameter.empty() && run.custom_target_parameter != f.target_parameter) return false;
     return true;
 }
 
@@ -258,8 +264,18 @@ ChartData TrendAnalyzer::build_time_vs_size(
         if (!run_passes_filter(run, filter)) continue;
         for (const auto& rec : run.results) {
             if (!record_passes_filter(rec, filter)) continue;
-            auto& pt = accum[rec.algorithm][rec.input_size];
-            pt.algorithm_name = rec.algorithm_name;
+            std::string key = rec.algorithm;
+            std::string name = rec.algorithm_name.empty() ? rec.algorithm : rec.algorithm_name;
+            if (filter.run_id.empty() && run.benchmark_mode == "custom" && !run.input.file_path.empty() && filter.input_file.empty()) {
+                std::filesystem::path p(run.input.file_path);
+                std::string fname = p.filename().string();
+                if (!fname.empty()) {
+                    key += " [" + fname + "]";
+                    name += " [" + fname + "]";
+                }
+            }
+            auto& pt = accum[key][rec.input_size];
+            pt.algorithm_name = name;
             pt.sum  += rec.time_mean_ns / 1000.0; // ns → µs
             pt.count++;
         }
@@ -278,8 +294,18 @@ ChartData TrendAnalyzer::build_memory_vs_size(
         if (!run_passes_filter(run, filter)) continue;
         for (const auto& rec : run.results) {
             if (!record_passes_filter(rec, filter)) continue;
-            auto& pt = accum[rec.algorithm][rec.input_size];
-            pt.algorithm_name = rec.algorithm_name;
+            std::string key = rec.algorithm;
+            std::string name = rec.algorithm_name.empty() ? rec.algorithm : rec.algorithm_name;
+            if (filter.run_id.empty() && run.benchmark_mode == "custom" && !run.input.file_path.empty() && filter.input_file.empty()) {
+                std::filesystem::path p(run.input.file_path);
+                std::string fname = p.filename().string();
+                if (!fname.empty()) {
+                    key += " [" + fname + "]";
+                    name += " [" + fname + "]";
+                }
+            }
+            auto& pt = accum[key][rec.input_size];
+            pt.algorithm_name = name;
             pt.sum  += static_cast<double>(rec.memory_peak_increase_bytes)
                        / (1024.0 * 1024.0); // bytes → MB
             pt.count++;

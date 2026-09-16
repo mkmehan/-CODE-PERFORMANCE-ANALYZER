@@ -42,62 +42,90 @@ const Charts = {
       return;
     }
 
-    // Extract sorted unique X points
-    const xSet = new Set();
-    chartData.series.forEach(s => {
-      s.points.forEach(p => xSet.add(p.x));
-    });
-    const xLabels = Array.from(xSet).sort((a, b) => a - b);
+    // Check for valid positive values if log scale requested
+    let effectiveLog = yLogScale;
+    if (yLogScale) {
+      let hasZeroOrNeg = false;
+      chartData.series.forEach(s => {
+        (s.points || []).forEach(p => {
+          if (p.y !== undefined && p.y !== null && Number(p.y) <= 0) {
+            hasZeroOrNeg = true;
+          }
+        });
+      });
+      if (hasZeroOrNeg) {
+        effectiveLog = false; // Gracefully fall back to linear scale
+      }
+    }
 
     const datasets = chartData.series.map((s, idx) => {
       const color = this.getColor(idx);
-      const pointMap = {};
-      s.points.forEach(p => { pointMap[p.x] = p.y; });
+      const pts = (s.points || [])
+        .filter(p => p && p.x !== undefined && p.y !== undefined && p.y !== null)
+        .map(p => ({ x: Number(p.x), y: Number(p.y) }))
+        .filter(p => !effectiveLog || p.y > 0)
+        .sort((a, b) => a.x - b.x);
 
       return {
-        label: s.name || s.algorithm,
+        label: s.name || s.algorithm_name || s.algorithm || `Series ${idx + 1}`,
         borderColor: color,
-        backgroundColor: this.getColor(idx, 0.1),
-        borderWidth: 2,
-        tension: 0.25,
+        backgroundColor: this.getColor(idx, 0.12),
+        borderWidth: 2.2,
+        tension: 0.1,
         pointRadius: 4,
         pointHoverRadius: 6,
-        data: xLabels.map(x => {
-          const val = pointMap[x];
-          if (val === undefined || val === null) return null;
-          if (yLogScale && val <= 0) return null;
-          return val;
-        })
+        spanGaps: false, // Default false: Never falsely connect missing measurements
+        data: pts
       };
     });
 
     this.instances[canvasId] = new Chart(ctx.getContext('2d'), {
       type: 'line',
       data: {
-        labels: xLabels.map(x => x.toLocaleString()),
         datasets: datasets
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
+        interaction: { mode: 'nearest', intersect: false, axis: 'x' },
         scales: {
           x: {
+            type: 'linear',
             title: { display: true, text: chartData.x_label || 'Input Size (N)', color: '#9ca3af' },
+            ticks: {
+              color: '#9ca3af',
+              callback: (val) => Number(val).toLocaleString()
+            },
             ...this.darkTheme
           },
           y: {
-            type: yLogScale ? 'logarithmic' : 'linear',
-            min: yLogScale ? 0.1 : undefined,
+            type: effectiveLog ? 'logarithmic' : 'linear',
+            min: effectiveLog ? 0.01 : undefined,
             title: { display: true, text: chartData.y_label || `Value (${unit})`, color: '#9ca3af' },
+            ticks: {
+              color: '#9ca3af',
+              callback: (val) => {
+                if (typeof val === 'number') {
+                  if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+                  if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+                  if (val > 0 && val < 0.1) return val.toFixed(3);
+                  return val.toLocaleString();
+                }
+                return val;
+              }
+            },
             ...this.darkTheme
           }
         },
         plugins: {
-          legend: { labels: { color: '#f3f4f6', boxWidth: 12 } },
+          legend: { labels: { color: '#f3f4f6', boxWidth: 12, padding: 12 } },
           tooltip: {
             callbacks: {
-              label: (c) => `${c.dataset.label}: ${c.parsed.y !== null ? c.parsed.y.toFixed(2) + ' ' + unit : 'N/A'}`
+              title: (items) => {
+                if (!items || items.length === 0) return '';
+                return `N = ${Number(items[0].parsed.x).toLocaleString()}`;
+              },
+              label: (c) => `${c.dataset.label}: ${c.parsed.y !== null && c.parsed.y !== undefined ? Number(c.parsed.y).toFixed(3) + ' ' + unit : 'N/A'}`
             }
           }
         }

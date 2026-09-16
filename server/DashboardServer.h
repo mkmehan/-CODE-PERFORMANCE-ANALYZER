@@ -87,7 +87,13 @@ private:
     std::string handle_run(const std::string& query_id);
     std::string handle_compare(const std::string& query_id);
     std::string handle_regression(const std::string& query_id);
-    std::string handle_trend(const std::string& metric, const std::string& distribution);
+    std::string handle_trend(
+        const std::string& metric,
+        const std::string& distribution,
+        const std::string& mode = "",
+        const std::string& run_id = "",
+        const std::string& category = ""
+    );
     std::string handle_validate_file(const std::string& body);
     std::string handle_upload_dataset(const std::string& body);
     std::string handle_benchmark(const std::string& body);

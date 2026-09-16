@@ -400,6 +400,7 @@ bool DashboardServer::start() {
 }
 
 void DashboardServer::stop() {
+    cancel_requested.store(true);
     if (!running.exchange(false)) return;
 
     if (server_socket != 0 && server_socket != static_cast<uintptr_t>(INVALID_SOCKET)) {
@@ -557,7 +558,10 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
     } else if (method == "GET" && path == "/api/trend") {
         std::string metric = query_map.count("metric") ? query_map["metric"] : "time";
         std::string dist = query_map.count("dist") ? query_map["dist"] : "";
-        send_response(sock_ptr, 200, "application/json", handle_trend(metric, dist));
+        std::string mode = query_map.count("mode") ? query_map["mode"] : "";
+        std::string run_id = query_map.count("run_id") ? query_map["run_id"] : (query_map.count("id") ? query_map["id"] : "");
+        std::string category = query_map.count("category") ? query_map["category"] : "";
+        send_response(sock_ptr, 200, "application/json", handle_trend(metric, dist, mode, run_id, category));
     } else if (method == "POST" && path == "/api/validate-file") {
         send_response(sock_ptr, 200, "application/json", handle_validate_file(body));
     } else if (method == "POST" && path == "/api/upload-dataset") {
@@ -718,16 +722,42 @@ std::string DashboardServer::handle_regression(const std::string& query_id) {
     return regression_to_json(rep);
 }
 
-std::string DashboardServer::handle_trend(const std::string& metric, const std::string& distribution) {
+std::string DashboardServer::handle_trend(
+    const std::string& metric,
+    const std::string& distribution,
+    const std::string& mode,
+    const std::string& run_id,
+    const std::string& category
+) {
     analysis::HistoryManager history;
-    auto metas = history.list_runs();
     std::vector<analysis::BenchmarkRun> all_runs;
-    for (const auto& m : metas) {
-        auto r = history.load_run(m.run_id);
+
+    if (run_id == "latest") {
+        auto latest = history.get_latest_run();
+        if (latest.has_value()) {
+            all_runs.push_back(latest.value());
+        }
+    } else if (!run_id.empty()) {
+        auto r = history.load_run(run_id);
         if (r.success) all_runs.push_back(r.run);
+    } else {
+        auto metas = history.list_runs();
+        for (const auto& m : metas) {
+            auto r = history.load_run(m.run_id);
+            if (r.success) all_runs.push_back(r.run);
+        }
     }
 
     analysis::ChartFilter filter;
+    if (!run_id.empty() && run_id != "latest") {
+        filter.run_id = run_id;
+    }
+    if (!mode.empty() && mode != "all") {
+        filter.benchmark_mode = mode;
+    }
+    if (!category.empty()) {
+        filter.benchmark_category = category;
+    }
     if (!distribution.empty()) {
         filter.input_distribution = distribution;
     }
@@ -933,13 +963,14 @@ std::string DashboardServer::handle_detect_interface(const std::string& body) {
     std::string source_code = extract_json_string(body, "source_code", "");
     std::string file_path = extract_json_string(body, "file_path", "");
     std::string cat_str = extract_json_string(body, "category", "search");
+    std::string iface_mode = extract_json_string(body, "interface_mode", "with_target");
     custom::CustomCategory cat = custom::string_to_custom_category(cat_str);
 
     custom::DetectionResult res;
     if (!source_code.empty()) {
-        res = custom::InterfaceDetector::detect(source_code, cat);
+        res = custom::InterfaceDetector::detect(source_code, cat, iface_mode);
     } else if (!file_path.empty()) {
-        res = custom::InterfaceDetector::detect_from_file(file_path, cat);
+        res = custom::InterfaceDetector::detect_from_file(file_path, cat, iface_mode);
     } else {
         return "{\"recognized\": false, \"diagnostic_message\": \"No source code or file path provided.\"}";
     }
@@ -1064,22 +1095,47 @@ std::string DashboardServer::handle_custom_samples() {
 
     std::ostringstream ss;
     ss << "{\n"
+       << "  \"success\": true,\n"
+       << "  \"algorithms\": [\n"
+       << "    {\n"
+       << "      \"name\": \"Linear Search\",\n"
+       << "      \"path\": \"custom/samples/linear_search.cpp\",\n"
+       << "      \"file_path\": \"custom/samples/linear_search.cpp\",\n"
+       << "      \"interface\": \"int (const std::vector<int>&, int)\",\n"
+       << "      \"function_name\": \"linear_search\",\n"
+       << "      \"interface_type\": 3,\n"
+       << "      \"source\": \"" << escape_json_str(lin_src) << "\"\n"
+       << "    },\n"
+       << "    {\n"
+       << "      \"name\": \"Binary Search\",\n"
+       << "      \"path\": \"custom/samples/binary_search.cpp\",\n"
+       << "      \"file_path\": \"custom/samples/binary_search.cpp\",\n"
+       << "      \"interface\": \"int (const int*, size_t, int)\",\n"
+       << "      \"function_name\": \"binarySearch\",\n"
+       << "      \"interface_type\": 0,\n"
+       << "      \"source\": \"" << escape_json_str(bin_src) << "\"\n"
+       << "    }\n"
+       << "  ],\n"
        << "  \"algorithm_a\": {\n"
        << "    \"name\": \"Linear Search\",\n"
+       << "    \"path\": \"custom/samples/linear_search.cpp\",\n"
        << "    \"file_path\": \"custom/samples/linear_search.cpp\",\n"
+       << "    \"interface\": \"int (const std::vector<int>&, int)\",\n"
        << "    \"function_name\": \"linear_search\",\n"
-       << "    \"interface_type\": 3,\n"
-       << "    \"source\": \"" << escape_json_str(lin_src) << "\"\n"
+       << "    \"interface_type\": 3\n"
        << "  },\n"
        << "  \"algorithm_b\": {\n"
        << "    \"name\": \"Binary Search\",\n"
+       << "    \"path\": \"custom/samples/binary_search.cpp\",\n"
        << "    \"file_path\": \"custom/samples/binary_search.cpp\",\n"
+       << "    \"interface\": \"int (const int*, size_t, int)\",\n"
        << "    \"function_name\": \"binarySearch\",\n"
-       << "    \"interface_type\": 0,\n"
-       << "    \"source\": \"" << escape_json_str(bin_src) << "\"\n"
+       << "    \"interface_type\": 0\n"
        << "  },\n"
        << "  \"dataset\": {\n"
+       << "    \"path\": \"custom/samples/search_data.txt\",\n"
        << "    \"file_path\": \"custom/samples/search_data.txt\",\n"
+       << "    \"recommended_target\": 5000,\n"
        << "    \"target\": 5000\n"
        << "  }\n"
        << "}";
@@ -1094,14 +1150,25 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
         }
     }
 
+    std::string category = extract_json_string(body, "category", "search");
+    std::string interface_mode = extract_json_string(body, "interface_mode", "with_target");
+
+    if (category != "search") {
+        return "{\"status\": \"error\", \"message\": \"Category '" + escape_json_str(category) + "' is currently in Extension Preview. Full execution harness is available for Search Algorithms. Please switch to Search Algorithms to run custom benchmarks.\"}";
+    }
+
     custom::CustomBenchmarkConfig cfg;
+    cfg.category = category;
+    cfg.interface_mode = interface_mode;
+    cfg.has_target = (interface_mode == "with_target");
     cfg.dataset_path = extract_json_string(body, "dataset_path", "custom/samples/search_data.txt");
     cfg.target_value = extract_json_int(body, "target_value", extract_json_int(body, "target", 5000));
     cfg.iterations = extract_json_int(body, "iterations", 20);
     cfg.warmup_runs = extract_json_int(body, "warmup", 5);
     cfg.cpu_affinity = extract_json_int(body, "cpu_affinity", -1);
     cfg.measure_memory = extract_json_bool(body, "memory", true);
-    cfg.timeout_seconds = extract_json_int(body, "timeout_seconds", 15);
+    cfg.timeout_seconds = extract_json_int(body, "timeout_seconds", 30);
+    cfg.cancel_flag = &cancel_requested;
 
     std::string alg_a_name = extract_json_string(body, "alg_a_name", "");
     std::string alg_a_path = extract_json_string(body, "alg_a_path", "");
@@ -1113,7 +1180,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     std::string alg_b_func = extract_json_string(body, "alg_b_func", "");
     int alg_b_type = extract_json_int(body, "alg_b_type", -1);
 
-    // Fallbacks if nested in algorithms array or not provided
+    // Fallbacks if nested in algorithms array
     if (alg_a_path.empty()) {
         size_t pos_alg = body.find("\"source_path\":");
         if (pos_alg != std::string::npos) {
@@ -1126,7 +1193,6 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
             }
         }
     }
-    if (alg_a_path.empty()) alg_a_path = "custom/samples/linear_search.cpp";
 
     if (alg_b_path.empty()) {
         size_t pos_alg = body.find("\"source_path\":");
@@ -1143,41 +1209,54 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
             }
         }
     }
-    if (alg_b_path.empty()) alg_b_path = "custom/samples/binary_search.cpp";
+
+    if (alg_a_path.empty() || alg_b_path.empty()) {
+        return "{\"status\": \"error\", \"message\": \"Please provide both Algorithm A and Algorithm B source files.\"}";
+    }
+
+    if (!std::filesystem::exists(alg_a_path)) {
+        return "{\"status\": \"error\", \"message\": \"Algorithm A source file not found: " + escape_json_str(alg_a_path) + "\"}";
+    }
+    if (!std::filesystem::exists(alg_b_path)) {
+        return "{\"status\": \"error\", \"message\": \"Algorithm B source file not found: " + escape_json_str(alg_b_path) + "\"}";
+    }
 
     // Auto-detect interfaces for alg A
+    std::string alg_a_decl;
     if (alg_a_func.empty() || alg_a_type < 0) {
         auto det = custom::InterfaceDetector::detect_from_file(alg_a_path, custom::CustomCategory::Search);
         if (det.recognized) {
             alg_a_func = det.detected_function_name;
             alg_a_type = static_cast<int>(det.interface_type);
+            alg_a_decl = det.detected_signature;
             if (alg_a_name.empty()) alg_a_name = det.suggested_display_name;
         } else {
-            alg_a_func = "linear_search";
-            alg_a_type = static_cast<int>(custom::SearchInterfaceType::VectorRefTarget);
+            return "{\"status\": \"error\", \"message\": \"Interface not recognized in " + escape_json_str(alg_a_path) + ": " + escape_json_str(det.diagnostic_message) + "\"}";
         }
     }
-    if (alg_a_name.empty()) alg_a_name = "Linear Search";
+    if (alg_a_name.empty()) alg_a_name = "Algorithm A";
 
     // Auto-detect interfaces for alg B
+    std::string alg_b_decl;
     if (alg_b_func.empty() || alg_b_type < 0) {
         auto det = custom::InterfaceDetector::detect_from_file(alg_b_path, custom::CustomCategory::Search);
         if (det.recognized) {
             alg_b_func = det.detected_function_name;
             alg_b_type = static_cast<int>(det.interface_type);
+            alg_b_decl = det.detected_signature;
             if (alg_b_name.empty()) alg_b_name = det.suggested_display_name;
         } else {
-            alg_b_func = "binarySearch";
-            alg_b_type = static_cast<int>(custom::SearchInterfaceType::PointerSizeTarget);
+            return "{\"status\": \"error\", \"message\": \"Interface not recognized in " + escape_json_str(alg_b_path) + ": " + escape_json_str(det.diagnostic_message) + "\"}";
         }
     }
-    if (alg_b_name.empty()) alg_b_name = "Binary Search";
+    if (alg_b_name.empty()) alg_b_name = "Algorithm B";
 
     custom::AlgorithmSourceSpec a1;
     a1.algorithm_name = alg_a_name;
     a1.source_file_path = alg_a_path;
     a1.detected_function = alg_a_func;
     a1.interface_type = static_cast<custom::SearchInterfaceType>(alg_a_type);
+    a1.custom_declaration = alg_a_decl;
     cfg.algorithms.push_back(a1);
 
     custom::AlgorithmSourceSpec a2;
@@ -1185,6 +1264,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     a2.source_file_path = alg_b_path;
     a2.detected_function = alg_b_func;
     a2.interface_type = static_cast<custom::SearchInterfaceType>(alg_b_type);
+    a2.custom_declaration = alg_b_decl;
     cfg.algorithms.push_back(a2);
 
     cancel_requested.store(false);

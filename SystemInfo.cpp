@@ -94,8 +94,15 @@ std::string SystemInfo::operating_system() const {
     }
 
     if (module != nullptr) {
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
         const auto rtl_get_version = reinterpret_cast<RtlGetVersionFn>(
             GetProcAddress(module, "RtlGetVersion"));
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         if (rtl_get_version != nullptr) {
             RTL_OSVERSIONINFOW version{};
             version.dwOSVersionInfoSize = sizeof(version);

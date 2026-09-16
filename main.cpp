@@ -221,18 +221,18 @@ int main(int argc, char* argv[]) {
     }
 
     // Check if graphical dashboard mode is requested (or default if no args)
-    bool is_gui_request = (argc == 1);
+    bool has_explicit_gui_flag = false;
+    bool has_cli_flag = false;
     int gui_port = 8080;
     bool open_browser = true;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--gui" || arg == "--web" || arg == "--server" || arg == "--dashboard") {
-            is_gui_request = true;
+            has_explicit_gui_flag = true;
         } else if (arg == "--no-browser") {
             open_browser = false;
         } else if (arg == "--port") {
-            is_gui_request = true;
             if (i + 1 < argc) {
                 try {
                     gui_port = std::stoi(argv[++i]);
@@ -241,8 +241,16 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
             }
+        } else if (arg == "--all" || arg == "--quick" || arg == "--cli" || arg == "--quicksort" ||
+                   arg == "--bubblesort" || arg == "--mergesort" || arg == "--heapsort" ||
+                   arg == "--insertionsort" || arg == "--selectionsort" || arg == "--stdsort" ||
+                   arg == "--history" || arg == "--report" || arg == "--compare" || arg == "--regression" ||
+                   arg == "--trend" || arg == "--file" || arg == "--sizes" || arg == "--cases") {
+            has_cli_flag = true;
         }
     }
+
+    bool is_gui_request = (argc == 1) || has_explicit_gui_flag || (!has_cli_flag && gui_port != 8080);
 
     if (is_gui_request) {
         std::string web_dir = resolve_web_root();

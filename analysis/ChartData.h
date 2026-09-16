@@ -24,8 +24,13 @@ struct AlgorithmSeries {
 // All fields are optional (empty = no filter applied for that field).
 struct ChartFilter {
     // Run-level filters
+    std::string run_id;               // specific run ID — empty = all
+    std::string benchmark_mode;       // "standard" or "custom" — empty = all
+    std::string benchmark_category;   // "sorting", "search", "matrix", etc. — empty = all
+    std::string interface_mode;       // "with_target", "dataset_only" — empty = all
     std::string input_type;           // "generated" or "custom_file"
     std::string input_file;           // custom file path — empty = all files
+    std::string target_parameter;     // target parameter string — empty = all
 
     // Record-level filters
     std::string input_distribution;   // "Random", "Sorted", "Reverse Sorted", etc.

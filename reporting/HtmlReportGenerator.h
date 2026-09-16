@@ -44,8 +44,9 @@ private:
     // Helper to ensure local assets directory exists with chart.min.js
     static void ensure_assets_installed(const std::string& report_dir);
 
-    // HTML escape utility
+    // Escape utilities
     static std::string escape_html(const std::string& data);
+    static std::string escape_js_str(const std::string& data);
 
     // Formatter helpers
     static std::string format_time(double ns);

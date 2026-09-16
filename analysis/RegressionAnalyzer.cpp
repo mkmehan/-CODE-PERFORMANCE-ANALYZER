@@ -53,6 +53,23 @@ bool RegressionAnalyzer::are_runs_compatible(
         return false;
     }
 
+    // For custom benchmark runs, interface mode and target must match to be comparable experiments
+    if (a.benchmark_mode == "custom") {
+        if (!a.interface_mode.empty() && !b.interface_mode.empty() &&
+            a.interface_mode != b.interface_mode) {
+            return false;
+        }
+        if (a.interface_mode == "with_target" || b.interface_mode == "with_target") {
+            if (!a.custom_target_parameter.empty() && !b.custom_target_parameter.empty() &&
+                a.custom_target_parameter != b.custom_target_parameter) {
+                return false;
+            }
+            if (a.target_detection.target_value != b.target_detection.target_value) {
+                return false;
+            }
+        }
+    }
+
     for (const auto& rec_a : a.results) {
         for (const auto& rec_b : b.results) {
             if (rec_a.algorithm == rec_b.algorithm &&

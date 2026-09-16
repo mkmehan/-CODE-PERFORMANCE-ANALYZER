@@ -415,6 +415,7 @@ LoadResult ReportLoader::load_from_json_string(const std::string& json_text) {
     // Benchmark mode and category
     result.run.benchmark_mode = root.has("benchmark_mode") ? root.get("benchmark_mode")->as_string("standard") : "standard";
     result.run.benchmark_category = root.has("benchmark_category") ? root.get("benchmark_category")->as_string("sorting") : "sorting";
+    result.run.interface_mode = root.has("interface_mode") ? root.get("interface_mode")->as_string("with_target") : "with_target";
     result.run.custom_target_parameter = root.has("custom_target_parameter") ? root.get("custom_target_parameter")->as_string("") : "";
 
     // Target detection metadata (for search benchmarks)
@@ -604,6 +605,7 @@ std::string ReportLoader::to_json_string(const BenchmarkRun& run) {
     out << "  \"timestamp\": \"" << escape_string(run.timestamp) << "\",\n";
     out << "  \"benchmark_mode\": \"" << escape_string(run.benchmark_mode) << "\",\n";
     out << "  \"benchmark_category\": \"" << escape_string(run.benchmark_category) << "\",\n";
+    out << "  \"interface_mode\": \"" << escape_string(run.interface_mode.empty() ? "with_target" : run.interface_mode) << "\",\n";
     if (!run.custom_target_parameter.empty()) {
         out << "  \"custom_target_parameter\": \"" << escape_string(run.custom_target_parameter) << "\",\n";
     }

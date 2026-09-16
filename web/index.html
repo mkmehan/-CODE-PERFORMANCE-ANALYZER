@@ -359,28 +359,65 @@
 
       <!-- CONTAINER: CUSTOM BENCHMARK -->
       <div id="container-custom-benchmark" style="display: none;">
-        <!-- Domain Category Card -->
+        <!-- Domain Category & Interface Card -->
         <div class="card">
           <div class="card-title">
-            <span>1. Custom Benchmark Domain</span>
-            <span class="badge badge-primary" style="font-size: 0.75rem;">Multi-Domain Ready</span>
+            <span>1. Custom Benchmark Domain &amp; Code Contract</span>
+            <span id="custom-domain-badge" class="badge badge-success" style="font-size: 0.75rem;">✓ Available</span>
           </div>
-          <div class="form-group">
-            <label class="form-label">Algorithm Category</label>
-            <select id="custom-cfg-category" class="form-control">
-              <option value="search" selected>🔍 Search Algorithms (Array &amp; Vector)</option>
-              <option value="sorting">⚡ Custom Sorting Algorithms</option>
-              <option value="matrix">🧮 Matrix Operations (Multiplication &amp; Inversion)</option>
-              <option value="graph">🕸️ Graph Traversal &amp; Shortest Path</option>
-              <option value="tree">🌳 Binary Search Tree (BST) Operations</option>
-            </select>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Algorithm Category</label>
+              <select id="custom-cfg-category" class="form-control">
+                <option value="search" selected>🔍 Search Algorithms — ✓ Available</option>
+                <option value="matrix">🧮 Matrix Operations — ◐ Extension Preview</option>
+                <option value="graph">🕸️ Graph Traversal — ◐ Extension Preview</option>
+                <option value="sorting">⚡ Custom Sorting — ◐ Extension Preview</option>
+                <option value="tree">🌳 Binary Search Tree — ◐ Extension Preview</option>
+              </select>
+            </div>
+            <div class="form-group" id="custom-interface-group">
+              <label class="form-label">Algorithm Interface</label>
+              <select id="custom-cfg-interface" class="form-control">
+                <option value="with_target" selected>Search with Target (data, size, target)</option>
+                <option value="dataset_only">Dataset Only (data, size)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Prominent Contract & Code Box -->
+          <div id="custom-contract-box" style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span id="contract-title" style="font-weight: 600; color: var(--accent); font-size: 0.95rem;">REQUIRED FUNCTION CONTRACT: SEARCH WITH TARGET</span>
+                <span id="contract-badge" class="badge badge-success" style="font-size: 0.7rem;">Active Module</span>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button id="btn-copy-template" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">📋 Copy Template</button>
+                <button id="btn-download-template" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">⬇️ Download (.cpp)</button>
+              </div>
+            </div>
+
+            <!-- Contract specs table -->
+            <div id="contract-specs" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; font-size: 0.8rem; margin-bottom: 0.75rem; background: rgba(0,0,0,0.25); padding: 0.5rem 0.75rem; border-radius: 6px;">
+              <div><span style="color: var(--text-muted);">Input:</span> <span id="spec-input" style="color: #fff; font-family: monospace;">const int* data</span></div>
+              <div><span style="color: var(--text-muted);">Size:</span> <span id="spec-size" style="color: #fff; font-family: monospace;">int size</span></div>
+              <div><span style="color: var(--text-muted);">Parameter:</span> <span id="spec-param" style="color: #fff; font-family: monospace;">int target</span></div>
+              <div><span style="color: var(--text-muted);">Return:</span> <span id="spec-return" style="color: #10b981; font-family: monospace;">index or -1</span></div>
+            </div>
+
+            <!-- Code snippet -->
+            <pre style="margin: 0; background: rgba(0, 0, 0, 0.4); padding: 0.75rem; border-radius: 6px; overflow-x: auto; font-family: 'Fira Code', Consolas, monospace; font-size: 0.85rem; color: #e2e8f0; line-height: 1.4;"><code id="contract-code-snippet">int search_algorithm(const int* data, int size, int target) {
+    // Your search algorithm implementation
+    return -1;
+}</code></pre>
           </div>
         </div>
 
         <!-- User Algorithms Card -->
         <div class="card">
           <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-            <span>2. User Algorithms (.cpp)</span>
+            <span id="custom-algs-card-title">2. User Algorithms (.cpp)</span>
             <button id="btn-custom-load-samples" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">
               📄 Load Sample Suite (Linear vs Binary Search)
             </button>
@@ -389,9 +426,9 @@
           <!-- Algorithm 1 -->
           <div class="card" style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); margin-bottom: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-              <strong style="color: var(--accent); font-size: 0.95rem;">Algorithm 1 (e.g. Linear Search)</strong>
+              <strong id="custom-alg-a-title" style="color: var(--accent); font-size: 0.95rem;">Algorithm 1 (e.g. Linear Search)</strong>
               <div style="display: flex; gap: 0.5rem;">
-                <input type="file" id="custom-alg-a-file" accept=".cpp,.c,.h" style="display: none;">
+                <input type="file" id="custom-alg-a-file" accept=".cpp,.cxx,.cc,.c" style="display: none;">
                 <button id="btn-browse-alg-a" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.65rem;">📁 Browse .cpp</button>
               </div>
             </div>
@@ -407,9 +444,9 @@
           <!-- Algorithm 2 -->
           <div class="card" style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-              <strong style="color: var(--accent); font-size: 0.95rem;">Algorithm 2 (e.g. Binary Search)</strong>
+              <strong id="custom-alg-b-title" style="color: var(--accent); font-size: 0.95rem;">Algorithm 2 (e.g. Binary Search)</strong>
               <div style="display: flex; gap: 0.5rem;">
-                <input type="file" id="custom-alg-b-file" accept=".cpp,.c,.h" style="display: none;">
+                <input type="file" id="custom-alg-b-file" accept=".cpp,.cxx,.cc,.c" style="display: none;">
                 <button id="btn-browse-alg-b" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.65rem;">📁 Browse .cpp</button>
               </div>
             </div>
@@ -423,27 +460,102 @@
           </div>
         </div>
 
-        <!-- Dataset & Target Card -->
-        <div class="card">
-          <div class="card-title">3. Dataset &amp; Search Target</div>
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
-            <div class="form-group">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <label class="form-label" style="margin-bottom: 0;">Dataset File (.txt)</label>
-                <div style="display: flex; gap: 0.5rem;">
-                  <input type="file" id="custom-dataset-picker" accept=".txt,.dat" style="display: none;">
-                  <button id="btn-browse-custom-dataset" type="button" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">📁 Upload</button>
-                  <button id="btn-sample-custom-dataset" type="button" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">📄 Sample</button>
+        <!-- Card 3: Dynamic Category-Specific Input Card -->
+        <div class="card" id="custom-params-card">
+          <div class="card-title" id="custom-params-card-title">3. Dataset &amp; Search Target</div>
+
+          <!-- Section 3A: Search with Target Parameters -->
+          <div id="panel-param-search-target">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <label class="form-label" style="margin-bottom: 0;">Dataset File (.txt)</label>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <input type="file" id="custom-dataset-picker" accept=".txt,.dat" style="display: none;">
+                    <button id="btn-browse-custom-dataset" type="button" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">📁 Upload</button>
+                    <button id="btn-sample-custom-dataset" type="button" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">📄 Sample (10k)</button>
+                  </div>
+                </div>
+                <input id="custom-dataset-path" type="text" class="form-control" value="custom/samples/search_data.txt">
+              </div>
+              <div class="form-group" id="custom-target-group">
+                <label class="form-label">Search Target Value</label>
+                <input id="custom-target-val" type="number" class="form-control" value="5000">
+                <div id="custom-target-status" style="margin-top: 0.4rem; font-size: 0.8rem; color: #10b981; padding: 0.35rem 0.6rem; background: rgba(16, 185, 129, 0.08); border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                  🎯 Target Status: Checking dataset...
                 </div>
               </div>
-              <input id="custom-dataset-path" type="text" class="form-control" value="custom/samples/search_data.txt">
+            </div>
+          </div>
+
+          <!-- Section 3B: Search Dataset Only (NO TARGET) -->
+          <div id="panel-param-search-dataset" style="display: none;">
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label class="form-label" style="margin-bottom: 0;">Dataset File (.txt) — Target Search Value Not Required</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button id="btn-browse-custom-dataset-2" type="button" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">📁 Upload</button>
+                </div>
+              </div>
+              <input id="custom-dataset-path-2" type="text" class="form-control" value="custom/samples/search_data.txt">
+            </div>
+          </div>
+
+          <!-- Section 3C: Matrix Configuration (NO TARGET) -->
+          <div id="panel-param-matrix" style="display: none;">
+            <div class="info-banner" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #93c5fd;">
+              🧮 <strong>Matrix Operations Module (Extension Preview)</strong>: Evaluates flat row-major matrix operations across dimensions \(N \times N\). Target search parameter is not applicable.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Matrix Dimension (N x N)</label>
+                <select id="matrix-dim-select" class="form-control">
+                  <option value="64">64 x 64 (Small / Cache-friendly)</option>
+                  <option value="128" selected>128 x 128 (Standard)</option>
+                  <option value="256">256 x 256 (Heavy)</option>
+                  <option value="512">512 x 512 (Intensive)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Operation Type</label>
+                <select id="matrix-op-select" class="form-control">
+                  <option value="multiply" selected>Matrix Multiplication (C = A x B)</option>
+                  <option value="transpose">Matrix Transposition</option>
+                  <option value="inversion">Matrix Inversion</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3D: Graph Configuration (NO TARGET) -->
+          <div id="panel-param-graph" style="display: none;">
+            <div class="info-banner" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #c4b5fd;">
+              🕸️ <strong>Graph Traversal Module (Extension Preview)</strong>: Evaluates graph traversal and shortest-path algorithms across vertices \(V\) and edge list \(E\). Target search parameter is not applicable.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Vertex Count (V)</label>
+                <input id="graph-vertices" type="number" class="form-control" value="1000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Edge Count (E)</label>
+                <input id="graph-edges" type="number" class="form-control" value="5000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Source Vertex</label>
+                <input id="graph-source" type="number" class="form-control" value="0">
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3E: Custom Sorting Configuration (NO TARGET) -->
+          <div id="panel-param-sorting" style="display: none;">
+            <div class="info-banner" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #fcd34d;">
+              ⚡ <strong>Custom Sorting Module (Extension Preview)</strong>: Sorts array elements in-place. Target search parameter is not applicable.
             </div>
             <div class="form-group">
-              <label class="form-label">Search Target Value</label>
-              <input id="custom-target-val" type="number" class="form-control" value="5000">
-              <div id="custom-target-status" style="margin-top: 0.4rem; font-size: 0.8rem; color: #10b981; padding: 0.35rem 0.6rem; background: rgba(16, 185, 129, 0.08); border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">
-                🎯 Target Status: Checking dataset...
-              </div>
+              <label class="form-label">Array Dataset File (.txt)</label>
+              <input id="custom-sorting-dataset" type="text" class="form-control" value="custom/samples/search_data.txt">
             </div>
           </div>
         </div>
@@ -475,10 +587,13 @@
             </div>
           </div>
 
-          <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center;">
+          <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <button id="btn-run-custom-benchmark" class="btn btn-primary" style="padding: 0.85rem 2rem; font-size: 1rem;">
               ▶ RUN CUSTOM BENCHMARK
             </button>
+            <span id="custom-preview-notice" style="display: none; color: #f59e0b; font-size: 0.88rem; font-weight: 500;">
+              ⚠️ Benchmark execution is in Extension Preview for this category. Switch to Search Algorithms to execute custom benchmarks.
+            </span>
             <button id="btn-cancel-custom-benchmark" class="btn btn-danger" style="display: none;">
               Cancel Benchmark
             </button>
@@ -658,10 +773,9 @@
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 3. HISTORY VIEW -->
+      <!-- 3. HISTORY VIEW -->
     <section id="view-history" class="view-section">
       <div class="view-header">
         <div>
@@ -738,8 +852,17 @@
       <div class="card">
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
           <div>
+            <label class="form-label">Scope</label>
+            <select id="graph-scope-select" class="form-control" style="width: 250px;">
+              <option value="latest" selected>Latest Benchmark Run (Isolated)</option>
+              <option value="standard">Standard Sorting History</option>
+              <option value="custom">Custom Search History</option>
+              <option value="all">All Combined (Advanced / Not Recommended)</option>
+            </select>
+          </div>
+          <div>
             <label class="form-label">Metric</label>
-            <select id="graph-metric-select" class="form-control" style="width: 200px;">
+            <select id="graph-metric-select" class="form-control" style="width: 180px;">
               <option value="time">Execution Time (µs)</option>
               <option value="memory">Peak Memory Delta (MB)</option>
             </select>
@@ -753,16 +876,15 @@
           </div>
           <div>
             <label class="form-label">Input Distribution Filter</label>
-            <select id="graph-dist-select" class="form-control" style="width: 240px;">
+            <select id="graph-dist-select" class="form-control" style="width: 220px;">
               <option value="">All Distributions &amp; Datasets</option>
-              <option value="Search Dataset">Search Dataset (Custom)</option>
-              <option value="Custom File">Custom File (Sorting)</option>
               <option value="Random">Random</option>
               <option value="Sorted">Sorted</option>
               <option value="Reverse Sorted">Reverse Sorted</option>
               <option value="Nearly Sorted">Nearly Sorted</option>
               <option value="Many Duplicates">Many Duplicates</option>
               <option value="All Equal">All Equal</option>
+              <option value="Search Dataset">Search Dataset (Custom)</option>
             </select>
           </div>
         </div>

@@ -17,36 +17,41 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
     ss << "#include \"custom/CustomAlgorithm.h\"\n";
     ss << "#include <vector>\n";
     ss << "#include <memory>\n";
-    ss << "#include <cstddef>\n\n";
+    ss << "#include <cstddef>\n";
+    ss << "using namespace std;\n\n";
 
     // 1. Declarations for each algorithm
     for (size_t i = 0; i < algorithms.size(); ++i) {
         const auto& alg = algorithms[i];
-        switch (alg.interface_type) {
-            case SearchInterfaceType::VectorRefTarget:
-                ss << "int " << alg.detected_function << "(const std::vector<int>&, int);\n";
-                break;
-            case SearchInterfaceType::VectorValTarget:
-                ss << "int " << alg.detected_function << "(std::vector<int>, int);\n";
-                break;
-            case SearchInterfaceType::VectorTargetFirst:
-                ss << "int " << alg.detected_function << "(int, const std::vector<int>&);\n";
-                break;
-            case SearchInterfaceType::PointerSizeTarget:
-                ss << "int " << alg.detected_function << "(const int*, size_t, int);\n";
-                break;
-            case SearchInterfaceType::PointerTargetSize:
-                ss << "int " << alg.detected_function << "(const int*, int, size_t);\n";
-                break;
-            case SearchInterfaceType::ArraySizeTarget:
-                ss << "int " << alg.detected_function << "(int arr[], int, int);\n";
-                break;
-            case SearchInterfaceType::ExternCSearchAlgorithm:
-                ss << "extern \"C\" int search_algorithm(const int*, int, int);\n";
-                break;
-            default:
-                ss << "int " << alg.detected_function << "(const int*, size_t, int);\n";
-                break;
+        if (!alg.custom_declaration.empty()) {
+            ss << alg.custom_declaration << ";\n";
+        } else {
+            switch (alg.interface_type) {
+                case SearchInterfaceType::VectorRefTarget:
+                    ss << "int " << alg.detected_function << "(const std::vector<int>&, int);\n";
+                    break;
+                case SearchInterfaceType::VectorValTarget:
+                    ss << "int " << alg.detected_function << "(std::vector<int>, int);\n";
+                    break;
+                case SearchInterfaceType::VectorTargetFirst:
+                    ss << "int " << alg.detected_function << "(int, const std::vector<int>&);\n";
+                    break;
+                case SearchInterfaceType::PointerSizeTarget:
+                    ss << "int " << alg.detected_function << "(const int*, size_t, int);\n";
+                    break;
+                case SearchInterfaceType::PointerTargetSize:
+                    ss << "int " << alg.detected_function << "(const int*, int, size_t);\n";
+                    break;
+                case SearchInterfaceType::ArraySizeTarget:
+                    ss << "int " << alg.detected_function << "(int arr[], int, int);\n";
+                    break;
+                case SearchInterfaceType::ExternCSearchAlgorithm:
+                    ss << "extern \"C\" int search_algorithm(const int*, int, int);\n";
+                    break;
+                default:
+                    ss << "int " << alg.detected_function << "(const int*, size_t, int);\n";
+                    break;
+            }
         }
     }
 
@@ -85,10 +90,10 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
                 ss << "        return " << alg.detected_function << "(target, cached_vec);\n";
                 break;
             case SearchInterfaceType::PointerSizeTarget:
-                ss << "        return " << alg.detected_function << "(data, size, target);\n";
+                ss << "        return " << alg.detected_function << "(const_cast<int*>(data), size, target);\n";
                 break;
             case SearchInterfaceType::PointerTargetSize:
-                ss << "        return " << alg.detected_function << "(data, target, size);\n";
+                ss << "        return " << alg.detected_function << "(const_cast<int*>(data), target, size);\n";
                 break;
             case SearchInterfaceType::ArraySizeTarget:
                 ss << "        return " << alg.detected_function << "(const_cast<int*>(data), static_cast<int>(size), target);\n";

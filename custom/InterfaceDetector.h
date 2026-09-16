@@ -36,10 +36,18 @@ struct DetectionResult {
 class InterfaceDetector {
 public:
     // Detects signature from raw C++ source code text
-    static DetectionResult detect(const std::string& source_code, CustomCategory category = CustomCategory::Search);
+    static DetectionResult detect(
+        const std::string& source_code,
+        CustomCategory category = CustomCategory::Search,
+        const std::string& interface_mode = "with_target"
+    );
 
     // Detects signature directly from a C++ file path on disk
-    static DetectionResult detect_from_file(const std::string& file_path, CustomCategory category = CustomCategory::Search);
+    static DetectionResult detect_from_file(
+        const std::string& file_path,
+        CustomCategory category = CustomCategory::Search,
+        const std::string& interface_mode = "with_target"
+    );
 
     // Generates an adapter C++ source file that wraps the user function into ISearchAlgorithm
     static std::string generate_search_adapter(

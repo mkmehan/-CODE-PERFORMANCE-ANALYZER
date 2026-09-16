@@ -20,6 +20,234 @@ function formatMemorySmart(bytes) {
   return `${(bytes / (1024.0 * 1024.0)).toFixed(2)} MB`;
 }
 
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+const CONTRACT_DEFS = {
+  'search:with_target': {
+    title: 'REQUIRED FUNCTION CONTRACT: SEARCH WITH TARGET',
+    badge: '✓ Available',
+    badgeClass: 'badge-success',
+    isAvailable: true,
+    inputSpec: 'const int* data',
+    sizeSpec: 'int size',
+    paramSpec: 'int target',
+    returnSpec: 'index or -1',
+    templateFilename: 'search_target_template.cpp',
+    code: `#include <vector>
+
+// Custom Search Algorithm (With Target)
+// Contract: Returns 0-based index of target if found, or -1 if not found.
+int search_algorithm(const int* data, int size, int target) {
+    for (int i = 0; i < size; ++i) {
+        if (data[i] == target) {
+            return i;
+        }
+    }
+    return -1;
+}`
+  },
+  'search:dataset_only': {
+    title: 'REQUIRED FUNCTION CONTRACT: SEARCH / DATASET OPERATION (NO TARGET)',
+    badge: '✓ Available',
+    badgeClass: 'badge-success',
+    isAvailable: true,
+    inputSpec: 'const int* data',
+    sizeSpec: 'int size',
+    paramSpec: 'None (Dataset Only)',
+    returnSpec: 'index or value',
+    templateFilename: 'search_dataset_template.cpp',
+    code: `#include <vector>
+
+// Custom Search Algorithm (Dataset Only)
+// Contract: Searches or inspects dataset without external target.
+// Returns an index or computed property, or -1.
+int search_algorithm(const int* data, int size) {
+    int max_idx = -1;
+    int max_val = -2147483647 - 1;
+    for (int i = 0; i < size; ++i) {
+        if (data[i] > max_val) {
+            max_val = data[i];
+            max_idx = i;
+        }
+    }
+    return max_idx;
+}`
+  },
+  'matrix': {
+    title: 'REQUIRED FUNCTION CONTRACT: MATRIX OPERATION (N x N)',
+    badge: '◐ Extension Preview',
+    badgeClass: 'badge-secondary',
+    isAvailable: false,
+    inputSpec: 'const double* A, const double* B',
+    sizeSpec: 'int n (Matrix n x n)',
+    paramSpec: 'double* C (Output)',
+    returnSpec: 'void (C buffer)',
+    templateFilename: 'matrix_template.cpp',
+    code: `#include <cstddef>
+
+// Code Performance Analyzer - Matrix Operations (Extension Preview)
+// Contract:
+//   A -> Flat row-major n x n input matrix
+//   B -> Flat row-major n x n input matrix
+//   C -> Flat row-major n x n output matrix (pre-allocated)
+//   n -> Matrix dimension (n x n)
+void matrix_operation(const double* A, const double* B, double* C, int n) {
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            double sum = 0.0;
+            for (int k = 0; k < n; ++k) {
+                sum += A[i * n + k] * B[k * n + j];
+            }
+            C[i * n + j] = sum;
+        }
+    }
+}`
+  },
+  'graph': {
+    title: 'REQUIRED FUNCTION CONTRACT: GRAPH TRAVERSAL',
+    badge: '◐ Extension Preview',
+    badgeClass: 'badge-secondary',
+    isAvailable: false,
+    inputSpec: 'const int* edges',
+    sizeSpec: 'int edge_count, int vertices',
+    paramSpec: 'int source',
+    returnSpec: 'void (Traversal execution)',
+    templateFilename: 'graph_template.cpp',
+    code: `#include <cstddef>
+
+// Code Performance Analyzer - Graph Traversal (Extension Preview)
+// Contract:
+//   edges      -> Flat edge list array (pairs of [u, v] ints)
+//   edge_count -> Number of directed or undirected edges
+//   vertices   -> Total vertex count (0 .. vertices-1)
+//   source     -> Starting vertex index
+void graph_algorithm(const int* edges, int edge_count, int vertices, int source) {
+    (void)edges;
+    (void)edge_count;
+    (void)vertices;
+    (void)source;
+    // Graph algorithm traversal implementation
+}`
+  },
+  'sorting': {
+    title: 'REQUIRED FUNCTION CONTRACT: CUSTOM SORTING',
+    badge: '◐ Extension Preview',
+    badgeClass: 'badge-secondary',
+    isAvailable: false,
+    inputSpec: 'int* data (Mutable)',
+    sizeSpec: 'int size',
+    paramSpec: 'In-Place Non-Decreasing',
+    returnSpec: 'void (Sorted in-place)',
+    templateFilename: 'sorting_template.cpp',
+    code: `#include <cstddef>
+
+// Code Performance Analyzer - Custom Sorting (Extension Preview)
+// Contract:
+//   data -> Pointer to array of integer elements to sort in-place
+//   size -> Number of elements in data
+void sort_algorithm(int* data, int size) {
+    for (int i = 0; i < size - 1; ++i) {
+        for (int j = 0; j < size - i - 1; ++j) {
+            if (data[j] > data[j + 1]) {
+                int tmp = data[j];
+                data[j] = data[j + 1];
+                data[j + 1] = tmp;
+            }
+        }
+    }
+}`
+  },
+  'tree': {
+    title: 'REQUIRED FUNCTION CONTRACT: BINARY SEARCH TREE',
+    badge: '◐ Extension Preview',
+    badgeClass: 'badge-secondary',
+    isAvailable: false,
+    inputSpec: 'const int* keys',
+    sizeSpec: 'int size',
+    paramSpec: 'int search_key',
+    returnSpec: 'int (Index or Found)',
+    templateFilename: 'bst_template.cpp',
+    code: `#include <vector>
+
+// Binary Search Tree (Extension Preview)
+// Contract: Builds and searches BST from dataset keys.
+int bst_search(const int* keys, int size, int search_key) {
+    // BST traversal and query
+    return -1;
+}`
+  }
+};
+
+function buildChartDataFromRun(run, metric, preferredDist = '') {
+  if (!run || !run.results || run.results.length === 0) {
+    return { valid: false, series: [] };
+  }
+
+  // Determine available input distributions
+  const dists = new Set();
+  run.results.forEach(r => {
+    if (r.input_type) dists.add(r.input_type);
+  });
+
+  // Select primary distribution to isolate curves and avoid collision
+  let targetDist = preferredDist;
+  if (!targetDist || !dists.has(targetDist)) {
+    if (dists.has('Random')) targetDist = 'Random';
+    else if (dists.size > 0) targetDist = Array.from(dists)[0];
+    else targetDist = '';
+  }
+
+  const seriesMap = {};
+  run.results.forEach(r => {
+    // If targetDist exists, isolate to that distribution
+    if (targetDist && r.input_type && r.input_type !== targetDist) {
+      return;
+    }
+    const name = r.algorithm_name || r.name || r.algorithm;
+    if (!seriesMap[name]) {
+      seriesMap[name] = { algorithm: r.algorithm, name: name, points: [] };
+    }
+    const xVal = Number(r.input_size) || 0;
+    let yVal = 0;
+    if (metric === 'memory') {
+      const peakBytes = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
+      yVal = peakBytes / (1024.0 * 1024.0); // MB
+    } else {
+      yVal = (r.time_mean_ns ?? r.mean_time_ns ?? 0) / 1000.0; // µs
+    }
+    seriesMap[name].points.push({ x: xVal, y: yVal });
+  });
+
+  const seriesList = Object.values(seriesMap).map(s => {
+    s.points.sort((a, b) => a.x - b.x);
+    return s;
+  });
+
+  const isCustom = run.benchmark_mode === 'custom';
+  let distTitle = '';
+  if (isCustom) {
+    distTitle = run.interface_mode === 'dataset_only' ? ' (Custom: Dataset Only)' : ` (Custom Target: ${run.custom_target_parameter ?? '5000'})`;
+  } else if (targetDist) {
+    distTitle = ` (${targetDist})`;
+  }
+
+  return {
+    valid: seriesList.length > 0,
+    title: metric === 'memory' ? `Peak Memory vs Input Size (N)${distTitle}` : `Execution Time vs Input Size (N)${distTitle}`,
+    x_label: 'Input Size (N)',
+    y_label: metric === 'memory' ? 'Peak RAM (MB)' : 'Mean Time (µs)',
+    series: seriesList
+  };
+}
+
 const App = {
   activeView: 'dashboard',
   pollTimer: null,
@@ -193,15 +421,32 @@ const App = {
         badgeSub.textContent = (reg && reg.error) ? reg.error : 'No compatible baseline in history';
       }
 
-      // 5. Render Dashboard Trend Charts
-      const timeTrend = await API.getTrend('time');
-      if (timeTrend && timeTrend.valid) {
-        Charts.renderLineChart('dashTimeChart', timeTrend, 'µs');
-      }
+      // 5. Render Dashboard Trend Charts (Isolated to Latest Run)
+      if (run && run.results && run.results.length > 0) {
+        const timeData = buildChartDataFromRun(run, 'time');
+        if (timeData && timeData.valid) {
+          Charts.renderLineChart('dashTimeChart', timeData, 'µs');
+        } else if (Charts.instances['dashTimeChart']) {
+          Charts.instances['dashTimeChart'].destroy();
+          delete Charts.instances['dashTimeChart'];
+        }
 
-      const memTrend = await API.getTrend('memory');
-      if (memTrend && memTrend.valid) {
-        Charts.renderLineChart('dashMemoryChart', memTrend, 'MB');
+        const memData = buildChartDataFromRun(run, 'memory');
+        if (memData && memData.valid) {
+          Charts.renderLineChart('dashMemoryChart', memData, 'MB');
+        } else if (Charts.instances['dashMemoryChart']) {
+          Charts.instances['dashMemoryChart'].destroy();
+          delete Charts.instances['dashMemoryChart'];
+        }
+      } else {
+        if (Charts.instances['dashTimeChart']) {
+          Charts.instances['dashTimeChart'].destroy();
+          delete Charts.instances['dashTimeChart'];
+        }
+        if (Charts.instances['dashMemoryChart']) {
+          Charts.instances['dashMemoryChart'].destroy();
+          delete Charts.instances['dashMemoryChart'];
+        }
       }
 
       // 6. Populate System Information
@@ -535,6 +780,31 @@ const App = {
 
   // ── Custom Benchmark Form ──────────────────────────────────────────────────
   bindCustomBenchmark() {
+    const categorySelect = document.getElementById('custom-cfg-category');
+    const interfaceGroup = document.getElementById('custom-interface-group');
+    const interfaceSelect = document.getElementById('custom-cfg-interface');
+    const domainBadge = document.getElementById('custom-domain-badge');
+    const contractTitle = document.getElementById('contract-title');
+    const contractBadge = document.getElementById('contract-badge');
+    const specInput = document.getElementById('spec-input');
+    const specSize = document.getElementById('spec-size');
+    const specParam = document.getElementById('spec-param');
+    const specReturn = document.getElementById('spec-return');
+    const contractSnippet = document.getElementById('contract-code-snippet');
+    const customParamsCardTitle = document.getElementById('custom-params-card-title');
+    const customAlgATitle = document.getElementById('custom-alg-a-title');
+    const customAlgBTitle = document.getElementById('custom-alg-b-title');
+    const customPreviewNotice = document.getElementById('custom-preview-notice');
+
+    const panelSearchTarget = document.getElementById('panel-param-search-target');
+    const panelSearchDataset = document.getElementById('panel-param-search-dataset');
+    const panelMatrix = document.getElementById('panel-param-matrix');
+    const panelGraph = document.getElementById('panel-param-graph');
+    const panelSorting = document.getElementById('panel-param-sorting');
+
+    const btnCopyTemplate = document.getElementById('btn-copy-template');
+    const btnDownloadTemplate = document.getElementById('btn-download-template');
+
     const btnBrowseAlgA = document.getElementById('btn-browse-alg-a');
     const fileAlgA = document.getElementById('custom-alg-a-file');
     const pathAlgA = document.getElementById('custom-alg-a-path');
@@ -554,14 +824,27 @@ const App = {
     const pathDataset = document.getElementById('custom-dataset-path');
     const targetVal = document.getElementById('custom-target-val');
 
+    const btnBrowseDataset2 = document.getElementById('btn-browse-custom-dataset-2');
+    const pathDataset2 = document.getElementById('custom-dataset-path-2');
+
     const btnRunCustom = document.getElementById('btn-run-custom-benchmark');
     const btnCancelCustom = document.getElementById('btn-cancel-custom-benchmark');
 
-    // Target pre-check helper
+    // Target pre-check helper with async race prevention
+    let targetCheckSeq = 0;
+    let targetDebounceTimer = null;
+
     const updateTargetBadge = async () => {
+      const cat = categorySelect ? categorySelect.value : 'search';
+      const iface = interfaceSelect ? interfaceSelect.value : 'with_target';
+      const statusEl = document.getElementById('custom-target-status');
+      if (cat !== 'search' || iface !== 'with_target') {
+        return;
+      }
+
+      const currentSeq = ++targetCheckSeq;
       const path = pathDataset ? pathDataset.value.trim() : '';
       const target = targetVal ? targetVal.value.trim() : '';
-      const statusEl = document.getElementById('custom-target-status');
       if (!statusEl) return;
       if (!path || target === '') {
         statusEl.textContent = '🎯 Target Status: Enter dataset and target value';
@@ -569,6 +852,8 @@ const App = {
         return;
       }
       const res = await API.detectTarget(path, target);
+      if (currentSeq !== targetCheckSeq) return; // Stale async response discarded
+
       if (res && res.valid) {
         if (res.available) {
           statusEl.style.color = '#10b981';
@@ -587,9 +872,139 @@ const App = {
       }
     };
 
-    if (targetVal) targetVal.addEventListener('input', updateTargetBadge);
+    const debouncedUpdateTargetBadge = () => {
+      if (targetDebounceTimer) clearTimeout(targetDebounceTimer);
+      targetDebounceTimer = setTimeout(updateTargetBadge, 150);
+    };
+
+    const updateCategoryAndInterface = () => {
+      const cat = categorySelect ? categorySelect.value : 'search';
+      let key = cat;
+      let iface = 'with_target';
+
+      if (cat === 'search') {
+        if (interfaceGroup) interfaceGroup.style.display = 'block';
+        iface = interfaceSelect ? interfaceSelect.value : 'with_target';
+        key = `search:${iface}`;
+      } else {
+        if (interfaceGroup) interfaceGroup.style.display = 'none';
+      }
+
+      const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search:with_target'];
+
+      // Update Contract & Code Box
+      if (contractTitle) contractTitle.textContent = contract.title;
+      if (contractBadge) {
+        contractBadge.textContent = contract.badge;
+        contractBadge.className = `badge ${contract.badgeClass}`;
+      }
+      if (domainBadge) {
+        domainBadge.textContent = contract.badge;
+        domainBadge.className = `badge ${contract.badgeClass}`;
+      }
+      if (specInput) specInput.textContent = contract.inputSpec;
+      if (specSize) specSize.textContent = contract.sizeSpec;
+      if (specParam) specParam.textContent = contract.paramSpec;
+      if (specReturn) specReturn.textContent = contract.returnSpec;
+      if (contractSnippet) contractSnippet.textContent = contract.code;
+
+      // Hide all parameter panels first
+      if (panelSearchTarget) panelSearchTarget.style.display = 'none';
+      if (panelSearchDataset) panelSearchDataset.style.display = 'none';
+      if (panelMatrix) panelMatrix.style.display = 'none';
+      if (panelGraph) panelGraph.style.display = 'none';
+      if (panelSorting) panelSorting.style.display = 'none';
+
+      // Show relevant panel & update titles
+      if (key === 'search:with_target') {
+        if (panelSearchTarget) panelSearchTarget.style.display = 'block';
+        if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Dataset & Search Target';
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Linear Search)';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. Binary Search)';
+        updateTargetBadge();
+      } else if (key === 'search:dataset_only') {
+        if (panelSearchDataset) panelSearchDataset.style.display = 'block';
+        if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Dataset Configuration (No Target Required)';
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Max Element Search)';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. First Negative Search)';
+      } else if (key === 'matrix') {
+        if (panelMatrix) panelMatrix.style.display = 'block';
+        if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Matrix Parameters (N x N)';
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Naive Matrix Multiply)';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. Transposed Matrix Multiply)';
+      } else if (key === 'graph') {
+        if (panelGraph) panelGraph.style.display = 'block';
+        if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Graph Parameters (Vertices & Edges)';
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. BFS Traversal)';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. DFS Traversal)';
+      } else if (key === 'sorting' || key === 'tree') {
+        if (panelSorting) panelSorting.style.display = 'block';
+        if (customParamsCardTitle) customParamsCardTitle.textContent = `3. ${key === 'tree' ? 'Tree' : 'Sorting'} Dataset Configuration`;
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2';
+      }
+
+      // Configure execution state
+      if (contract.isAvailable) {
+        if (btnRunCustom) {
+          btnRunCustom.disabled = false;
+          btnRunCustom.style.opacity = '1';
+          btnRunCustom.style.cursor = 'pointer';
+          btnRunCustom.title = 'Run custom algorithm benchmark';
+        }
+        if (customPreviewNotice) customPreviewNotice.style.display = 'none';
+      } else {
+        if (btnRunCustom) {
+          btnRunCustom.disabled = true;
+          btnRunCustom.style.opacity = '0.5';
+          btnRunCustom.style.cursor = 'not-allowed';
+          btnRunCustom.title = 'Extension Preview: Code contract and templates available. Live execution engine for this domain is in development.';
+        }
+        if (customPreviewNotice) customPreviewNotice.style.display = 'inline-block';
+      }
+    };
+
+    if (categorySelect) categorySelect.addEventListener('change', updateCategoryAndInterface);
+    if (interfaceSelect) interfaceSelect.addEventListener('change', updateCategoryAndInterface);
+    updateCategoryAndInterface();
+
+    if (btnCopyTemplate) {
+      btnCopyTemplate.addEventListener('click', async () => {
+        const cat = categorySelect ? categorySelect.value : 'search';
+        const iface = (cat === 'search' && interfaceSelect) ? interfaceSelect.value : '';
+        const key = cat === 'search' ? `search:${iface}` : cat;
+        const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search:with_target'];
+        try {
+          await navigator.clipboard.writeText(contract.code);
+          const orig = btnCopyTemplate.textContent;
+          btnCopyTemplate.textContent = 'Copied! ✓';
+          setTimeout(() => { btnCopyTemplate.textContent = orig; }, 2000);
+        } catch (e) {
+          console.warn('Clipboard copy error:', e);
+        }
+      });
+    }
+
+    if (btnDownloadTemplate) {
+      btnDownloadTemplate.addEventListener('click', () => {
+        const cat = categorySelect ? categorySelect.value : 'search';
+        const iface = (cat === 'search' && interfaceSelect) ? interfaceSelect.value : '';
+        const key = cat === 'search' ? `search:${iface}` : cat;
+        const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search:with_target'];
+        const blob = new Blob([contract.code], { type: 'text/x-c++src;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = contract.templateFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    if (targetVal) targetVal.addEventListener('input', debouncedUpdateTargetBadge);
     if (pathDataset) pathDataset.addEventListener('change', updateTargetBadge);
-    setTimeout(updateTargetBadge, 300);
 
     // Algorithm 1 upload
     if (btnBrowseAlgA && fileAlgA) {
@@ -711,6 +1126,7 @@ const App = {
 
             if (data.dataset) {
               if (pathDataset) pathDataset.value = data.dataset.path || 'custom/samples/search_data.txt';
+              if (pathDataset2) pathDataset2.value = data.dataset.path || 'custom/samples/search_data.txt';
               if (targetVal) targetVal.value = data.dataset.recommended_target || 5000;
             }
           }
@@ -724,40 +1140,77 @@ const App = {
       });
     }
 
-    // Dataset upload & sample buttons
+    // Dataset upload & sample buttons (Panel 3A: Search with Target)
     if (btnBrowseDataset && pickerDataset) {
-      btnBrowseDataset.addEventListener('click', () => pickerDataset.click());
-      pickerDataset.addEventListener('change', async () => {
-        const file = pickerDataset.files[0];
-        if (!file) return;
-        btnBrowseDataset.disabled = true;
-        btnBrowseDataset.textContent = 'Uploading...';
-        try {
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            const content = e.target.result;
-            const res = await API.uploadDataset(file.name, content);
+      btnBrowseDataset.addEventListener('click', () => {
+        pickerDataset.onchange = async () => {
+          const file = pickerDataset.files[0];
+          if (!file) return;
+          btnBrowseDataset.disabled = true;
+          btnBrowseDataset.textContent = 'Uploading...';
+          try {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              const content = e.target.result;
+              const res = await API.uploadDataset(file.name, content);
+              btnBrowseDataset.disabled = false;
+              btnBrowseDataset.textContent = '📁 Upload';
+              if (res && res.valid) {
+                if (pathDataset) pathDataset.value = res.file_path;
+                if (pathDataset2) pathDataset2.value = res.file_path;
+                await updateTargetBadge();
+              } else {
+                alert(`Upload failed: ${res ? res.error_message : 'Server error'}`);
+              }
+            };
+            reader.readAsText(file);
+          } catch (err) {
             btnBrowseDataset.disabled = false;
             btnBrowseDataset.textContent = '📁 Upload';
-            if (res && res.valid) {
-              if (pathDataset) pathDataset.value = res.file_path;
-              await updateTargetBadge();
-            } else {
-              alert(`Upload failed: ${res ? res.error_message : 'Server error'}`);
-            }
-          };
-          reader.readAsText(file);
-        } catch (err) {
-          btnBrowseDataset.disabled = false;
-          btnBrowseDataset.textContent = '📁 Upload';
-          alert(`File read error: ${err.message}`);
-        }
+            alert(`File read error: ${err.message}`);
+          }
+        };
+        pickerDataset.click();
+      });
+    }
+
+    // Dataset upload button (Panel 3B: Search Dataset Only)
+    if (btnBrowseDataset2 && pickerDataset) {
+      btnBrowseDataset2.addEventListener('click', () => {
+        pickerDataset.onchange = async () => {
+          const file = pickerDataset.files[0];
+          if (!file) return;
+          btnBrowseDataset2.disabled = true;
+          btnBrowseDataset2.textContent = 'Uploading...';
+          try {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              const content = e.target.result;
+              const res = await API.uploadDataset(file.name, content);
+              btnBrowseDataset2.disabled = false;
+              btnBrowseDataset2.textContent = '📁 Upload';
+              if (res && res.valid) {
+                if (pathDataset2) pathDataset2.value = res.file_path;
+                if (pathDataset) pathDataset.value = res.file_path;
+              } else {
+                alert(`Upload failed: ${res ? res.error_message : 'Server error'}`);
+              }
+            };
+            reader.readAsText(file);
+          } catch (err) {
+            btnBrowseDataset2.disabled = false;
+            btnBrowseDataset2.textContent = '📁 Upload';
+            alert(`File read error: ${err.message}`);
+          }
+        };
+        pickerDataset.click();
       });
     }
 
     if (btnSampleDataset && pathDataset) {
       btnSampleDataset.addEventListener('click', async () => {
         pathDataset.value = 'custom/samples/search_data.txt';
+        if (pathDataset2) pathDataset2.value = 'custom/samples/search_data.txt';
         if (targetVal) targetVal.value = 5000;
         await updateTargetBadge();
       });
@@ -766,9 +1219,26 @@ const App = {
     // Run Custom Benchmark
     if (btnRunCustom) {
       btnRunCustom.addEventListener('click', async () => {
+        const category = categorySelect ? categorySelect.value : 'search';
+        const ifaceMode = (category === 'search' && interfaceSelect) ? interfaceSelect.value : 'with_target';
+
+        if (category !== 'search') {
+          alert(`Benchmark execution is currently available for Search Algorithms.\n\n${category.toUpperCase()} is in Extension Preview. You can inspect its code contract and download the reference template.`);
+          return;
+        }
+
         const algASrc = pathAlgA ? pathAlgA.value.trim() : '';
         const algBSrc = pathAlgB ? pathAlgB.value.trim() : '';
-        const dataPath = pathDataset ? pathDataset.value.trim() : '';
+        let dataPath = '';
+        let target = 0;
+
+        if (ifaceMode === 'with_target') {
+          dataPath = pathDataset ? pathDataset.value.trim() : '';
+          target = targetVal ? (parseInt(targetVal.value, 10) || 0) : 0;
+        } else {
+          dataPath = (pathDataset2 && pathDataset2.value.trim()) ? pathDataset2.value.trim() : (pathDataset ? pathDataset.value.trim() : '');
+          target = 0;
+        }
 
         if (!algASrc) {
           alert('Please specify source file for Algorithm 1.');
@@ -783,10 +1253,8 @@ const App = {
           return;
         }
 
-        const category = document.getElementById('custom-cfg-category') ? document.getElementById('custom-cfg-category').value : 'search';
         const algAName = (nameAlgA && nameAlgA.value.trim()) ? nameAlgA.value.trim() : 'Algorithm 1';
         const algBName = (nameAlgB && nameAlgB.value.trim()) ? nameAlgB.value.trim() : 'Algorithm 2';
-        const target = targetVal ? (parseInt(targetVal.value, 10) || 0) : 0;
         const iterations = parseInt(document.getElementById('custom-cfg-iterations').value, 10) || 20;
         const warmup = parseInt(document.getElementById('custom-cfg-warmup').value, 10) || 5;
         const memory = document.getElementById('custom-cfg-memory').value === 'true';
@@ -795,6 +1263,7 @@ const App = {
 
         const payload = {
           category: category,
+          interface_mode: ifaceMode,
           alg_a_name: algAName,
           alg_a_path: algASrc,
           alg_b_name: algBName,
@@ -979,8 +1448,12 @@ const App = {
       if (isCustom) {
         const cat = (run.benchmark_category || 'Search').toUpperCase();
         const dPath = run.input ? (run.input.file_path || run.input.type) : (run.input_type || 'Custom');
-        const targetVal = run.custom_target_parameter !== undefined && run.custom_target_parameter !== '' ? run.custom_target_parameter : 'N/A';
-        sub.textContent = `🧪 Custom Benchmark • Domain: ${cat} • Target: ${targetVal} • Dataset: ${dPath} • Run ID: ${run.run_id}`;
+        if (run.interface_mode === 'dataset_only') {
+          sub.textContent = `🧪 Custom Benchmark • Domain: ${cat} • Interface: Dataset Only • Dataset: ${dPath} • Run ID: ${run.run_id}`;
+        } else {
+          const targetVal = run.custom_target_parameter !== undefined && run.custom_target_parameter !== '' ? run.custom_target_parameter : 'N/A';
+          sub.textContent = `🧪 Custom Benchmark • Domain: ${cat} • Target: ${targetVal} • Dataset: ${dPath} • Run ID: ${run.run_id}`;
+        }
       } else {
         const inType = run.input_type || (run.input ? run.input.type : '') || 'Generated';
         sub.textContent = `Run ID: ${run.run_id} • Date: ${run.timestamp || 'Latest'} • Input: ${inType}`;
@@ -1066,61 +1539,33 @@ const App = {
     const uniqueAlgs = new Set(run.results.map(r => r.algorithm_name || r.name || r.algorithm));
     const uniqueSizes = new Set(run.results.map(r => r.input_size));
     if (isCustom) {
-      const targetVal = run.custom_target_parameter !== undefined && run.custom_target_parameter !== '' ? run.custom_target_parameter : 'N/A';
       document.getElementById('bench-scope-val').textContent = `${uniqueAlgs.size} Custom Algorithms`;
-      document.getElementById('bench-scope-sub').textContent = `Target: ${targetVal} • Correctness: PASS ✓ (Isolated Subprocess)`;
+      if (run.interface_mode === 'dataset_only') {
+        document.getElementById('bench-scope-sub').textContent = `Dataset Operation • Correctness: PASS ✓ (Isolated Subprocess)`;
+      } else {
+        const targetVal = run.custom_target_parameter !== undefined && run.custom_target_parameter !== '' ? run.custom_target_parameter : 'N/A';
+        document.getElementById('bench-scope-sub').textContent = `Target: ${targetVal} • Correctness: PASS ✓ (Isolated Subprocess)`;
+      }
     } else {
       document.getElementById('bench-scope-val').textContent = `${uniqueAlgs.size} Algorithms`;
       document.getElementById('bench-scope-sub').textContent = `${run.results.length} runs across N = ${Array.from(uniqueSizes).join(', ')}`;
     }
 
     // Build Time & Memory Charts for this specific run
-    const timeSeriesMap = {};
-    const memSeriesMap = {};
-    run.results.forEach(r => {
-      const name = r.algorithm_name || r.name || r.algorithm;
-      if (!timeSeriesMap[name]) {
-        timeSeriesMap[name] = { algorithm: r.algorithm, name: name, points: [] };
-      }
-      if (!memSeriesMap[name]) {
-        memSeriesMap[name] = { algorithm: r.algorithm, name: name, points: [] };
-      }
-      const meanUs = (r.time_mean_ns ?? r.mean_time_ns ?? 0) / 1000.0;
-      timeSeriesMap[name].points.push({ x: r.input_size, y: meanUs });
-
-      const peakBytes = r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0) ?? 0;
-      const peakVal = peakBytes / (1024.0 * 1024.0);
-      memSeriesMap[name].points.push({ x: r.input_size, y: peakVal });
-    });
-
-    const timeChartData = {
-      valid: true,
-      title: 'Execution Time vs Input Size (N)',
-      x_label: 'Input Size (N)',
-      y_label: 'Mean Time (µs)',
-      series: Object.values(timeSeriesMap).map(s => {
-        s.points.sort((a, b) => a.x - b.x);
-        return s;
-      })
-    };
+    const timeChartData = buildChartDataFromRun(run, 'time');
     Charts.renderLineChart('benchTimeChart', timeChartData, 'µs');
 
-    const memChartData = {
-      valid: true,
-      title: 'Peak Memory vs Input Size (N)',
-      x_label: 'Input Size (N)',
-      y_label: 'MB Footprint',
-      series: Object.values(memSeriesMap).map(s => {
-        s.points.sort((a, b) => a.x - b.x);
-        return s;
-      })
-    };
+    const memChartData = buildChartDataFromRun(run, 'memory');
     Charts.renderLineChart('benchMemoryChart', memChartData, 'MB');
 
-    // ── Target Status & Decisions Card (Custom Search) ──────────────────────
+    // ── Target Status & Decisions Card (Custom Search with Target) ──────────
     const targetCard = document.getElementById('custom-target-card');
     if (targetCard) {
-      if (isCustom && (run.target_detection || run.custom_target_parameter)) {
+      const showTargetCard = isCustom &&
+        (run.benchmark_category === 'search' || !run.benchmark_category) &&
+        (run.interface_mode === 'with_target' || (!run.interface_mode && run.custom_target_parameter !== undefined));
+
+      if (showTargetCard && (run.target_detection || run.custom_target_parameter !== undefined)) {
         targetCard.style.display = 'block';
         const td = run.target_detection || {};
         const tVal = td.target_value !== undefined ? td.target_value : (run.input ? run.input.min_value : '—');
@@ -1240,7 +1685,9 @@ const App = {
         const spText = `${Number(spVal).toFixed(2)}x`;
 
         const badgeInput = isCustom
-          ? `<span class="badge badge-primary">Target: ${run.custom_target_parameter ?? 'N/A'}</span>`
+          ? (run.interface_mode === 'dataset_only'
+              ? '<span class="badge badge-primary">Dataset Only</span>'
+              : `<span class="badge badge-primary">Target: ${run.custom_target_parameter ?? 'N/A'}</span>`)
           : `<span class="badge badge-neutral">${r.input_type || 'Random'}</span>`;
 
         const statusBadge = (r.verified !== false)
@@ -1461,11 +1908,13 @@ const App = {
 
   // ── 5. Graphs View ─────────────────────────────────────────────────────────
   bindGraphs() {
+    const scopeSel = document.getElementById('graph-scope-select');
     const metricSel = document.getElementById('graph-metric-select');
     const scaleSel = document.getElementById('graph-scale-select');
     const distSel = document.getElementById('graph-dist-select');
 
     const update = () => this.renderWorkspaceGraph();
+    if (scopeSel) scopeSel.addEventListener('change', update);
     if (metricSel) metricSel.addEventListener('change', update);
     if (scaleSel) scaleSel.addEventListener('change', update);
     if (distSel) distSel.addEventListener('change', update);
@@ -1476,11 +1925,31 @@ const App = {
   },
 
   async renderWorkspaceGraph() {
+    const scopeSel = document.getElementById('graph-scope-select');
+    const scope = scopeSel ? scopeSel.value : 'latest';
     const metric = document.getElementById('graph-metric-select').value;
     const isLog = document.getElementById('graph-scale-select').value === 'logarithmic';
     const dist = document.getElementById('graph-dist-select').value;
 
-    const data = await API.getTrend(metric, dist);
+    let mode = '';
+    let runId = '';
+    let category = '';
+
+    if (scope === 'latest') {
+      const latestRun = await API.getRun();
+      if (latestRun && latestRun.run_id) {
+        runId = latestRun.run_id;
+      }
+    } else if (scope === 'standard') {
+      mode = 'standard';
+    } else if (scope === 'custom') {
+      mode = 'custom';
+      category = 'search';
+    } else if (scope === 'all') {
+      // mode and runId left empty
+    }
+
+    const data = await API.getTrend(metric, dist, mode, runId, category);
     const unit = metric === 'memory' ? 'MB' : 'µs';
     const canvas = document.getElementById('workspaceChart');
     let emptyMsg = document.getElementById('workspaceChartEmpty');
@@ -1504,7 +1973,7 @@ const App = {
       }
       if (canvas) canvas.style.display = 'none';
       if (emptyMsg) {
-        emptyMsg.textContent = 'No historical benchmark data found matching the selected filter. Run a benchmark to view scaling trends.';
+        emptyMsg.textContent = 'No benchmark data found matching the selected scope and filters. Run a benchmark or adjust filter settings.';
         emptyMsg.style.display = 'flex';
       }
     }

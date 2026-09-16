@@ -13,6 +13,7 @@ struct AlgorithmSourceSpec {
     std::string source_file_path;
     std::string detected_function;
     SearchInterfaceType interface_type;
+    std::string custom_declaration; // Optional exact prototype e.g. "int search(int* data, size_t size, int target)"
 };
 
 struct CompilationResult {

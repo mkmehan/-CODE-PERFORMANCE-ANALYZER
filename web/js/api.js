@@ -55,10 +55,13 @@ const API = {
     }
   },
 
-  async getTrend(metric = 'time', dist = '') {
+  async getTrend(metric = 'time', dist = '', mode = '', runId = '', category = '') {
     try {
       let url = `${this.baseUrl}/api/trend?metric=${encodeURIComponent(metric)}`;
       if (dist) url += `&dist=${encodeURIComponent(dist)}`;
+      if (mode) url += `&mode=${encodeURIComponent(mode)}`;
+      if (runId) url += `&run_id=${encodeURIComponent(runId)}`;
+      if (category) url += `&category=${encodeURIComponent(category)}`;
       const res = await fetch(url);
       return await res.json();
     } catch (err) {
@@ -130,12 +133,12 @@ const API = {
     }
   },
 
-  async detectInterface(sourceCode = '', filePath = '', category = 'search') {
+  async detectInterface(sourceCode = '', filePath = '', category = 'search', interfaceMode = '') {
     try {
       const res = await fetch(`${this.baseUrl}/api/custom-benchmark/detect-interface`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: sourceCode, file_path: filePath, category })
+        body: JSON.stringify({ source_code: sourceCode, file_path: filePath, category, interface_mode: interfaceMode })
       });
       return await res.json();
     } catch (err) {

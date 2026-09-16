@@ -102,8 +102,17 @@ DetectionResult InterfaceDetector::detect_search_interface(const std::string& cl
     DetectionResult res;
     res.category = CustomCategory::Search;
 
-    // 1. Check for extern "C" search_algorithm
-    if (clean_code.find("extern \"C\"") != std::string::npos && clean_code.find("search_algorithm") != std::string::npos) {
+    // 1. Guard against standalone main() executable programs
+    if (std::regex_search(clean_code, std::regex(R"(\bint\s+main\s*\()"))) {
+        res.recognized = false;
+        res.interface_type = SearchInterfaceType::Unknown;
+        res.diagnostic_message = "Standalone main() detected. Custom Benchmark expects an algorithm function implementation, not a complete executable program. Please remove main() and provide only the search function.";
+        return res;
+    }
+
+    // 2. Check for strict extern "C" search_algorithm declaration
+    std::regex extern_c_regex(R"(\bextern\s+"C"\s+(?:int|int32_t)\s+search_algorithm\s*\([^)]*\))");
+    if (std::regex_search(clean_code, extern_c_regex)) {
         res.recognized = true;
         res.interface_type = SearchInterfaceType::ExternCSearchAlgorithm;
         res.detected_function_name = "search_algorithm";
@@ -123,13 +132,19 @@ DetectionResult InterfaceDetector::detect_search_interface(const std::string& cl
     auto words_begin = std::sregex_iterator(clean_code.begin(), clean_code.end(), func_regex);
     auto words_end = std::sregex_iterator();
 
+    struct ScoredCandidate {
+        DetectionResult result;
+        int score = 0;
+    };
+    std::vector<ScoredCandidate> candidates;
+
     for (auto it = words_begin; it != words_end; ++it) {
         std::smatch match = *it;
         std::string ret_type = match[1].str();
         std::string func_name = match[2].str();
         std::string params = match[3].str();
 
-        // Skip main or irrelevant methods
+        // Skip main or irrelevant lifecycle methods
         if (func_name == "main" || func_name == "test" || func_name == "setup" || func_name == "verify") {
             continue;
         }
@@ -138,46 +153,62 @@ DetectionResult InterfaceDetector::detect_search_interface(const std::string& cl
         std::string lower_params = params;
         std::transform(lower_params.begin(), lower_params.end(), lower_params.begin(), [](unsigned char c){ return std::tolower(c); });
 
+        std::string lower_func = func_name;
+        std::transform(lower_func.begin(), lower_func.end(), lower_func.begin(), [](unsigned char c){ return std::tolower(c); });
+
+        int score = 0;
+        if (lower_func.find("search") != std::string::npos) score += 60;
+        if (lower_func.find("find") != std::string::npos) score += 40;
+        if (lower_func.find("binary") != std::string::npos) score += 30;
+        if (lower_func.find("linear") != std::string::npos) score += 30;
+        if (lower_func.find("lookup") != std::string::npos) score += 25;
+        if (lower_func.find("helper") != std::string::npos || lower_func.find("util") != std::string::npos || lower_func.find("aux") != std::string::npos) score -= 40;
+
+        DetectionResult cand;
+        cand.category = CustomCategory::Search;
+
         // Check Pattern A: vector<int>
         if (lower_params.find("vector") != std::string::npos && lower_params.find("int") != std::string::npos) {
-            res.recognized = true;
-            res.detected_function_name = func_name;
-            res.return_type = ret_type;
-            res.detected_signature = ret_type + " " + func_name + "(" + params + ")";
-            res.suggested_display_name = format_display_name(func_name);
+            cand.recognized = true;
+            cand.detected_function_name = func_name;
+            cand.return_type = ret_type;
+            cand.detected_signature = ret_type + " " + func_name + "(" + params + ")";
+            cand.suggested_display_name = format_display_name(func_name);
 
             if (lower_params.find("target") != std::string::npos && lower_params.find("target") < lower_params.find("vector")) {
-                res.interface_type = SearchInterfaceType::VectorTargetFirst;
-                res.diagnostic_message = "Recognized vector search with target parameter first";
+                cand.interface_type = SearchInterfaceType::VectorTargetFirst;
+                cand.diagnostic_message = "Recognized vector search with target parameter first";
             } else if (lower_params.find('&') != std::string::npos) {
-                res.interface_type = SearchInterfaceType::VectorRefTarget;
-                res.diagnostic_message = "Recognized standard pass-by-reference vector search function";
+                cand.interface_type = SearchInterfaceType::VectorRefTarget;
+                cand.diagnostic_message = "Recognized standard pass-by-reference vector search function";
             } else {
-                res.interface_type = SearchInterfaceType::VectorValTarget;
-                res.diagnostic_message = "Recognized pass-by-value vector search function";
+                cand.interface_type = SearchInterfaceType::VectorValTarget;
+                cand.diagnostic_message = "Recognized pass-by-value vector search function";
             }
-            return res;
+            candidates.push_back({cand, score});
+            continue;
         }
 
         // Check Pattern B: int arr[] or int data[]
         if (lower_params.find("[]") != std::string::npos && lower_params.find("int") != std::string::npos) {
-            res.recognized = true;
-            res.detected_function_name = func_name;
-            res.return_type = ret_type;
-            res.detected_signature = ret_type + " " + func_name + "(" + params + ")";
-            res.suggested_display_name = format_display_name(func_name);
-            res.interface_type = SearchInterfaceType::ArraySizeTarget;
-            res.diagnostic_message = "Recognized classic C-array search function (int arr[], int n, int target)";
-            return res;
+            cand.recognized = true;
+            cand.detected_function_name = func_name;
+            cand.return_type = ret_type;
+            cand.detected_signature = ret_type + " " + func_name + "(" + params + ")";
+            cand.suggested_display_name = format_display_name(func_name);
+            cand.interface_type = SearchInterfaceType::ArraySizeTarget;
+            cand.diagnostic_message = "Recognized classic C-array search function (int arr[], int n, int target)";
+            candidates.push_back({cand, score});
+            continue;
         }
 
         // Check Pattern C: int* pointer
         if (lower_params.find("int*") != std::string::npos || lower_params.find("int *") != std::string::npos) {
-            res.recognized = true;
-            res.detected_function_name = func_name;
-            res.return_type = ret_type;
-            res.detected_signature = ret_type + " " + func_name + "(" + params + ")";
-            res.suggested_display_name = format_display_name(func_name);
+            cand.recognized = true;
+            cand.detected_function_name = func_name;
+            cand.return_type = ret_type;
+            cand.detected_signature = ret_type + " " + func_name + "(" + params + ")";
+            cand.suggested_display_name = format_display_name(func_name);
 
             // Check if target appears before size
             size_t ptr_pos = lower_params.find("int*");
@@ -188,35 +219,113 @@ DetectionResult InterfaceDetector::detect_search_interface(const std::string& cl
             if (size_pos == std::string::npos) size_pos = lower_params.find("count");
 
             if (target_pos != std::string::npos && size_pos != std::string::npos && target_pos < size_pos) {
-                res.interface_type = SearchInterfaceType::PointerTargetSize;
-                res.diagnostic_message = "Recognized pointer search with target before size";
+                cand.interface_type = SearchInterfaceType::PointerTargetSize;
+                cand.diagnostic_message = "Recognized pointer search with target before size";
             } else {
-                res.interface_type = SearchInterfaceType::PointerSizeTarget;
-                res.diagnostic_message = "Recognized pointer & size search function (const int*, size, target)";
+                cand.interface_type = SearchInterfaceType::PointerSizeTarget;
+                cand.diagnostic_message = "Recognized pointer & size search function (const int*, size, target)";
             }
-            return res;
+            candidates.push_back({cand, score});
+            continue;
         }
+    }
+
+    if (!candidates.empty()) {
+        std::sort(candidates.begin(), candidates.end(), [](const ScoredCandidate& a, const ScoredCandidate& b) {
+            return a.score > b.score;
+        });
+        return candidates.front().result;
     }
 
     res.recognized = false;
     res.interface_type = SearchInterfaceType::Unknown;
-    res.diagnostic_message = "Function interface not automatically recognized. Please provide a custom adapter.";
+    res.diagnostic_message = "Function interface not automatically recognized. Please provide a supported search interface.";
     return res;
 }
 
-DetectionResult InterfaceDetector::detect(const std::string& source_code, CustomCategory category) {
+DetectionResult InterfaceDetector::detect(const std::string& source_code, CustomCategory category, const std::string& interface_mode) {
     std::string clean = strip_comments_and_strings(source_code);
     DetectionResult res;
-    if (category == CustomCategory::Search) {
-        res = detect_search_interface(clean);
-    } else {
+    res.category = category;
+
+    // 1. Guard against standalone main() executable programs
+    if (std::regex_search(clean, std::regex(R"(\bint\s+main\s*\()"))) {
         res.recognized = false;
-        res.category = category;
         res.interface_type = SearchInterfaceType::Unknown;
-        res.diagnostic_message = "Domain not yet automated; please provide custom adapter.";
+        res.diagnostic_message = "Standalone main() detected. Custom Benchmark expects an algorithm function implementation, not a complete executable program. Please remove main() and provide only the required function.";
+        return res;
     }
 
-    if (res.recognized) {
+    if (category == CustomCategory::Search) {
+        if (interface_mode == "dataset_only") {
+            // Check for search_algorithm(const int* data, int size) or similar
+            std::regex ds_regex(R"(\b(int|int32_t|size_t|void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*(?:const\s+int\s*\*|const\s+std::vector<int>&|int\s*\*)[^)]*\)\s*\{)");
+            std::smatch m;
+            if (std::regex_search(clean, m, ds_regex)) {
+                res.recognized = true;
+                res.return_type = m[1].str();
+                res.detected_function_name = m[2].str();
+                res.detected_signature = "int " + res.detected_function_name + "(const int* data, int size)";
+                res.suggested_display_name = format_display_name(res.detected_function_name);
+                res.diagnostic_message = "✓ Interface valid: Dataset-only search function recognized.";
+            } else {
+                res.recognized = false;
+                res.diagnostic_message = "✗ Invalid Interface. Required: int search_algorithm(const int* data, int size). Please modify your function to match the required template.";
+            }
+        } else {
+            res = detect_search_interface(clean);
+            if (!res.recognized && res.diagnostic_message.find("main()") == std::string::npos) {
+                res.diagnostic_message = "✗ Invalid Interface. Required: int search_algorithm(const int* data, int size, int target). Please modify your function to match the required template.";
+            }
+        }
+    } else if (category == CustomCategory::Matrix) {
+        // Contract: void matrix_multiply(const double* A, const double* B, double* C, int N) or void matrix_operation(...)
+        std::smatch m;
+        if (std::regex_search(clean, m, std::regex(R"(\b(?:void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*double[^)]*\))"))) {
+            res.recognized = true;
+            res.detected_function_name = m[1].str();
+            res.return_type = "void";
+            res.detected_signature = "void " + res.detected_function_name + "(const double* A, const double* B, double* C, int N)";
+            res.suggested_display_name = format_display_name(res.detected_function_name);
+            res.diagnostic_message = "✓ Contract valid: Matrix operation function recognized (Extension Preview).";
+        } else {
+            res.recognized = false;
+            res.diagnostic_message = "✗ Required contract: void matrix_multiply(const double* A, const double* B, double* C, int N). Please modify your function to match the required template.";
+        }
+    } else if (category == CustomCategory::Graph) {
+        // Contract: int graph_traverse(const int* adj, const int* offsets, int V, int start_node) or void graph_algorithm(...)
+        std::smatch m;
+        if (std::regex_search(clean, m, std::regex(R"(\b(?:void|int)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*(?:adj|offsets|edges|graph|vertices)[^)]*\))"))) {
+            res.recognized = true;
+            res.detected_function_name = m[1].str();
+            res.return_type = m[0].str().find("int") == 0 ? "int" : "void";
+            res.detected_signature = res.return_type + " " + res.detected_function_name + "(const int* adj, const int* offsets, int V, int start_node)";
+            res.suggested_display_name = format_display_name(res.detected_function_name);
+            res.diagnostic_message = "✓ Contract valid: Graph algorithm recognized (Extension Preview).";
+        } else {
+            res.recognized = false;
+            res.diagnostic_message = "✗ Required contract: int graph_traverse(const int* adj, const int* offsets, int V, int start_node). Please modify your function to match the required template.";
+        }
+    } else if (category == CustomCategory::Sorting) {
+        // Contract: void custom_sort(int* data, int size) or void sort_algorithm(...)
+        std::smatch m;
+        if (std::regex_search(clean, m, std::regex(R"(\b(?:void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*int\s*\*\s*[^)]*\))"))) {
+            res.recognized = true;
+            res.detected_function_name = m[1].str();
+            res.return_type = "void";
+            res.detected_signature = "void " + res.detected_function_name + "(int* data, int size)";
+            res.suggested_display_name = format_display_name(res.detected_function_name);
+            res.diagnostic_message = "✓ Contract valid: Custom sort function recognized (Extension Preview).";
+        } else {
+            res.recognized = false;
+            res.diagnostic_message = "✗ Required contract: void custom_sort(int* data, int size). Please modify your function to match the required template.";
+        }
+    } else {
+        res.recognized = false;
+        res.diagnostic_message = "Custom category not recognized.";
+    }
+
+    if (res.recognized && category == CustomCategory::Search) {
         res.generated_adapter_code = generate_search_adapter(
             res.detected_function_name,
             res.interface_type,
@@ -226,7 +335,7 @@ DetectionResult InterfaceDetector::detect(const std::string& source_code, Custom
     return res;
 }
 
-DetectionResult InterfaceDetector::detect_from_file(const std::string& file_path, CustomCategory category) {
+DetectionResult InterfaceDetector::detect_from_file(const std::string& file_path, CustomCategory category, const std::string& interface_mode) {
     std::ifstream file(file_path);
     if (!file.is_open()) {
         DetectionResult err;
@@ -237,7 +346,7 @@ DetectionResult InterfaceDetector::detect_from_file(const std::string& file_path
     }
     std::ostringstream ss;
     ss << file.rdbuf();
-    return detect(ss.str(), category);
+    return detect(ss.str(), category, interface_mode);
 }
 
 std::string InterfaceDetector::generate_search_adapter(

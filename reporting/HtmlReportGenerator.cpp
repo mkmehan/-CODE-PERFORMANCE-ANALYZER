@@ -83,6 +83,23 @@ std::string HtmlReportGenerator::escape_html(const std::string& data) {
     return buffer;
 }
 
+std::string HtmlReportGenerator::escape_js_str(const std::string& data) {
+    std::string buffer;
+    buffer.reserve(data.size() + 10);
+    for (char c : data) {
+        switch (c) {
+            case '\\': buffer.append("\\\\"); break;
+            case '\'': buffer.append("\\'");  break;
+            case '\"': buffer.append("\\\""); break;
+            case '\n': buffer.append("\\n");  break;
+            case '\r': buffer.append("\\r");  break;
+            case '\t': buffer.append("\\t");  break;
+            default:   buffer.push_back(c);   break;
+        }
+    }
+    return buffer;
+}
+
 std::string HtmlReportGenerator::format_time(double ns) {
     std::ostringstream oss;
     if (ns < 1000.0) {
@@ -724,7 +741,7 @@ std::string HtmlReportGenerator::generate_report(
         for (const auto& pt : ser.points) pt_map[pt.x] = pt.y;
 
         out << "        {\n"
-            << "          label: '" << escape_html(ser.algorithm_name) << "',\n"
+            << "          label: '" << escape_js_str(ser.algorithm_name) << "',\n"
             << "          borderColor: '" << color << "',\n"
             << "          backgroundColor: '" << get_color(s_idx, 0.1) << "',\n"
             << "          borderWidth: 2,\n"
@@ -794,7 +811,7 @@ std::string HtmlReportGenerator::generate_report(
         for (const auto& pt : ser.points) pt_map[pt.x] = pt.y;
 
         out << "        {\n"
-            << "          label: '" << escape_html(ser.algorithm_name) << "',\n"
+            << "          label: '" << escape_js_str(ser.algorithm_name) << "',\n"
             << "          borderColor: '" << color << "',\n"
             << "          backgroundColor: '" << get_color(s_idx, 0.1) << "',\n"
             << "          borderWidth: 2,\n"
@@ -858,7 +875,7 @@ std::string HtmlReportGenerator::generate_report(
     }
 
     for (size_t i = 0; i < speed_labels.size(); ++i) {
-        out << (i > 0 ? ", " : "") << "'" << escape_html(speed_labels[i]) << "'";
+        out << (i > 0 ? ", " : "") << "'" << escape_js_str(speed_labels[i]) << "'";
     }
     out << "],\n      datasets: [{\n"
         << "        label: 'Speedup Factor',\n"

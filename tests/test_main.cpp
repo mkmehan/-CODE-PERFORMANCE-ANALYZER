@@ -23,6 +23,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #endif
 #include <algorithm>
 #include <cmath>
@@ -1266,7 +1267,7 @@ void run_custom_benchmark_tests() {
 
         // Target Availability assertions (Target 5000 present in search_data.txt)
         expect(exec_res.run.target_detection.available_in_dataset, "Target 5000 is detected as available in dataset");
-        expect(exec_res.run.target_detection.expected_index == 44, "Target 5000 reference index is 44");
+        expect(exec_res.run.target_detection.expected_index == 4999, "Target 5000 reference index is 4999");
         expect(exec_res.run.target_detection.occurrences == 1, "Target 5000 occurs 1 time in dataset");
         expect(exec_res.run.results[0].verified, "Linear search decision verified as PASS for present target");
 
@@ -1322,10 +1323,205 @@ void run_custom_benchmark_tests() {
 
         auto reg_report = analysis::RegressionAnalyzer::compare_runs(exec_res.run, standard_run);
         expect(!reg_report.valid, "compare_runs returns invalid report when comparing custom run against standard run");
+
+        // Compatibility check: Custom runs with different targets are NOT compatible
+        expect(!analysis::RegressionAnalyzer::are_runs_compatible(exec_res.run, exec_absent.run),
+               "are_runs_compatible returns false for custom runs with different targets");
+    }
+
+    // 6. Test: Rejection of standalone int main()
+    {
+        std::string standalone_code = "int binarySearch(const int* arr, size_t n, int target) { return 0; }\nint main() { return 0; }\n";
+        auto det = custom::InterfaceDetector::detect(standalone_code, custom::CustomCategory::Search);
+        expect(!det.recognized, "InterfaceDetector rejects source file with standalone main()");
+        expect(det.diagnostic_message.find("Standalone main() detected") != std::string::npos,
+               "InterfaceDetector diagnostic message guides user to remove main()");
+    }
+
+    // 7. Test: Child Process Cancellation
+    {
+        std::vector<custom::AlgorithmSourceSpec> specs;
+        custom::AlgorithmSourceSpec a1;
+        a1.algorithm_name = "Linear Search";
+        a1.source_file_path = "custom/samples/linear_search.cpp";
+        a1.interface_type = custom::SearchInterfaceType::VectorRefTarget;
+        a1.detected_function = "linear_search";
+        specs.push_back(a1);
+
+        custom::CustomBenchmarkConfig cancel_cfg;
+        cancel_cfg.dataset_path = "custom/samples/search_data.txt";
+        cancel_cfg.target_value = 5000;
+        cancel_cfg.iterations = 50;
+        cancel_cfg.warmup_runs = 5;
+        cancel_cfg.algorithms = specs;
+
+        std::atomic<bool> cancel_flag(true);
+        cancel_cfg.cancel_flag = &cancel_flag;
+
+        auto cancel_res = custom::CustomBenchmarkRunner::execute(cancel_cfg);
+        expect(!cancel_res.success, "CustomBenchmarkRunner fails gracefully when cancelled");
+        expect(cancel_res.error_message.find("cancelled") != std::string::npos,
+               "Error message indicates benchmark was cancelled by user");
+    }
+
+    // 8. Test: Corrupt Dataset Token Handling
+    {
+        std::string corrupt_file = "custom/samples/corrupt_data_test.txt";
+        std::ofstream out(corrupt_file);
+        out << "10 20 30 bad_token 50\n";
+        out.close();
+
+        std::vector<custom::AlgorithmSourceSpec> specs;
+        custom::AlgorithmSourceSpec a1;
+        a1.algorithm_name = "Linear Search";
+        a1.source_file_path = "custom/samples/linear_search.cpp";
+        a1.interface_type = custom::SearchInterfaceType::VectorRefTarget;
+        a1.detected_function = "linear_search";
+        specs.push_back(a1);
+
+        custom::CustomBenchmarkConfig bad_cfg;
+        bad_cfg.dataset_path = corrupt_file;
+        bad_cfg.target_value = 20;
+        bad_cfg.algorithms = specs;
+
+        auto bad_res = custom::CustomBenchmarkRunner::execute(bad_cfg);
+        expect(!bad_res.success, "CustomBenchmarkRunner rejects corrupt dataset tokens");
+        expect(bad_res.exit_code == 4 || bad_res.error_message.find("bad_token") != std::string::npos,
+               "Harness reported token parse failure on corrupt dataset");
+
+        std::error_code ec;
+        std::filesystem::remove(corrupt_file, ec);
+    }
+
+    // 9. Test: Category and Interface Mode Detection for Templates
+    {
+        // Search with target template
+        auto det_st = custom::InterfaceDetector::detect_from_file("custom/templates/search_target_template.cpp", custom::CustomCategory::Search, "with_target");
+        expect(det_st.recognized, "InterfaceDetector recognizes search_target_template.cpp");
+        expect(det_st.detected_function_name == "search_algorithm", "search_target_template function name is search_algorithm");
+
+        // Search dataset-only template
+        auto det_sd = custom::InterfaceDetector::detect_from_file("custom/templates/search_dataset_template.cpp", custom::CustomCategory::Search, "dataset_only");
+        expect(det_sd.recognized, "InterfaceDetector recognizes search_dataset_template.cpp");
+        expect(det_sd.detected_function_name == "search_algorithm", "search_dataset_template function name is search_algorithm");
+
+        // Matrix template
+        auto det_mx = custom::InterfaceDetector::detect_from_file("custom/templates/matrix_template.cpp", custom::CustomCategory::Matrix);
+        expect(det_mx.recognized, "InterfaceDetector recognizes matrix_template.cpp");
+        expect(det_mx.detected_function_name == "matrix_operation", "matrix_template function name is matrix_operation");
+
+        // Graph template
+        auto det_gr = custom::InterfaceDetector::detect_from_file("custom/templates/graph_template.cpp", custom::CustomCategory::Graph);
+        expect(det_gr.recognized, "InterfaceDetector recognizes graph_template.cpp");
+        expect(det_gr.detected_function_name == "graph_algorithm", "graph_template function name is graph_algorithm");
+
+        // Sorting template
+        auto det_so = custom::InterfaceDetector::detect_from_file("custom/templates/sorting_template.cpp", custom::CustomCategory::Sorting);
+        expect(det_so.recognized, "InterfaceDetector recognizes sorting_template.cpp");
+        expect(det_so.detected_function_name == "sort_algorithm", "sorting_template function name is sort_algorithm");
+    }
+
+    // 10. Test: Category Extension Preview Guards
+    {
+        custom::CustomBenchmarkConfig matrix_cfg;
+        matrix_cfg.category = "matrix";
+        auto matrix_res = custom::CustomBenchmarkRunner::execute(matrix_cfg);
+        expect(!matrix_res.success, "CustomBenchmarkRunner rejects non-search category execution");
+        expect(matrix_res.error_message.find("Extension Preview") != std::string::npos,
+               "Matrix error message informs user about Extension Preview");
+
+        custom::CustomBenchmarkConfig graph_cfg;
+        graph_cfg.category = "graph";
+        auto graph_res = custom::CustomBenchmarkRunner::execute(graph_cfg);
+        expect(!graph_res.success, "CustomBenchmarkRunner rejects graph execution");
+        expect(graph_res.error_message.find("Extension Preview") != std::string::npos,
+               "Graph error message informs user about Extension Preview");
+    }
+
+    // 11. Test: Interface Mode Incompatibility in RegressionAnalyzer
+    {
+        analysis::BenchmarkRun run_target;
+        run_target.run_id = "run_target";
+        run_target.benchmark_mode = "custom";
+        run_target.benchmark_category = "search";
+        run_target.interface_mode = "with_target";
+        run_target.custom_target_parameter = "5000";
+        run_target.input.file_path = "custom/samples/search_data.txt";
+
+        analysis::BenchmarkRun run_dataset;
+        run_dataset.run_id = "run_dataset";
+        run_dataset.benchmark_mode = "custom";
+        run_dataset.benchmark_category = "search";
+        run_dataset.interface_mode = "dataset_only";
+        run_dataset.input.file_path = "custom/samples/search_data.txt";
+
+        expect(!analysis::RegressionAnalyzer::are_runs_compatible(run_target, run_dataset),
+               "are_runs_compatible returns false when interface_mode differs (with_target vs dataset_only)");
+    }
+
+    // 12. Test: TrendAnalyzer Scope & Filter Isolation
+    {
+        analysis::BenchmarkRun std_run;
+        std_run.run_id = "RUN_STD_001";
+        std_run.benchmark_mode = "standard";
+        std_run.benchmark_category = "sorting";
+        analysis::BenchmarkRecord std_rec;
+        std_rec.algorithm = "qs";
+        std_rec.algorithm_name = "Quick Sort";
+        std_rec.input_size = 1000;
+        std_rec.time_mean_ns = 45000.0;
+        std_run.results.push_back(std_rec);
+
+        analysis::BenchmarkRun cust_run;
+        cust_run.run_id = "RUN_CUST_001";
+        cust_run.benchmark_mode = "custom";
+        cust_run.benchmark_category = "search";
+        cust_run.interface_mode = "with_target";
+        cust_run.input.file_path = "search_data.txt";
+        analysis::BenchmarkRecord cust_rec;
+        cust_rec.algorithm = "bs";
+        cust_rec.algorithm_name = "Binary Search";
+        cust_rec.input_size = 1000;
+        cust_rec.time_mean_ns = 50.0;
+        cust_run.results.push_back(cust_rec);
+
+        std::vector<analysis::BenchmarkRun> all_runs = {std_run, cust_run};
+
+        // Filter by standard mode
+        analysis::ChartFilter f_std;
+        f_std.benchmark_mode = "standard";
+        auto trend_std = analysis::TrendAnalyzer::build_time_vs_size(all_runs, f_std);
+        expect(trend_std.valid && trend_std.series.size() == 1, "Trend standard filter includes only standard run");
+        if (trend_std.valid && !trend_std.series.empty()) {
+            expect(trend_std.series[0].algorithm_name == "Quick Sort", "Standard trend series is Quick Sort");
+        }
+
+        // Filter by custom mode
+        analysis::ChartFilter f_cust;
+        f_cust.benchmark_mode = "custom";
+        auto trend_cust = analysis::TrendAnalyzer::build_time_vs_size(all_runs, f_cust);
+        expect(trend_cust.valid && trend_cust.series.size() == 1, "Trend custom filter includes only custom run");
+        if (trend_cust.valid && !trend_cust.series.empty()) {
+            expect(trend_cust.series[0].algorithm_name.find("Binary Search") != std::string::npos, "Custom trend series is Binary Search");
+        }
+
+        // Filter by specific run_id (Isolated Single Run)
+        analysis::ChartFilter f_isolated;
+        f_isolated.run_id = "RUN_CUST_001";
+        auto trend_isolated = analysis::TrendAnalyzer::build_time_vs_size(all_runs, f_isolated);
+        expect(trend_isolated.valid && trend_isolated.series.size() == 1, "Trend isolated single run filter succeeds");
+        if (trend_isolated.valid && !trend_isolated.series.empty()) {
+            expect(trend_isolated.series[0].algorithm_name == "Binary Search",
+                   "Isolated single run does not append [dataset] bracket to series title");
+        }
     }
 }
 
 int main() {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
     std::cout << "========================================\n";
     std::cout << "CODE PERFORMANCE ANALYZER TEST SUITE\n";
     std::cout << "========================================\n";

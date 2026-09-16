@@ -14,6 +14,7 @@
 #include <string>
 #include <memory>
 #include <algorithm>
+#include <unordered_set>
 #include <iomanip>
 #include <chrono>
 #include <ctime>
@@ -91,7 +92,7 @@ int main(int argc, char* argv[]) {
     if (iterations < 1) iterations = 1;
     if (warmup_runs < 0) warmup_runs = 0;
 
-    // 1. Load dataset
+    // 1. Load dataset with strict integer token validation
     std::ifstream infile(dataset_path);
     if (!infile.is_open()) {
         std::cerr << "{\"status\": \"error\", \"error_message\": \"Failed to open dataset file: "
@@ -100,9 +101,22 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<int> data;
-    int val = 0;
-    while (infile >> val) {
-        data.push_back(val);
+    std::string token;
+    while (infile >> token) {
+        try {
+            size_t idx = 0;
+            int v = std::stoi(token, &idx);
+            if (idx != token.size()) {
+                std::cerr << "{\"status\": \"error\", \"error_message\": \"Invalid token '"
+                          << escape_json_str(token) << "' in dataset file: not a valid integer\"}\n";
+                return 4;
+            }
+            data.push_back(v);
+        } catch (...) {
+            std::cerr << "{\"status\": \"error\", \"error_message\": \"Invalid token '"
+                      << escape_json_str(token) << "' in dataset file: not a valid integer\"}\n";
+            return 4;
+        }
     }
     infile.close();
 
@@ -114,13 +128,28 @@ int main(int argc, char* argv[]) {
 
     const size_t total_elements = data.size();
 
-    // 2. Scan dataset for target availability and occurrences
+    // 2. Scan dataset for true metadata (min, max, ordering, uniqueness, target availability)
+    int min_val = data.front();
+    int max_val = data.front();
+    bool is_sorted_asc = true;
+    bool is_sorted_desc = true;
+    std::unordered_set<int> unique_elements;
+
     bool target_available = false;
     size_t occurrences = 0;
     int first_expected_index = -1;
 
     for (size_t i = 0; i < total_elements; ++i) {
-        if (data[i] == target_value) {
+        int v = data[i];
+        if (v < min_val) min_val = v;
+        if (v > max_val) max_val = v;
+        if (i > 0) {
+            if (data[i] < data[i - 1]) is_sorted_asc = false;
+            if (data[i] > data[i - 1]) is_sorted_desc = false;
+        }
+        unique_elements.insert(v);
+
+        if (v == target_value) {
             if (!target_available) {
                 target_available = true;
                 first_expected_index = static_cast<int>(i);
@@ -129,15 +158,32 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    size_t distinct_elements = unique_elements.size();
+    size_t duplicate_elements = (total_elements > distinct_elements) ? (total_elements - distinct_elements) : 0;
+
+    std::string order_description = "Unsorted / Random";
+    if (distinct_elements == 1) {
+        order_description = "All Equal";
+    } else if (is_sorted_asc) {
+        order_description = "Sorted (Ascending)";
+    } else if (is_sorted_desc) {
+        order_description = "Reverse Sorted (Descending)";
+    }
+
     std::string mode_description = target_available
         ? "Present-target benchmark (target present in dataset)"
         : "Absent-target negative test (target absent from dataset)";
 
-    // 3. Build 5 safe subset sizes for multi-size empirical complexity analysis
+    // 3. Build 5 consistent prefix subset sizes for empirical complexity analysis
     std::vector<size_t> test_sizes;
     if (total_elements >= 5) {
+        size_t start_size = 1;
+        if (target_available && first_expected_index >= 0) {
+            // Ensure target is in all tested prefix subsets without shifting array offsets
+            start_size = std::min<size_t>(total_elements, static_cast<size_t>(first_expected_index + 1));
+        }
         for (int k = 1; k <= 5; ++k) {
-            size_t sz = std::max<size_t>(static_cast<size_t>(k), (total_elements * k) / 5);
+            size_t sz = start_size + ((total_elements - start_size) * (k - 1)) / 4;
             if (test_sizes.empty() || sz > test_sizes.back()) {
                 test_sizes.push_back(sz);
             }
@@ -192,26 +238,9 @@ int main(int argc, char* argv[]) {
     for (size_t s_idx = 0; s_idx < test_sizes.size(); ++s_idx) {
         size_t sz = test_sizes[s_idx];
 
-        // Determine data slice:
-        // In present-target mode, if sz is smaller than first_expected_index,
-        // take a slice ending at first_expected_index so target is guaranteed present in slice.
-        // If sz contains first_expected_index or target is absent, take standard prefix slice.
+        // Standard prefix slice of size sz
         const int* slice_data = data.data();
-        bool target_in_slice = false;
-
-        if (target_available) {
-            if (first_expected_index < static_cast<int>(sz)) {
-                slice_data = data.data();
-                target_in_slice = true;
-            } else {
-                size_t offset = static_cast<size_t>(first_expected_index) - sz + 1;
-                slice_data = data.data() + offset;
-                target_in_slice = true;
-            }
-        } else {
-            slice_data = data.data();
-            target_in_slice = false;
-        }
+        bool target_in_slice = target_available && (first_expected_index >= 0 && first_expected_index < static_cast<int>(sz));
 
         for (size_t a_idx = 0; a_idx < algorithms.size(); ++a_idx) {
             auto& alg = algorithms[a_idx];
@@ -308,7 +337,7 @@ int main(int argc, char* argv[]) {
             rec.cycles_median = get_median(cycle_samples);
             rec.cycles_stddev = get_standard_deviation(cycle_samples, rec.cycles_mean);
             rec.peak_mem_increase = max_peak_increase;
-            rec.net_mem_change = (iterations > 0) ? (total_net_change / iterations) : 0;
+            rec.net_mem_change = total_net_change;
 
             all_alg_measurements[a_idx].push_back(rec);
         }
@@ -465,13 +494,14 @@ int main(int argc, char* argv[]) {
     ss << "    \"input\": {\n";
     ss << "      \"type\": \"custom_file\",\n";
     ss << "      \"file_path\": \"" << escape_json_str(dataset_path) << "\",\n";
-    ss << "      \"element_count\": " << total_elements << ",\n";
-    ss << "      \"distinct_count\": " << total_elements << ",\n";
-    ss << "      \"duplicate_count\": 0,\n";
-    ss << "      \"min_value\": " << (data.empty() ? 0 : data.front()) << ",\n";
-    ss << "      \"max_value\": " << (data.empty() ? 0 : data.back()) << ",\n";
-    ss << "      \"order_description\": \"" << escape_json_str(mode_description) << "\"\n";
-    ss << "    },\n";
+    ss << "      \"element_count\": " << total_elements << ",\n"
+      << "      \"distinct_count\": " << distinct_elements << ",\n"
+      << "      \"duplicate_count\": " << duplicate_elements << ",\n"
+      << "      \"min_value\": " << min_val << ",\n"
+      << "      \"max_value\": " << max_val << ",\n"
+      << "      \"order_description\": \"" << escape_json_str(order_description) << "\",\n"
+      << "      \"mode_description\": \"" << escape_json_str(mode_description) << "\"\n"
+      << "    },\n";
 
     // Results array across all algorithms and all sizes
     ss << "    \"results\": [\n";

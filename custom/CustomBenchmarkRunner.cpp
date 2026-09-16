@@ -20,6 +20,13 @@ namespace custom {
 CustomRunnerExecutionResult CustomBenchmarkRunner::execute(const CustomBenchmarkConfig& config) {
     CustomRunnerExecutionResult res;
 
+    // Check category support (Search is active; Matrix/Graph/Sorting are Extension Previews)
+    if (config.category != "search") {
+        res.success = false;
+        res.error_message = "Category '" + config.category + "' is currently in Extension Preview. Full compilation and execution harness is available for Search Algorithms.";
+        return res;
+    }
+
     // 1. Compile the custom algorithms into a standalone runner executable
     auto comp_res = CustomBenchmarkCompiler::compile_search_runner(config.algorithms);
     if (!comp_res.success) {
@@ -37,6 +44,7 @@ CustomRunnerExecutionResult CustomBenchmarkRunner::execute(const CustomBenchmark
 
     // 4. Archive run into history if successful
     if (res.success && !res.run.run_id.empty()) {
+        res.run.interface_mode = config.interface_mode;
         analysis::HistoryManager history;
         analysis::ReportLoader::save_to_json_file(res.run, "results/history/run_" + res.run.run_id + ".json");
     }
@@ -73,8 +81,28 @@ CustomRunnerExecutionResult CustomBenchmarkRunner::run_isolated_process(
         return res;
     }
 
-    DWORD timeout_ms = static_cast<DWORD>(config.timeout_seconds > 0 ? (config.timeout_seconds * 1000) : 15000);
-    DWORD wait_res = WaitForSingleObject(pi.hProcess, timeout_ms);
+    DWORD timeout_ms = static_cast<DWORD>(config.timeout_seconds > 0 ? (config.timeout_seconds * 1000) : 30000);
+    DWORD elapsed_ms = 0;
+    const DWORD SLICE_MS = 50;
+    DWORD wait_res = WAIT_TIMEOUT;
+
+    while (elapsed_ms < timeout_ms) {
+        if (config.cancel_flag && config.cancel_flag->load()) {
+            TerminateProcess(pi.hProcess, 1002);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            res.success = false;
+            res.error_message = "Benchmark cancelled by user.";
+            return res;
+        }
+
+        DWORD step_wait = WaitForSingleObject(pi.hProcess, SLICE_MS);
+        if (step_wait != WAIT_TIMEOUT) {
+            wait_res = step_wait;
+            break;
+        }
+        elapsed_ms += SLICE_MS;
+    }
 
     if (wait_res == WAIT_TIMEOUT) {
         TerminateProcess(pi.hProcess, 1001);
@@ -82,7 +110,7 @@ CustomRunnerExecutionResult CustomBenchmarkRunner::run_isolated_process(
         CloseHandle(pi.hThread);
         res.success = false;
         res.timed_out = true;
-        res.error_message = "Execution timed out (exceeded " + std::to_string(config.timeout_seconds) + "s limit). Algorithm likely contains an infinite loop or deadlock.";
+        res.error_message = "Execution timed out (exceeded " + std::to_string(config.timeout_seconds) + "s budget). Algorithm likely contains an infinite loop or deadlock.";
         return res;
     }
 
@@ -98,6 +126,24 @@ CustomRunnerExecutionResult CustomBenchmarkRunner::run_isolated_process(
         if (exit_code == 0xC0000005) err_desc = "Process crashed: Access Violation / Segmentation Fault (0xC0000005)";
         else if (exit_code == 0xC00000FD) err_desc = "Process crashed: Stack Overflow / Infinite Recursion (0xC00000FD)";
         else if (exit_code == 0xC0000094) err_desc = "Process crashed: Integer Division by Zero (0xC0000094)";
+        else if (std::filesystem::exists(output_json_file)) {
+            std::ifstream file(output_json_file);
+            if (file.is_open()) {
+                std::ostringstream ss;
+                ss << file.rdbuf();
+                std::string err_json = ss.str();
+                size_t msg_pos = err_json.find("\"error_message\":");
+                if (msg_pos != std::string::npos) {
+                    size_t q1 = err_json.find('"', msg_pos + 16);
+                    if (q1 != std::string::npos) {
+                        size_t q2 = err_json.find('"', q1 + 1);
+                        if (q2 != std::string::npos) {
+                            err_desc = err_json.substr(q1 + 1, q2 - q1 - 1);
+                        }
+                    }
+                }
+            }
+        }
         res.error_message = err_desc;
         return res;
     }

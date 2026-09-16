@@ -67,6 +67,7 @@ struct BenchmarkRun {
     std::string timestamp;         // e.g. "2026-09-13_02-47-01"
     std::string benchmark_mode = "standard";    // "standard" or "custom"
     std::string benchmark_category = "sorting"; // "sorting", "search", "matrix", etc.
+    std::string interface_mode = "with_target"; // "with_target", "dataset_only", etc.
     std::string custom_target_parameter;        // e.g. "Target: 5000"
     TargetDetectionMetadata target_detection;
     std::vector<SearchComplexityEntry> complexity;
