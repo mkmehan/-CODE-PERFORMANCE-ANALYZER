@@ -75,6 +75,8 @@ std::string current_timestamp() {
 int main(int argc, char* argv[]) {
     std::string dataset_path = "custom/samples/search_data.txt";
     int target_value = 5000;
+    std::string category = "search";
+    std::string interface_mode = "with_target";
     int iterations = 20;
     int warmup_runs = 5;
     int cpu_affinity = -1;
@@ -85,6 +87,8 @@ int main(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--dataset" && i + 1 < argc) dataset_path = argv[++i];
         else if (arg == "--target" && i + 1 < argc) target_value = std::stoi(argv[++i]);
+        else if (arg == "--category" && i + 1 < argc) category = argv[++i];
+        else if (arg == "--interface-mode" && i + 1 < argc) interface_mode = argv[++i];
         else if (arg == "--iterations" && i + 1 < argc) iterations = std::stoi(argv[++i]);
         else if (arg == "--warmup" && i + 1 < argc) warmup_runs = std::stoi(argv[++i]);
         else if (arg == "--affinity" && i + 1 < argc) cpu_affinity = std::stoi(argv[++i]);
@@ -246,23 +250,47 @@ int main(int argc, char* argv[]) {
             // Prepare algorithm for this exact slice size
             alg->prepare(slice_data, sz);
 
-            // Warmup runs
-            for (int w = 0; w < warmup_runs; ++w) {
-                volatile int sink = alg->search(slice_data, sz, target_value);
-                (void)sink;
-            }
-
-            // Verification check with robust duplicate value support:
-            // - If returned -1: valid only when target is absent from slice
-            // - If returned >= 0: valid when in range [0, sz) AND slice_data[index] == target
-            int found_idx = alg->search(slice_data, sz, target_value);
+            int found_idx = 0;
             bool is_verified = false;
-            bool target_found = (found_idx >= 0);
+            bool target_found = false;
 
-            if (found_idx == -1) {
-                is_verified = !target_in_slice;
-            } else if (found_idx >= 0 && static_cast<size_t>(found_idx) < sz) {
-                is_verified = (slice_data[found_idx] == target_value);
+            if (category == "sorting") {
+                // Sorting warmup
+                for (int w = 0; w < warmup_runs; ++w) {
+                    std::vector<int> sort_copy(slice_data, slice_data + sz);
+                    alg->sort(sort_copy.data(), sz);
+                }
+                // Verification: ensure array is sorted in ascending order
+                std::vector<int> verify_copy(slice_data, slice_data + sz);
+                alg->sort(verify_copy.data(), sz);
+                is_verified = std::is_sorted(verify_copy.begin(), verify_copy.end());
+                found_idx = 0;
+                target_found = false;
+            } else if (category == "dataset" || interface_mode == "dataset_only") {
+                // Dataset operation warmup
+                for (int w = 0; w < warmup_runs; ++w) {
+                    volatile long long sink = alg->execute_dataset(slice_data, sz);
+                    (void)sink;
+                }
+                // Verification
+                long long res_val = alg->execute_dataset(slice_data, sz);
+                is_verified = true;
+                found_idx = static_cast<int>(res_val);
+                target_found = false;
+            } else {
+                // Targeted search warmup
+                for (int w = 0; w < warmup_runs; ++w) {
+                    volatile int sink = alg->search(slice_data, sz, target_value);
+                    (void)sink;
+                }
+                // Verification check with robust duplicate value support
+                found_idx = alg->search(slice_data, sz, target_value);
+                target_found = (found_idx >= 0);
+                if (found_idx == -1) {
+                    is_verified = !target_in_slice;
+                } else if (found_idx >= 0 && static_cast<size_t>(found_idx) < sz) {
+                    is_verified = (slice_data[found_idx] == target_value);
+                }
             }
 
             std::vector<uint64_t> time_samples;
@@ -276,39 +304,69 @@ int main(int argc, char* argv[]) {
             HighResolutionTimer hr_timer;
             RDTSC_Timer rdtsc_timer;
 
-            const int BATCH_SIZE = 1000;
-
             MemorySampler mem_sampler;
             if (measure_memory) {
                 mem_sampler.start();
             }
 
-            for (int it = 0; it < iterations; ++it) {
-                rdtsc_timer.start();
-                hr_timer.start();
+            if (category == "sorting") {
+                // Sorting benchmarks run 1 sort per iteration on a fresh copy of the slice
+                for (int it = 0; it < iterations; ++it) {
+                    std::vector<int> run_buf(slice_data, slice_data + sz);
+                    rdtsc_timer.start();
+                    hr_timer.start();
+                    alg->sort(run_buf.data(), sz);
+                    hr_timer.stop();
+                    rdtsc_timer.stop();
 
-                volatile int sink = 0;
-                for (int b = 0; b < BATCH_SIZE; ++b) {
-                    sink ^= alg->search(slice_data, sz, target_value);
+                    uint64_t elapsed_ns = hr_timer.elapsed();
+                    uint64_t raw_cycles = rdtsc_timer.elapsed();
+                    uint64_t net_cycles = (raw_cycles > rdtsc_overhead) ? (raw_cycles - rdtsc_overhead) : raw_cycles;
+
+                    if (elapsed_ns == 0 && net_cycles > 0) {
+                        elapsed_ns = std::max<uint64_t>(1, (net_cycles + 1) / 3);
+                    }
+
+                    time_samples.push_back(elapsed_ns);
+                    cycle_samples.push_back(net_cycles);
                 }
+            } else {
+                const int BATCH_SIZE = (category == "dataset" || interface_mode == "dataset_only") ? 100 : 1000;
+                for (int it = 0; it < iterations; ++it) {
+                    rdtsc_timer.start();
+                    hr_timer.start();
 
-                hr_timer.stop();
-                rdtsc_timer.stop();
-                (void)sink;
+                    if (category == "dataset" || interface_mode == "dataset_only") {
+                        volatile long long sink = 0;
+                        for (int b = 0; b < BATCH_SIZE; ++b) {
+                            sink ^= alg->execute_dataset(slice_data, sz);
+                        }
+                        (void)sink;
+                    } else {
+                        volatile int sink = 0;
+                        for (int b = 0; b < BATCH_SIZE; ++b) {
+                            sink ^= alg->search(slice_data, sz, target_value);
+                        }
+                        (void)sink;
+                    }
 
-                uint64_t elapsed_ns = hr_timer.elapsed();
-                uint64_t raw_cycles = rdtsc_timer.elapsed();
-                uint64_t net_cycles = (raw_cycles > rdtsc_overhead) ? (raw_cycles - rdtsc_overhead) : raw_cycles;
+                    hr_timer.stop();
+                    rdtsc_timer.stop();
 
-                uint64_t per_call_ns = (elapsed_ns + BATCH_SIZE / 2) / BATCH_SIZE;
-                uint64_t per_call_cycles = (net_cycles + BATCH_SIZE / 2) / BATCH_SIZE;
+                    uint64_t elapsed_ns = hr_timer.elapsed();
+                    uint64_t raw_cycles = rdtsc_timer.elapsed();
+                    uint64_t net_cycles = (raw_cycles > rdtsc_overhead) ? (raw_cycles - rdtsc_overhead) : raw_cycles;
 
-                if (per_call_ns == 0 && per_call_cycles > 0) {
-                    per_call_ns = std::max<uint64_t>(1, (per_call_cycles + 1) / 3);
+                    uint64_t per_call_ns = (elapsed_ns + BATCH_SIZE / 2) / BATCH_SIZE;
+                    uint64_t per_call_cycles = (net_cycles + BATCH_SIZE / 2) / BATCH_SIZE;
+
+                    if (per_call_ns == 0 && per_call_cycles > 0) {
+                        per_call_ns = std::max<uint64_t>(1, (per_call_cycles + 1) / 3);
+                    }
+
+                    time_samples.push_back(per_call_ns);
+                    cycle_samples.push_back(per_call_cycles);
                 }
-
-                time_samples.push_back(per_call_ns);
-                cycle_samples.push_back(per_call_cycles);
             }
 
             if (measure_memory) {
@@ -385,8 +443,15 @@ int main(int argc, char* argv[]) {
         std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), [](unsigned char c){ return std::tolower(c); });
 
         std::string theoretical = "O(n)";
-        if (lower_name.find("binary") != std::string::npos) {
-            theoretical = "O(log n)";
+        if (category == "sorting") {
+            theoretical = "O(n log n)";
+            if (lower_name.find("bubble") != std::string::npos || lower_name.find("insertion") != std::string::npos || lower_name.find("selection") != std::string::npos) {
+                theoretical = "O(n^2)";
+            }
+        } else {
+            if (lower_name.find("binary") != std::string::npos) {
+                theoretical = "O(log n)";
+            }
         }
 
         std::string observed_complexity = "Indeterminate";
@@ -436,9 +501,16 @@ int main(int argc, char* argv[]) {
     ss << "    \"run_id\": \"" << run_id << "\",\n";
     ss << "    \"timestamp\": \"" << ts << "\",\n";
     ss << "    \"benchmark_mode\": \"custom\",\n";
-    ss << "    \"benchmark_category\": \"search\",\n";
-    ss << "    \"custom_target_parameter\": \"Target: " << target_value
-       << (target_available ? (" (Found @ Index: " + std::to_string(first_expected_index) + ")") : " (Not present in dataset)") << "\",\n";
+    ss << "    \"benchmark_category\": \"" << escape_json_str(category) << "\",\n";
+    ss << "    \"interface_mode\": \"" << escape_json_str(interface_mode) << "\",\n";
+    if (category == "sorting") {
+        ss << "    \"custom_target_parameter\": \"Mode: In-Place Sorting (No Target)\",\n";
+    } else if (category == "dataset" || interface_mode == "dataset_only") {
+        ss << "    \"custom_target_parameter\": \"Mode: Dataset Operation (No Target)\",\n";
+    } else {
+        ss << "    \"custom_target_parameter\": \"Target: " << target_value
+           << (target_available ? (" (Found @ Index: " + std::to_string(first_expected_index) + ")") : " (Not present in dataset)") << "\",\n";
+    }
 
     // Target detection metadata
     ss << "    \"target_detection\": {\n";

@@ -365,23 +365,23 @@
             <span>1. Custom Benchmark Domain &amp; Code Contract</span>
             <span id="custom-domain-badge" class="badge badge-success" style="font-size: 0.75rem;">✓ Available</span>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group">
-              <label class="form-label">Algorithm Category</label>
-              <select id="custom-cfg-category" class="form-control">
-                <option value="search" selected>🔍 Search Algorithms — ✓ Available</option>
-                <option value="matrix">🧮 Matrix Operations — ◐ Extension Preview</option>
-                <option value="graph">🕸️ Graph Traversal — ◐ Extension Preview</option>
-                <option value="sorting">⚡ Custom Sorting — ◐ Extension Preview</option>
-                <option value="tree">🌳 Binary Search Tree — ◐ Extension Preview</option>
+              <label class="form-label" style="font-weight: 600; font-size: 0.95rem;">Select Benchmark Template &amp; Contract</label>
+              <select id="custom-cfg-category" class="form-control" style="font-size: 0.92rem; padding: 0.6rem;">
+                <option value="search" selected>🎯 Template 1: Targeted Search (Target Required) — Linear, Binary, Jump, BST Search</option>
+                <option value="dataset">📊 Template 2: Dataset Operation (No Target) — Scan, Max/Min, Sum, BST Traversal</option>
+                <option value="sorting">⚡ Template 3: Custom Sorting (In-Place Array Sort) — Bubble, Quick, Merge, Custom Sort</option>
+                <option value="matrix">🧮 Template 4: Matrix Operations (N x N) — ◐ Reference Preview</option>
               </select>
             </div>
-            <div class="form-group" id="custom-interface-group">
-              <label class="form-label">Algorithm Interface</label>
-              <select id="custom-cfg-interface" class="form-control">
-                <option value="with_target" selected>Search with Target (data, size, target)</option>
-                <option value="dataset_only">Dataset Only (data, size)</option>
-              </select>
+          </div>
+
+          <!-- Template Rule Banner -->
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 1.25rem;">💡</span>
+            <div style="font-size: 0.88rem; color: #bfdbfe; line-height: 1.4;">
+              <strong>Benchmark Contract Rule:</strong> Your C++ code must follow the selected benchmark template. Convert your algorithm logic into the required function signature before uploading.
             </div>
           </div>
 
@@ -550,11 +550,16 @@
 
           <!-- Section 3E: Custom Sorting Configuration (NO TARGET) -->
           <div id="panel-param-sorting" style="display: none;">
-            <div class="info-banner" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #fcd34d;">
-              ⚡ <strong>Custom Sorting Module (Extension Preview)</strong>: Sorts array elements in-place. Target search parameter is not applicable.
+            <div class="info-banner" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #6ee7b7;">
+              ⚡ <strong>Custom Sorting Module</strong>: Benchmarks in-place sorting algorithms (e.g. Bubble, Quick, Insertion, Merge). Verifies sorted correctness per iteration. Target search parameter is not applicable.
             </div>
             <div class="form-group">
-              <label class="form-label">Array Dataset File (.txt)</label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label class="form-label" style="margin-bottom: 0;">Array Dataset File (.txt) — Target Search Value Not Required</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button id="btn-browse-custom-dataset-3" type="button" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">📁 Upload</button>
+                </div>
+              </div>
               <input id="custom-sorting-dataset" type="text" class="form-control" value="custom/samples/search_data.txt">
             </div>
           </div>
@@ -592,7 +597,7 @@
               ▶ RUN CUSTOM BENCHMARK
             </button>
             <span id="custom-preview-notice" style="display: none; color: #f59e0b; font-size: 0.88rem; font-weight: 500;">
-              ⚠️ Benchmark execution is in Extension Preview for this category. Switch to Search Algorithms to execute custom benchmarks.
+              ⚠️ Benchmark execution is in Preview for this domain. Select Template 1, 2, or 3 to execute live benchmarks.
             </span>
             <button id="btn-cancel-custom-benchmark" class="btn btn-danger" style="display: none;">
               Cancel Benchmark

@@ -26,6 +26,8 @@ std::string search_interface_type_to_string(SearchInterfaceType type) {
             return "extern \"C\" int search_algorithm(const int* data, int size, int target)";
         case SearchInterfaceType::DatasetOnly:
             return "int (const int* data, size_t size)";
+        case SearchInterfaceType::CustomSorting:
+            return "void (int* data, size_t size)";
         case SearchInterfaceType::Unknown:
             return "Unknown / Custom Interface";
     }
@@ -260,75 +262,80 @@ DetectionResult InterfaceDetector::detect(const std::string& source_code, Custom
 
     if (category == CustomCategory::Search) {
         if (interface_mode == "dataset_only") {
-            // Check for search_algorithm(const int* data, int size) or similar
-            std::regex ds_regex(R"(\b(int|int32_t|size_t|void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*(?:const\s+int\s*\*|const\s+std::vector<int>&|int\s*\*)[^)]*\)\s*\{)");
+            // Check for custom_algorithm / dataset_algorithm / search_algorithm(const int* data, int size)
+            std::regex ds_regex(R"(\b(long\s+long|int|int32_t|size_t|void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*(?:const\s+int\s*\*|const\s+std::vector<int>&|int\s*\*)[^,)]*,\s*(?:int|size_t)[^)]*\)\s*\{)");
             std::smatch m;
             if (std::regex_search(clean, m, ds_regex)) {
                 res.recognized = true;
+                res.category = CustomCategory::Search;
                 res.interface_type = SearchInterfaceType::DatasetOnly;
                 res.return_type = m[1].str();
                 res.detected_function_name = m[2].str();
-                res.detected_signature = "int " + res.detected_function_name + "(const int* data, int size)";
+                res.detected_signature = res.return_type + " " + res.detected_function_name + "(const int* data, int size)";
                 res.suggested_display_name = format_display_name(res.detected_function_name);
-                res.diagnostic_message = "✓ Interface valid: Dataset-only search function recognized.";
+                res.diagnostic_message = "✓ Template contract valid: Dataset operation function recognized.";
             } else {
                 res.recognized = false;
-                res.diagnostic_message = "✗ Invalid Interface. Required: int search_algorithm(const int* data, int size). Please modify your function to match the required template.";
+                res.diagnostic_message = "✗ Template contract mismatch. Required: long long custom_algorithm(const int* data, int size). Please modify your function to match the required template.";
             }
         } else {
             res = detect_search_interface(clean);
             if (!res.recognized && res.diagnostic_message.find("main()") == std::string::npos) {
-                res.diagnostic_message = "✗ Invalid Interface. Required: int search_algorithm(const int* data, int size, int target). Please modify your function to match the required template.";
+                res.diagnostic_message = "✗ Template contract mismatch. Required: int custom_algorithm(const int* data, int size, int target). Please modify your function to match the required template.";
             }
         }
     } else if (category == CustomCategory::Matrix) {
-        // Contract: void matrix_multiply(const double* A, const double* B, double* C, int N) or void matrix_operation(...)
+        // Contract: void custom_algorithm(const double* A, const double* B, double* C, int n) or void matrix_operation(...)
         std::smatch m;
         if (std::regex_search(clean, m, std::regex(R"(\b(?:void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*double[^)]*\))"))) {
             res.recognized = true;
+            res.category = CustomCategory::Matrix;
             res.detected_function_name = m[1].str();
             res.return_type = "void";
-            res.detected_signature = "void " + res.detected_function_name + "(const double* A, const double* B, double* C, int N)";
+            res.detected_signature = "void " + res.detected_function_name + "(const double* A, const double* B, double* C, int n)";
             res.suggested_display_name = format_display_name(res.detected_function_name);
-            res.diagnostic_message = "✓ Contract valid: Matrix operation function recognized (Extension Preview).";
+            res.diagnostic_message = "✓ Template contract valid: Matrix operation function recognized (Preview).";
         } else {
             res.recognized = false;
-            res.diagnostic_message = "✗ Required contract: void matrix_multiply(const double* A, const double* B, double* C, int N). Please modify your function to match the required template.";
+            res.diagnostic_message = "✗ Template contract mismatch. Required: void custom_algorithm(const double* A, const double* B, double* C, int n). Please modify your function to match the required template.";
         }
     } else if (category == CustomCategory::Graph) {
-        // Contract: int graph_traverse(const int* adj, const int* offsets, int V, int start_node) or void graph_algorithm(...)
+        // Contract: int custom_algorithm(const int* adj, const int* offsets, int V, int start_node) or void graph_algorithm(...)
         std::smatch m;
         if (std::regex_search(clean, m, std::regex(R"(\b(?:void|int)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*(?:adj|offsets|edges|graph|vertices)[^)]*\))"))) {
             res.recognized = true;
+            res.category = CustomCategory::Graph;
             res.detected_function_name = m[1].str();
             res.return_type = m[0].str().find("int") == 0 ? "int" : "void";
             res.detected_signature = res.return_type + " " + res.detected_function_name + "(const int* adj, const int* offsets, int V, int start_node)";
             res.suggested_display_name = format_display_name(res.detected_function_name);
-            res.diagnostic_message = "✓ Contract valid: Graph algorithm recognized (Extension Preview).";
+            res.diagnostic_message = "✓ Template contract valid: Graph algorithm recognized (Preview).";
         } else {
             res.recognized = false;
-            res.diagnostic_message = "✗ Required contract: int graph_traverse(const int* adj, const int* offsets, int V, int start_node). Please modify your function to match the required template.";
+            res.diagnostic_message = "✗ Template contract mismatch. Required: int custom_algorithm(const int* adj, const int* offsets, int V, int start_node). Please modify your function to match the required template.";
         }
     } else if (category == CustomCategory::Sorting) {
-        // Contract: void custom_sort(int* data, int size) or void sort_algorithm(...)
+        // Contract: void custom_algorithm(int* data, int size) or void sort_algorithm(...)
         std::smatch m;
-        if (std::regex_search(clean, m, std::regex(R"(\b(?:void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*int\s*\*\s*[^)]*\))"))) {
+        if (std::regex_search(clean, m, std::regex(R"(\b(?:void)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*int\s*\*[^,)]*,\s*(?:int|size_t)[^)]*\))"))) {
             res.recognized = true;
+            res.category = CustomCategory::Sorting;
+            res.interface_type = SearchInterfaceType::CustomSorting;
             res.detected_function_name = m[1].str();
             res.return_type = "void";
             res.detected_signature = "void " + res.detected_function_name + "(int* data, int size)";
             res.suggested_display_name = format_display_name(res.detected_function_name);
-            res.diagnostic_message = "✓ Contract valid: Custom sort function recognized (Extension Preview).";
+            res.diagnostic_message = "✓ Template contract valid: Custom sort function recognized.";
         } else {
             res.recognized = false;
-            res.diagnostic_message = "✗ Required contract: void custom_sort(int* data, int size). Please modify your function to match the required template.";
+            res.diagnostic_message = "✗ Template contract mismatch. Required: void custom_algorithm(int* data, int size). Please modify your function to match the required template.";
         }
     } else {
         res.recognized = false;
         res.diagnostic_message = "Custom category not recognized.";
     }
 
-    if (res.recognized && category == CustomCategory::Search) {
+    if (res.recognized && (category == CustomCategory::Search || category == CustomCategory::Sorting)) {
         res.generated_adapter_code = generate_search_adapter(
             res.detected_function_name,
             res.interface_type,
@@ -389,6 +396,9 @@ std::string InterfaceDetector::generate_search_adapter(
         case SearchInterfaceType::DatasetOnly:
             ss << "int " << user_func_name << "(const int*, int);\n\n";
             break;
+        case SearchInterfaceType::CustomSorting:
+            ss << "void " << user_func_name << "(int*, int);\n\n";
+            break;
         case SearchInterfaceType::Unknown:
             ss << "// Custom or unknown interface\n\n";
             break;
@@ -442,12 +452,21 @@ std::string InterfaceDetector::generate_search_adapter(
             ss << "        (void)target;\n";
             ss << "        return " << user_func_name << "(data, static_cast<int>(size));\n";
             break;
+        case SearchInterfaceType::CustomSorting:
+            ss << "        (void)data; (void)size; (void)target;\n";
+            ss << "        return 0;\n";
+            break;
         case SearchInterfaceType::Unknown:
             ss << "        return -1; // Unknown interface\n";
             break;
     }
-
     ss << "    }\n";
+    if (iface_type == SearchInterfaceType::CustomSorting) {
+        ss << "    void sort(int* data, size_t size) override {\n";
+        ss << "        " << user_func_name << "(data, static_cast<int>(size));\n";
+        ss << "    }\n";
+    }
+
     ss << "};\n\n";
     ss << "} // namespace custom\n";
 

@@ -1171,14 +1171,14 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     std::string category = extract_json_string(body, "category", "search");
     std::string interface_mode = extract_json_string(body, "interface_mode", "with_target");
 
-    if (category != "search") {
-        return "{\"status\": \"error\", \"message\": \"Category '" + escape_json_str(category) + "' is currently in Extension Preview. Full execution harness is available for Search Algorithms. Please switch to Search Algorithms to run custom benchmarks.\"}";
+    if (category != "search" && category != "dataset" && category != "sorting") {
+        return "{\"status\": \"error\", \"message\": \"Category '" + escape_json_str(category) + "' is currently in Extension Preview. Live execution harness is available for Targeted Search, Dataset Operations, and Custom Sorting.\"}";
     }
 
     custom::CustomBenchmarkConfig cfg;
     cfg.category = category;
     cfg.interface_mode = interface_mode;
-    cfg.has_target = (interface_mode == "with_target");
+    cfg.has_target = (interface_mode == "with_target" && category == "search");
     cfg.dataset_path = extract_json_string(body, "dataset_path", "custom/samples/search_data.txt");
     cfg.target_value = extract_json_int(body, "target_value", extract_json_int(body, "target", 5000));
     cfg.iterations = extract_json_int(body, "iterations", 20);
@@ -1239,10 +1239,12 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
         return "{\"status\": \"error\", \"message\": \"Algorithm B source file not found: " + escape_json_str(alg_b_path) + "\"}";
     }
 
+    custom::CustomCategory cat_enum = custom::string_to_custom_category(category);
+
     // Auto-detect interfaces for alg A
     std::string alg_a_decl;
     if (alg_a_func.empty() || alg_a_type < 0) {
-        auto det = custom::InterfaceDetector::detect_from_file(alg_a_path, custom::CustomCategory::Search, interface_mode);
+        auto det = custom::InterfaceDetector::detect_from_file(alg_a_path, cat_enum, interface_mode);
         if (det.recognized) {
             alg_a_func = det.detected_function_name;
             alg_a_type = static_cast<int>(det.interface_type);
@@ -1257,7 +1259,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     // Auto-detect interfaces for alg B
     std::string alg_b_decl;
     if (alg_b_func.empty() || alg_b_type < 0) {
-        auto det = custom::InterfaceDetector::detect_from_file(alg_b_path, custom::CustomCategory::Search, interface_mode);
+        auto det = custom::InterfaceDetector::detect_from_file(alg_b_path, cat_enum, interface_mode);
         if (det.recognized) {
             alg_b_func = det.detected_function_name;
             alg_b_type = static_cast<int>(det.interface_type);

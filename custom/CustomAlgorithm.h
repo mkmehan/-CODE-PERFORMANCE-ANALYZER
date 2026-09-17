@@ -45,7 +45,7 @@ public:
     virtual CustomCategory category() const = 0;
 };
 
-// Standard Search Algorithm Interface
+// Standard Custom Benchmark Algorithm Interface
 class ISearchAlgorithm : public ICustomAlgorithm {
 public:
     CustomCategory category() const override { return CustomCategory::Search; }
@@ -58,7 +58,23 @@ public:
 
     // Standard search method: searches data[0..size-1] for target.
     // Returns 0-based index if found, or -1 if not found.
-    virtual int search(const int* data, size_t size, int target) = 0;
+    virtual int search(const int* data, size_t size, int target) {
+        (void)data;
+        (void)size;
+        (void)target;
+        return -1;
+    }
+
+    // Standard in-place sorting method (for Template 3: Custom Sorting)
+    virtual void sort(int* data, size_t size) {
+        (void)data;
+        (void)size;
+    }
+
+    // Standard dataset-wide operation method (for Template 2: Dataset Operation)
+    virtual long long execute_dataset(const int* data, size_t size) {
+        return search(data, size, 0);
+    }
 };
 
 } // namespace custom

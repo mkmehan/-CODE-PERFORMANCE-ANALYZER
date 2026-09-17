@@ -31,8 +31,8 @@ function escapeHtml(str) {
 }
 
 const CONTRACT_DEFS = {
-  'search:with_target': {
-    title: 'REQUIRED FUNCTION CONTRACT: SEARCH WITH TARGET',
+  'search': {
+    title: 'TEMPLATE 1: TARGETED SEARCH (TARGET REQUIRED)',
     badge: '✓ Available',
     badgeClass: 'badge-success',
     isAvailable: true,
@@ -40,12 +40,12 @@ const CONTRACT_DEFS = {
     sizeSpec: 'int size',
     paramSpec: 'int target',
     returnSpec: 'index or -1',
-    templateFilename: 'search_target_template.cpp',
+    templateFilename: 'targeted_template.cpp',
     code: `#include <vector>
 
-// Custom Search Algorithm (With Target)
+// Template 1: Targeted Search (Target Required)
 // Contract: Returns 0-based index of target if found, or -1 if not found.
-int search_algorithm(const int* data, int size, int target) {
+int custom_algorithm(const int* data, int size, int target) {
     for (int i = 0; i < size; ++i) {
         if (data[i] == target) {
             return i;
@@ -54,24 +54,24 @@ int search_algorithm(const int* data, int size, int target) {
     return -1;
 }`
   },
-  'search:dataset_only': {
-    title: 'REQUIRED FUNCTION CONTRACT: SEARCH / DATASET OPERATION (NO TARGET)',
+  'dataset': {
+    title: 'TEMPLATE 2: DATASET OPERATION / SCAN (NO TARGET)',
     badge: '✓ Available',
     badgeClass: 'badge-success',
     isAvailable: true,
     inputSpec: 'const int* data',
     sizeSpec: 'int size',
     paramSpec: 'None (Dataset Only)',
-    returnSpec: 'index or value',
-    templateFilename: 'search_dataset_template.cpp',
+    returnSpec: 'long long (result)',
+    templateFilename: 'dataset_template.cpp',
     code: `#include <vector>
 
-// Custom Search Algorithm (Dataset Only)
-// Contract: Searches or inspects dataset without external target.
-// Returns an index or computed property, or -1.
-int search_algorithm(const int* data, int size) {
+// Template 2: Dataset Operation / Scan (No Target Required)
+// Contract: Processes or inspects dataset without external target.
+// Returns computed index, aggregate sum, max/min, or 0 on success.
+long long custom_algorithm(const int* data, int size) {
+    long long max_val = -2147483647 - 1;
     int max_idx = -1;
-    int max_val = -2147483647 - 1;
     for (int i = 0; i < size; ++i) {
         if (data[i] > max_val) {
             max_val = data[i];
@@ -81,79 +81,21 @@ int search_algorithm(const int* data, int size) {
     return max_idx;
 }`
   },
-  'matrix': {
-    title: 'REQUIRED FUNCTION CONTRACT: MATRIX OPERATION (N x N)',
-    badge: '◐ Extension Preview',
-    badgeClass: 'badge-secondary',
-    isAvailable: false,
-    inputSpec: 'const double* A, const double* B',
-    sizeSpec: 'int n (Matrix n x n)',
-    paramSpec: 'double* C (Output)',
-    returnSpec: 'void (C buffer)',
-    templateFilename: 'matrix_template.cpp',
-    code: `#include <cstddef>
-
-// Code Performance Analyzer - Matrix Operations (Extension Preview)
-// Contract:
-//   A -> Flat row-major n x n input matrix
-//   B -> Flat row-major n x n input matrix
-//   C -> Flat row-major n x n output matrix (pre-allocated)
-//   n -> Matrix dimension (n x n)
-void matrix_operation(const double* A, const double* B, double* C, int n) {
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            double sum = 0.0;
-            for (int k = 0; k < n; ++k) {
-                sum += A[i * n + k] * B[k * n + j];
-            }
-            C[i * n + j] = sum;
-        }
-    }
-}`
-  },
-  'graph': {
-    title: 'REQUIRED FUNCTION CONTRACT: GRAPH TRAVERSAL',
-    badge: '◐ Extension Preview',
-    badgeClass: 'badge-secondary',
-    isAvailable: false,
-    inputSpec: 'const int* edges',
-    sizeSpec: 'int edge_count, int vertices',
-    paramSpec: 'int source',
-    returnSpec: 'void (Traversal execution)',
-    templateFilename: 'graph_template.cpp',
-    code: `#include <cstddef>
-
-// Code Performance Analyzer - Graph Traversal (Extension Preview)
-// Contract:
-//   edges      -> Flat edge list array (pairs of [u, v] ints)
-//   edge_count -> Number of directed or undirected edges
-//   vertices   -> Total vertex count (0 .. vertices-1)
-//   source     -> Starting vertex index
-void graph_algorithm(const int* edges, int edge_count, int vertices, int source) {
-    (void)edges;
-    (void)edge_count;
-    (void)vertices;
-    (void)source;
-    // Graph algorithm traversal implementation
-}`
-  },
   'sorting': {
-    title: 'REQUIRED FUNCTION CONTRACT: CUSTOM SORTING',
-    badge: '◐ Extension Preview',
-    badgeClass: 'badge-secondary',
-    isAvailable: false,
+    title: 'TEMPLATE 3: CUSTOM SORTING (IN-PLACE ARRAY SORT)',
+    badge: '✓ Available',
+    badgeClass: 'badge-success',
+    isAvailable: true,
     inputSpec: 'int* data (Mutable)',
     sizeSpec: 'int size',
-    paramSpec: 'In-Place Non-Decreasing',
+    paramSpec: 'In-Place Ascending',
     returnSpec: 'void (Sorted in-place)',
     templateFilename: 'sorting_template.cpp',
-    code: `#include <cstddef>
+    code: `#include <vector>
 
-// Code Performance Analyzer - Custom Sorting (Extension Preview)
-// Contract:
-//   data -> Pointer to array of integer elements to sort in-place
-//   size -> Number of elements in data
-void sort_algorithm(int* data, int size) {
+// Template 3: Custom Sorting (In-Place Array Sort)
+// Contract: Sorts data[0..size-1] in-place in ascending order.
+void custom_algorithm(int* data, int size) {
     for (int i = 0; i < size - 1; ++i) {
         for (int j = 0; j < size - i - 1; ++j) {
             if (data[j] > data[j + 1]) {
@@ -165,26 +107,41 @@ void sort_algorithm(int* data, int size) {
     }
 }`
   },
-  'tree': {
-    title: 'REQUIRED FUNCTION CONTRACT: BINARY SEARCH TREE',
-    badge: '◐ Extension Preview',
+  'matrix': {
+    title: 'TEMPLATE 4: MATRIX OPERATIONS (N x N)',
+    badge: '◐ Reference Preview',
     badgeClass: 'badge-secondary',
     isAvailable: false,
-    inputSpec: 'const int* keys',
-    sizeSpec: 'int size',
-    paramSpec: 'int search_key',
-    returnSpec: 'int (Index or Found)',
-    templateFilename: 'bst_template.cpp',
-    code: `#include <vector>
+    inputSpec: 'const double* A, const double* B',
+    sizeSpec: 'int n (Matrix n x n)',
+    paramSpec: 'double* C (Output)',
+    returnSpec: 'void (C buffer)',
+    templateFilename: 'matrix_template.cpp',
+    code: `#include <cstddef>
 
-// Binary Search Tree (Extension Preview)
-// Contract: Builds and searches BST from dataset keys.
-int bst_search(const int* keys, int size, int search_key) {
-    // BST traversal and query
-    return -1;
+// Template 4: Matrix Operations (Reference Preview)
+// Contract:
+//   A -> Flat row-major n x n input matrix
+//   B -> Flat row-major n x n input matrix
+//   C -> Flat row-major n x n output matrix (pre-allocated)
+//   n -> Matrix dimension (n x n)
+void custom_algorithm(const double* A, const double* B, double* C, int n) {
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            double sum = 0.0;
+            for (int k = 0; k < n; ++k) {
+                sum += A[i * n + k] * B[k * n + j];
+            }
+            C[i * n + j] = sum;
+        }
+    }
 }`
   }
 };
+
+// Aliases for compatibility
+CONTRACT_DEFS['search:with_target'] = CONTRACT_DEFS['search'];
+CONTRACT_DEFS['search:dataset_only'] = CONTRACT_DEFS['dataset'];
 
 function buildChartDataFromRun(run, metric, preferredDist = '') {
   if (!run || !run.results || run.results.length === 0) {
@@ -826,6 +783,8 @@ const App = {
 
     const btnBrowseDataset2 = document.getElementById('btn-browse-custom-dataset-2');
     const pathDataset2 = document.getElementById('custom-dataset-path-2');
+    const btnBrowseDataset3 = document.getElementById('btn-browse-custom-dataset-3');
+    const pathDataset3 = document.getElementById('custom-sorting-dataset');
 
     const btnRunCustom = document.getElementById('btn-run-custom-benchmark');
     const btnCancelCustom = document.getElementById('btn-cancel-custom-benchmark');
@@ -836,9 +795,8 @@ const App = {
 
     const updateTargetBadge = async () => {
       const cat = categorySelect ? categorySelect.value : 'search';
-      const iface = interfaceSelect ? interfaceSelect.value : 'with_target';
       const statusEl = document.getElementById('custom-target-status');
-      if (cat !== 'search' || iface !== 'with_target') {
+      if (cat !== 'search') {
         return;
       }
 
@@ -879,18 +837,8 @@ const App = {
 
     const updateCategoryAndInterface = () => {
       const cat = categorySelect ? categorySelect.value : 'search';
-      let key = cat;
-      let iface = 'with_target';
-
-      if (cat === 'search') {
-        if (interfaceGroup) interfaceGroup.style.display = 'block';
-        iface = interfaceSelect ? interfaceSelect.value : 'with_target';
-        key = `search:${iface}`;
-      } else {
-        if (interfaceGroup) interfaceGroup.style.display = 'none';
-      }
-
-      const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search:with_target'];
+      const key = cat;
+      const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search'];
 
       // Update Contract & Code Box
       if (contractTitle) contractTitle.textContent = contract.title;
@@ -916,17 +864,22 @@ const App = {
       if (panelSorting) panelSorting.style.display = 'none';
 
       // Show relevant panel & update titles
-      if (key === 'search:with_target') {
+      if (key === 'search') {
         if (panelSearchTarget) panelSearchTarget.style.display = 'block';
         if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Dataset & Search Target';
         if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Linear Search)';
         if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. Binary Search)';
         updateTargetBadge();
-      } else if (key === 'search:dataset_only') {
+      } else if (key === 'dataset') {
         if (panelSearchDataset) panelSearchDataset.style.display = 'block';
         if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Dataset Configuration (No Target Required)';
-        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Max Element Search)';
-        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. First Negative Search)';
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Max Element Scan)';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. Sum / BST Traversal)';
+      } else if (key === 'sorting') {
+        if (panelSorting) panelSorting.style.display = 'block';
+        if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Sorting Dataset Configuration (In-Place Array Sort)';
+        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. Bubble Sort)';
+        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. Quick Sort / Selection Sort)';
       } else if (key === 'matrix') {
         if (panelMatrix) panelMatrix.style.display = 'block';
         if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Matrix Parameters (N x N)';
@@ -937,11 +890,6 @@ const App = {
         if (customParamsCardTitle) customParamsCardTitle.textContent = '3. Graph Parameters (Vertices & Edges)';
         if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1 (e.g. BFS Traversal)';
         if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2 (e.g. DFS Traversal)';
-      } else if (key === 'sorting' || key === 'tree') {
-        if (panelSorting) panelSorting.style.display = 'block';
-        if (customParamsCardTitle) customParamsCardTitle.textContent = `3. ${key === 'tree' ? 'Tree' : 'Sorting'} Dataset Configuration`;
-        if (customAlgATitle) customAlgATitle.textContent = 'Algorithm 1';
-        if (customAlgBTitle) customAlgBTitle.textContent = 'Algorithm 2';
       }
 
       // Configure execution state
@@ -965,15 +913,12 @@ const App = {
     };
 
     if (categorySelect) categorySelect.addEventListener('change', updateCategoryAndInterface);
-    if (interfaceSelect) interfaceSelect.addEventListener('change', updateCategoryAndInterface);
     updateCategoryAndInterface();
 
     if (btnCopyTemplate) {
       btnCopyTemplate.addEventListener('click', async () => {
         const cat = categorySelect ? categorySelect.value : 'search';
-        const iface = (cat === 'search' && interfaceSelect) ? interfaceSelect.value : '';
-        const key = cat === 'search' ? `search:${iface}` : cat;
-        const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search:with_target'];
+        const contract = CONTRACT_DEFS[cat] || CONTRACT_DEFS['search'];
         try {
           await navigator.clipboard.writeText(contract.code);
           const orig = btnCopyTemplate.textContent;
@@ -988,9 +933,7 @@ const App = {
     if (btnDownloadTemplate) {
       btnDownloadTemplate.addEventListener('click', () => {
         const cat = categorySelect ? categorySelect.value : 'search';
-        const iface = (cat === 'search' && interfaceSelect) ? interfaceSelect.value : '';
-        const key = cat === 'search' ? `search:${iface}` : cat;
-        const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search:with_target'];
+        const contract = CONTRACT_DEFS[cat] || CONTRACT_DEFS['search'];
         const blob = new Blob([contract.code], { type: 'text/x-c++src;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1018,7 +961,9 @@ const App = {
           const reader = new FileReader();
           reader.onload = async (e) => {
             const content = e.target.result;
-            const res = await API.uploadCustomAlgorithm(file.name, content);
+            const cat = categorySelect ? categorySelect.value : 'search';
+            const ifaceMode = (cat === 'search') ? 'with_target' : 'dataset_only';
+            const res = await API.uploadCustomAlgorithm(file.name, content, cat, ifaceMode);
             btnBrowseAlgA.disabled = false;
             btnBrowseAlgA.textContent = '📁 Browse .cpp';
             if (res && (res.success || res.recognized)) {
@@ -1063,7 +1008,9 @@ const App = {
           const reader = new FileReader();
           reader.onload = async (e) => {
             const content = e.target.result;
-            const res = await API.uploadCustomAlgorithm(file.name, content);
+            const cat = categorySelect ? categorySelect.value : 'search';
+            const ifaceMode = (cat === 'search') ? 'with_target' : 'dataset_only';
+            const res = await API.uploadCustomAlgorithm(file.name, content, cat, ifaceMode);
             btnBrowseAlgB.disabled = false;
             btnBrowseAlgB.textContent = '📁 Browse .cpp';
             if (res && (res.success || res.recognized)) {
@@ -1207,10 +1154,45 @@ const App = {
       });
     }
 
+    // Dataset upload button (Panel 3C: Sorting Dataset Only)
+    if (btnBrowseDataset3 && pickerDataset) {
+      btnBrowseDataset3.addEventListener('click', () => {
+        pickerDataset.onchange = async () => {
+          const file = pickerDataset.files[0];
+          if (!file) return;
+          btnBrowseDataset3.disabled = true;
+          btnBrowseDataset3.textContent = 'Uploading...';
+          try {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              const content = e.target.result;
+              const res = await API.uploadDataset(file.name, content);
+              btnBrowseDataset3.disabled = false;
+              btnBrowseDataset3.textContent = '📁 Upload';
+              if (res && res.valid) {
+                if (pathDataset3) pathDataset3.value = res.file_path;
+                if (pathDataset2) pathDataset2.value = res.file_path;
+                if (pathDataset) pathDataset.value = res.file_path;
+              } else {
+                alert(`Upload failed: ${res ? res.error_message : 'Server error'}`);
+              }
+            };
+            reader.readAsText(file);
+          } catch (err) {
+            btnBrowseDataset3.disabled = false;
+            btnBrowseDataset3.textContent = '📁 Upload';
+            alert(`File read error: ${err.message}`);
+          }
+        };
+        pickerDataset.click();
+      });
+    }
+
     if (btnSampleDataset && pathDataset) {
       btnSampleDataset.addEventListener('click', async () => {
         pathDataset.value = 'custom/samples/search_data.txt';
         if (pathDataset2) pathDataset2.value = 'custom/samples/search_data.txt';
+        if (pathDataset3) pathDataset3.value = 'custom/samples/search_data.txt';
         if (targetVal) targetVal.value = 5000;
         await updateTargetBadge();
       });
@@ -1220,10 +1202,10 @@ const App = {
     if (btnRunCustom) {
       btnRunCustom.addEventListener('click', async () => {
         const category = categorySelect ? categorySelect.value : 'search';
-        const ifaceMode = (category === 'search' && interfaceSelect) ? interfaceSelect.value : 'with_target';
+        const ifaceMode = (category === 'search') ? 'with_target' : 'dataset_only';
 
-        if (category !== 'search') {
-          alert(`Benchmark execution is currently available for Search Algorithms.\n\n${category.toUpperCase()} is in Extension Preview. You can inspect its code contract and download the reference template.`);
+        if (category !== 'search' && category !== 'dataset' && category !== 'sorting') {
+          alert(`Benchmark execution is currently available for Targeted Search, Dataset Operations, and Custom Sorting.\n\n${category.toUpperCase()} is in Extension Preview. You can inspect its code contract and download the reference template.`);
           return;
         }
 
@@ -1232,11 +1214,14 @@ const App = {
         let dataPath = '';
         let target = 0;
 
-        if (ifaceMode === 'with_target') {
+        if (category === 'search') {
           dataPath = pathDataset ? pathDataset.value.trim() : '';
           target = targetVal ? (parseInt(targetVal.value, 10) || 0) : 0;
-        } else {
+        } else if (category === 'dataset') {
           dataPath = (pathDataset2 && pathDataset2.value.trim()) ? pathDataset2.value.trim() : (pathDataset ? pathDataset.value.trim() : '');
+          target = 0;
+        } else if (category === 'sorting') {
+          dataPath = (pathDataset3 && pathDataset3.value.trim()) ? pathDataset3.value.trim() : (pathDataset ? pathDataset.value.trim() : '');
           target = 0;
         }
 

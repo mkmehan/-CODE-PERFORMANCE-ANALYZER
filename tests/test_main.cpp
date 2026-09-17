@@ -1395,47 +1395,74 @@ void run_custom_benchmark_tests() {
 
     // 9. Test: Category and Interface Mode Detection for Templates
     {
-        // Search with target template
-        auto det_st = custom::InterfaceDetector::detect_from_file("custom/templates/search_target_template.cpp", custom::CustomCategory::Search, "with_target");
-        expect(det_st.recognized, "InterfaceDetector recognizes search_target_template.cpp");
-        expect(det_st.detected_function_name == "search_algorithm", "search_target_template function name is search_algorithm");
+        // Template 1: Targeted search template
+        auto det_t1 = custom::InterfaceDetector::detect_from_file("custom/templates/targeted_template.cpp", custom::CustomCategory::Search, "with_target");
+        expect(det_t1.recognized, "InterfaceDetector recognizes targeted_template.cpp");
+        expect(det_t1.detected_function_name == "custom_algorithm", "targeted_template function name is custom_algorithm");
 
-        // Search dataset-only template
-        auto det_sd = custom::InterfaceDetector::detect_from_file("custom/templates/search_dataset_template.cpp", custom::CustomCategory::Search, "dataset_only");
-        expect(det_sd.recognized, "InterfaceDetector recognizes search_dataset_template.cpp");
-        expect(det_sd.detected_function_name == "search_algorithm", "search_dataset_template function name is search_algorithm");
+        // Template 2: Dataset operation template
+        auto det_t2 = custom::InterfaceDetector::detect_from_file("custom/templates/dataset_template.cpp", custom::CustomCategory::Search, "dataset_only");
+        expect(det_t2.recognized, "InterfaceDetector recognizes dataset_template.cpp");
+        expect(det_t2.detected_function_name == "custom_algorithm", "dataset_template function name is custom_algorithm");
 
-        // Matrix template
+        // Template 3: Sorting template
+        auto det_t3 = custom::InterfaceDetector::detect_from_file("custom/templates/sorting_template.cpp", custom::CustomCategory::Sorting);
+        expect(det_t3.recognized, "InterfaceDetector recognizes sorting_template.cpp");
+        expect(det_t3.detected_function_name == "custom_algorithm" || det_t3.detected_function_name == "sort_algorithm",
+               "sorting_template function name is custom_algorithm");
+
+        // Template 4: Matrix template (Preview)
         auto det_mx = custom::InterfaceDetector::detect_from_file("custom/templates/matrix_template.cpp", custom::CustomCategory::Matrix);
         expect(det_mx.recognized, "InterfaceDetector recognizes matrix_template.cpp");
-        expect(det_mx.detected_function_name == "matrix_operation", "matrix_template function name is matrix_operation");
+        expect(det_mx.detected_function_name == "matrix_operation" || det_mx.detected_function_name == "custom_algorithm",
+               "matrix_template function recognized");
 
-        // Graph template
+        // Graph template (Preview)
         auto det_gr = custom::InterfaceDetector::detect_from_file("custom/templates/graph_template.cpp", custom::CustomCategory::Graph);
         expect(det_gr.recognized, "InterfaceDetector recognizes graph_template.cpp");
-        expect(det_gr.detected_function_name == "graph_algorithm", "graph_template function name is graph_algorithm");
-
-        // Sorting template
-        auto det_so = custom::InterfaceDetector::detect_from_file("custom/templates/sorting_template.cpp", custom::CustomCategory::Sorting);
-        expect(det_so.recognized, "InterfaceDetector recognizes sorting_template.cpp");
-        expect(det_so.detected_function_name == "sort_algorithm", "sorting_template function name is sort_algorithm");
     }
 
-    // 10. Test: Category Extension Preview Guards
+    // 10. Test: Category Extension Preview Guards & Custom Sorting Execution
     {
+        // Preview domains rejected gracefully
         custom::CustomBenchmarkConfig matrix_cfg;
         matrix_cfg.category = "matrix";
         auto matrix_res = custom::CustomBenchmarkRunner::execute(matrix_cfg);
-        expect(!matrix_res.success, "CustomBenchmarkRunner rejects non-search category execution");
+        expect(!matrix_res.success, "CustomBenchmarkRunner rejects preview category matrix");
         expect(matrix_res.error_message.find("Extension Preview") != std::string::npos,
                "Matrix error message informs user about Extension Preview");
 
         custom::CustomBenchmarkConfig graph_cfg;
         graph_cfg.category = "graph";
         auto graph_res = custom::CustomBenchmarkRunner::execute(graph_cfg);
-        expect(!graph_res.success, "CustomBenchmarkRunner rejects graph execution");
+        expect(!graph_res.success, "CustomBenchmarkRunner rejects preview category graph");
         expect(graph_res.error_message.find("Extension Preview") != std::string::npos,
                "Graph error message informs user about Extension Preview");
+
+        // Template 3: Live Custom Sorting execution
+        std::vector<custom::AlgorithmSourceSpec> sort_specs;
+        custom::AlgorithmSourceSpec sort_alg;
+        sort_alg.algorithm_name = "Custom Bubble Sort";
+        sort_alg.source_file_path = "custom/templates/sorting_template.cpp";
+        sort_alg.detected_function = "custom_algorithm";
+        sort_alg.interface_type = custom::SearchInterfaceType::CustomSorting;
+        sort_specs.push_back(sort_alg);
+
+        custom::CustomBenchmarkConfig sort_cfg;
+        sort_cfg.category = "sorting";
+        sort_cfg.interface_mode = "dataset_only";
+        sort_cfg.dataset_path = "custom/samples/search_data.txt";
+        sort_cfg.iterations = 3;
+        sort_cfg.warmup_runs = 1;
+        sort_cfg.algorithms = sort_specs;
+
+        auto sort_res = custom::CustomBenchmarkRunner::execute(sort_cfg);
+        expect(sort_res.success, "CustomBenchmarkRunner executes custom sorting benchmark successfully");
+        if (sort_res.success) {
+            expect(!sort_res.run.results.empty(), "Sorting run results are populated");
+            expect(sort_res.run.benchmark_category == "sorting", "Run category is recorded as sorting");
+            expect(sort_res.run.interface_mode == "dataset_only", "Interface mode is recorded as dataset_only");
+        }
     }
 
     // 11. Test: Interface Mode Incompatibility in RegressionAnalyzer

@@ -20,10 +20,10 @@ namespace custom {
 CustomRunnerExecutionResult CustomBenchmarkRunner::execute(const CustomBenchmarkConfig& config) {
     CustomRunnerExecutionResult res;
 
-    // Check category support (Search is active; Matrix/Graph/Sorting are Extension Previews)
-    if (config.category != "search") {
+    // Check category support (Search, Dataset, and Sorting are active; Matrix/Graph are Previews)
+    if (config.category != "search" && config.category != "dataset" && config.category != "sorting") {
         res.success = false;
-        res.error_message = "Category '" + config.category + "' is currently in Extension Preview. Full compilation and execution harness is available for Search Algorithms.";
+        res.error_message = "Category '" + config.category + "' is currently in Extension Preview. Full compilation and execution harness is available for Targeted Search, Dataset Operations, and Custom Sorting.";
         return res;
     }
 
@@ -45,6 +45,7 @@ CustomRunnerExecutionResult CustomBenchmarkRunner::execute(const CustomBenchmark
     // 4. Archive run into history if successful
     if (res.success && !res.run.run_id.empty()) {
         res.run.interface_mode = config.interface_mode;
+        res.run.benchmark_category = config.category;
         analysis::HistoryManager history;
         analysis::ReportLoader::save_to_json_file(res.run, "results/history/run_" + res.run.run_id + ".json");
     }
@@ -66,6 +67,8 @@ CustomRunnerExecutionResult CustomBenchmarkRunner::run_isolated_process(
 
     std::string cmd = "\"" + executable_path + "\" --dataset \"" + config.dataset_path + "\" " +
                       "--target " + std::to_string(config.target_value) + " " +
+                      "--category \"" + config.category + "\" " +
+                      "--interface-mode \"" + config.interface_mode + "\" " +
                       "--iterations " + std::to_string(config.iterations) + " " +
                       "--warmup " + std::to_string(config.warmup_runs) + " " +
                       "--affinity " + std::to_string(config.cpu_affinity) + " " +

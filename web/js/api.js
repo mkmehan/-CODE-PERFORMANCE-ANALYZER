@@ -147,12 +147,12 @@ const API = {
     }
   },
 
-  async uploadCustomAlgorithm(filename, content) {
+  async uploadCustomAlgorithm(filename, content, category = 'search', interfaceMode = 'with_target') {
     try {
       const res = await fetch(`${this.baseUrl}/api/custom-benchmark/upload-algorithm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, content })
+        body: JSON.stringify({ filename, content, category, interface_mode: interfaceMode })
       });
       return await res.json();
     } catch (err) {

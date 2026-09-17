@@ -49,7 +49,10 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
                     ss << "extern \"C\" int search_algorithm(const int*, int, int);\n";
                     break;
                 case SearchInterfaceType::DatasetOnly:
-                    ss << "int " << alg.detected_function << "(const int*, int);\n";
+                    ss << "long long " << alg.detected_function << "(const int*, int);\n";
+                    break;
+                case SearchInterfaceType::CustomSorting:
+                    ss << "void " << alg.detected_function << "(int*, int);\n";
                     break;
                 default:
                     ss << "int " << alg.detected_function << "(const int*, size_t, int);\n";
@@ -106,13 +109,23 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
                 break;
             case SearchInterfaceType::DatasetOnly:
                 ss << "        (void)target;\n";
-                ss << "        return " << alg.detected_function << "(const_cast<int*>(data), static_cast<int>(size));\n";
+                ss << "        return static_cast<int>(" << alg.detected_function << "(const_cast<int*>(data), static_cast<int>(size)));\n";
                 break;
             default:
                 ss << "        return -1;\n";
                 break;
         }
         ss << "    }\n";
+        if (alg.interface_type == SearchInterfaceType::CustomSorting) {
+            ss << "    void sort(int* data, size_t size) override {\n";
+            ss << "        " << alg.detected_function << "(data, static_cast<int>(size));\n";
+            ss << "    }\n";
+        }
+        if (alg.interface_type == SearchInterfaceType::DatasetOnly) {
+            ss << "    long long execute_dataset(const int* data, size_t size) override {\n";
+            ss << "        return static_cast<long long>(" << alg.detected_function << "(const_cast<int*>(data), static_cast<int>(size)));\n";
+            ss << "    }\n";
+        }
         ss << "};\n\n";
     }
 
