@@ -143,6 +143,16 @@ void custom_algorithm(const double* A, const double* B, double* C, int n) {
 CONTRACT_DEFS['search:with_target'] = CONTRACT_DEFS['search'];
 CONTRACT_DEFS['search:dataset_only'] = CONTRACT_DEFS['dataset'];
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildChartDataFromRun(run, metric, preferredDist = '') {
   if (!run || !run.results || run.results.length === 0) {
     return { valid: false, series: [] };
@@ -169,8 +179,9 @@ function buildChartDataFromRun(run, metric, preferredDist = '') {
       return;
     }
     const name = r.algorithm_name || r.name || r.algorithm;
-    if (!seriesMap[name]) {
-      seriesMap[name] = { algorithm: r.algorithm, name: name, points: [] };
+    const seriesKey = r.algorithm || name;
+    if (!seriesMap[seriesKey]) {
+      seriesMap[seriesKey] = { algorithm: r.algorithm, name: name, points: [] };
     }
     const xVal = Number(r.input_size) || 0;
     let yVal = 0;
@@ -180,7 +191,7 @@ function buildChartDataFromRun(run, metric, preferredDist = '') {
     } else {
       yVal = (r.time_mean_ns ?? r.mean_time_ns ?? 0) / 1000.0; // µs
     }
-    seriesMap[name].points.push({ x: xVal, y: yVal });
+    seriesMap[seriesKey].points.push({ x: xVal, y: yVal });
   });
 
   const seriesList = Object.values(seriesMap).map(s => {
@@ -836,9 +847,11 @@ const App = {
     };
 
     const updateCategoryAndInterface = () => {
-      const cat = categorySelect ? categorySelect.value : 'search';
-      const key = cat;
-      const contract = CONTRACT_DEFS[key] || CONTRACT_DEFS['search'];
+      const cat = categorySelect ? categorySelect.value : 'search:with_target';
+      let key = cat;
+      if (key === 'search:with_target') key = 'search';
+      else if (key === 'search:dataset_only') key = 'dataset';
+      const contract = CONTRACT_DEFS[cat] || CONTRACT_DEFS[key] || CONTRACT_DEFS['search'];
 
       // Update Contract & Code Box
       if (contractTitle) contractTitle.textContent = contract.title;
@@ -961,8 +974,9 @@ const App = {
           const reader = new FileReader();
           reader.onload = async (e) => {
             const content = e.target.result;
-            const cat = categorySelect ? categorySelect.value : 'search';
-            const ifaceMode = (cat === 'search') ? 'with_target' : 'dataset_only';
+            const rawCat = categorySelect ? categorySelect.value : 'search';
+            const cat = (rawCat === 'search:dataset_only') ? 'dataset' : ((rawCat === 'search:with_target') ? 'search' : rawCat);
+            const ifaceMode = (cat === 'search') ? 'with_target' : (cat === 'sorting' ? 'sorting' : 'dataset_only');
             const res = await API.uploadCustomAlgorithm(file.name, content, cat, ifaceMode);
             btnBrowseAlgA.disabled = false;
             btnBrowseAlgA.textContent = '📁 Browse .cpp';
@@ -1008,8 +1022,9 @@ const App = {
           const reader = new FileReader();
           reader.onload = async (e) => {
             const content = e.target.result;
-            const cat = categorySelect ? categorySelect.value : 'search';
-            const ifaceMode = (cat === 'search') ? 'with_target' : 'dataset_only';
+            const rawCat = categorySelect ? categorySelect.value : 'search';
+            const cat = (rawCat === 'search:dataset_only') ? 'dataset' : ((rawCat === 'search:with_target') ? 'search' : rawCat);
+            const ifaceMode = (cat === 'search') ? 'with_target' : (cat === 'sorting' ? 'sorting' : 'dataset_only');
             const res = await API.uploadCustomAlgorithm(file.name, content, cat, ifaceMode);
             btnBrowseAlgB.disabled = false;
             btnBrowseAlgB.textContent = '📁 Browse .cpp';
@@ -1201,8 +1216,25 @@ const App = {
     // Run Custom Benchmark
     if (btnRunCustom) {
       btnRunCustom.addEventListener('click', async () => {
-        const category = categorySelect ? categorySelect.value : 'search';
-        const ifaceMode = (category === 'search') ? 'with_target' : 'dataset_only';
+        const rawCat = categorySelect ? categorySelect.value : 'search:with_target';
+        let category = rawCat;
+        let ifaceMode = 'with_target';
+        if (rawCat === 'search:with_target') {
+          category = 'search';
+          ifaceMode = 'with_target';
+        } else if (rawCat === 'search:dataset_only') {
+          category = 'dataset';
+          ifaceMode = 'dataset_only';
+        } else if (rawCat === 'dataset') {
+          category = 'dataset';
+          ifaceMode = 'dataset_only';
+        } else if (rawCat === 'sorting') {
+          category = 'sorting';
+          ifaceMode = 'sorting';
+        } else if (rawCat === 'search') {
+          category = 'search';
+          ifaceMode = 'with_target';
+        }
 
         if (category !== 'search' && category !== 'dataset' && category !== 'sorting') {
           alert(`Benchmark execution is currently available for Targeted Search, Dataset Operations, and Custom Sorting.\n\n${category.toUpperCase()} is in Extension Preview. You can inspect its code contract and download the reference template.`);
@@ -1605,11 +1637,11 @@ const App = {
             const retIdxText = r.search_result_index !== undefined ? r.search_result_index : (r.verified ? refIdx : -1);
             card.innerHTML = `
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <strong style="color: #fff; font-size: 0.95rem;">${r.algorithm_name || r.name || r.algorithm}</strong>
+                <strong style="color: #fff; font-size: 0.95rem;">${escapeHtml(r.algorithm_name || r.name || r.algorithm)}</strong>
                 ${passBadge}
               </div>
               <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
-                <div>Returned Index: <strong style="color: var(--accent); font-family: monospace;">${retIdxText}</strong></div>
+                <div>Returned Index: <strong style="color: var(--accent); font-family: monospace;">${escapeHtml(retIdxText)}</strong></div>
                 <div>Target Found: ${foundBadge}</div>
                 <div>Decision Accuracy: <strong style="color: ${r.verified ? '#10b981' : '#f43f5e'};">${r.verified ? 'CORRECT DECISION' : 'INCORRECT'}</strong></div>
               </div>
@@ -1634,11 +1666,11 @@ const App = {
             const tr = document.createElement('tr');
             const r2 = (c.fit_quality !== undefined ? Number(c.fit_quality).toFixed(2) : '—');
             tr.innerHTML = `
-              <td style="font-weight: 600; color: #fff;">${c.algorithm_name || c.algorithm}</td>
-              <td style="font-family: monospace; color: var(--accent);">${c.theoretical || '—'}</td>
-              <td style="font-family: monospace; color: #a5f3fc;">${c.observed_model || '—'}</td>
-              <td><strong style="color: #10b981;">${c.observed_complexity || '—'}</strong></td>
-              <td><span class="badge badge-secondary">R² = ${r2}</span></td>
+              <td style="font-weight: 600; color: #fff;">${escapeHtml(c.algorithm_name || c.algorithm)}</td>
+              <td style="font-family: monospace; color: var(--accent);">${escapeHtml(c.theoretical || '—')}</td>
+              <td style="font-family: monospace; color: #a5f3fc;">${escapeHtml(c.observed_model || '—')}</td>
+              <td><strong style="color: #10b981;">${escapeHtml(c.observed_complexity || '—')}</strong></td>
+              <td><span class="badge badge-secondary">R² = ${escapeHtml(r2)}</span></td>
             `;
             cTbody.appendChild(tr);
           });
@@ -1672,22 +1704,22 @@ const App = {
         const badgeInput = isCustom
           ? (run.interface_mode === 'dataset_only'
               ? '<span class="badge badge-primary">Dataset Only</span>'
-              : `<span class="badge badge-primary">Target: ${run.custom_target_parameter ?? 'N/A'}</span>`)
-          : `<span class="badge badge-neutral">${r.input_type || 'Random'}</span>`;
+              : `<span class="badge badge-primary">Target: ${escapeHtml(run.custom_target_parameter ?? 'N/A')}</span>`)
+          : `<span class="badge badge-neutral">${escapeHtml(r.input_type || 'Random')}</span>`;
 
         const statusBadge = (r.verified !== false)
           ? `<span class="badge badge-success">PASS ✓</span>`
           : `<span class="badge badge-danger">FAIL ✗</span>`;
 
         tr.innerHTML = `
-          <td style="font-weight: 600; color: #fff;">${name}</td>
+          <td style="font-weight: 600; color: #fff;">${escapeHtml(name)}</td>
           <td>${(r.input_size || 0).toLocaleString()}</td>
           <td>${badgeInput}</td>
-          <td>${medStr}</td>
-          <td>${meanStr}</td>
-          <td style="color: var(--text-muted); font-size: 0.8rem;">${minStr} / ${maxStr}</td>
-          <td>${peakStr}</td>
-          <td style="color: var(--accent); font-weight: 600;">${spText}</td>
+          <td>${escapeHtml(medStr)}</td>
+          <td>${escapeHtml(meanStr)}</td>
+          <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHtml(minStr)} / ${escapeHtml(maxStr)}</td>
+          <td>${escapeHtml(peakStr)}</td>
+          <td style="color: var(--accent); font-weight: 600;">${escapeHtml(spText)}</td>
           <td>${statusBadge}</td>
         `;
         tbody.appendChild(tr);
@@ -1716,19 +1748,19 @@ const App = {
 
       const isCustom = run.benchmark_mode === 'custom';
       const badgeHtml = isCustom
-        ? `<span class="badge badge-primary">Custom: ${run.benchmark_category || 'Search'}</span>`
-        : `<span class="badge badge-secondary">${run.input_type || 'Generated'}</span>`;
+        ? `<span class="badge badge-primary">Custom: ${escapeHtml(run.benchmark_category || 'Search')}</span>`
+        : `<span class="badge badge-secondary">${escapeHtml(run.input_type || 'Generated')}</span>`;
 
       tr.innerHTML = `
-        <td style="font-family: monospace; font-weight: 600; color: #fff;">${run.run_id}</td>
-        <td>${run.timestamp || '—'}</td>
+        <td style="font-family: monospace; font-weight: 600; color: #fff;">${escapeHtml(run.run_id)}</td>
+        <td>${escapeHtml(run.timestamp || '—')}</td>
         <td>${badgeHtml}</td>
         <td>${run.element_count ? run.element_count.toLocaleString() : 'N/A'}</td>
-        <td style="color: var(--text-muted); font-size: 0.85rem;">${algsStr}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">${escapeHtml(algsStr)}</td>
         <td>
           <div style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-secondary btn-sm btn-hist-compare" data-id="${run.run_id}">Compare</button>
-            <button class="btn btn-secondary btn-sm btn-hist-report" data-id="${run.run_id}">HTML Report</button>
+            <button class="btn btn-secondary btn-sm btn-hist-compare" data-id="${escapeHtml(run.run_id)}">Compare</button>
+            <button class="btn btn-secondary btn-sm btn-hist-report" data-id="${escapeHtml(run.run_id)}">HTML Report</button>
           </div>
         </td>
       `;
@@ -1821,7 +1853,7 @@ const App = {
         const gTr = document.createElement('tr');
         gTr.innerHTML = `
           <td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; color: var(--accent);">
-            Dataset: ${run.input_type || 'Generated'} (Single Algorithm Run • No Relative Speedup)
+            Dataset: ${escapeHtml(run.input_type || 'Generated')} (Single Algorithm Run • No Relative Speedup)
           </td>
         `;
         tbody.appendChild(gTr);
@@ -1832,17 +1864,17 @@ const App = {
           const memKb = (((r.memory_peak_increase_bytes ?? (r.memory ? r.memory.peak_private_increase_bytes : 0)) || 0) / 1024.0).toFixed(1);
           tr.innerHTML = `
             <td><span class="badge badge-secondary">#1</span></td>
-            <td style="font-weight: 600; color: #fff;">${r.algorithm_name || r.algorithm} (N=${(r.input_size || 0).toLocaleString()})</td>
-            <td>${meanStr}</td>
-            <td>${medStr}</td>
+            <td style="font-weight: 600; color: #fff;">${escapeHtml(r.algorithm_name || r.algorithm)} (N=${(r.input_size || 0).toLocaleString()})</td>
+            <td>${escapeHtml(meanStr)}</td>
+            <td>${escapeHtml(medStr)}</td>
             <td style="color: var(--accent); font-weight: 600;">1.00x</td>
-            <td style="color: var(--text-muted);">baseline (Peak RAM: ${memKb} KB)</td>
+            <td style="color: var(--text-muted);">baseline (Peak RAM: ${escapeHtml(memKb)} KB)</td>
           `;
           tbody.appendChild(tr);
         });
         return;
       }
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">${(comp && comp.error_message) ? comp.error_message : 'No comparison data available for this run.'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">${(comp && comp.error_message) ? escapeHtml(comp.error_message) : 'No comparison data available for this run.'}</td></tr>`;
       return;
     }
 
@@ -1852,7 +1884,7 @@ const App = {
       const gTr = document.createElement('tr');
       gTr.innerHTML = `
         <td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; color: var(--accent);">
-          Dataset: ${group.input_type} • Size N = ${group.input_size.toLocaleString()}
+          Dataset: ${escapeHtml(group.input_type)} • Size N = ${group.input_size.toLocaleString()}
         </td>
       `;
       tbody.appendChild(gTr);
@@ -1880,10 +1912,10 @@ const App = {
 
         tr.innerHTML = `
           <td>${rankBadge}</td>
-          <td style="font-weight: 600; color: #fff;">${r.name || r.algorithm_name || r.algorithm}</td>
-          <td>${meanStr}</td>
-          <td>${medStr}</td>
-          <td style="color: var(--accent); font-weight: 600;">${speedup}</td>
+          <td style="font-weight: 600; color: #fff;">${escapeHtml(r.name || r.algorithm_name || r.algorithm)}</td>
+          <td>${escapeHtml(meanStr)}</td>
+          <td>${escapeHtml(medStr)}</td>
+          <td style="color: var(--accent); font-weight: 600;">${escapeHtml(speedup)}</td>
           <td>${pctFaster}</td>
         `;
         tbody.appendChild(tr);
@@ -1985,11 +2017,11 @@ const App = {
         : `${run.input_type || 'Generated'} (N=${run.element_count ? run.element_count.toLocaleString() : 'N/A'})`;
 
       tr.innerHTML = `
-        <td style="font-family: monospace; font-weight: 600; color: #fff;">${run.run_id}</td>
-        <td>${run.timestamp || '—'}</td>
-        <td><span class="badge ${isCustom ? 'badge-primary' : 'badge-secondary'}">${badgeText}</span></td>
+        <td style="font-family: monospace; font-weight: 600; color: #fff;">${escapeHtml(run.run_id)}</td>
+        <td>${escapeHtml(run.timestamp || '—')}</td>
+        <td><span class="badge ${isCustom ? 'badge-primary' : 'badge-secondary'}">${escapeHtml(badgeText)}</span></td>
         <td>
-          <button class="btn btn-primary btn-sm btn-open-report" data-id="${run.run_id}">Open HTML Report</button>
+          <button class="btn btn-primary btn-sm btn-open-report" data-id="${escapeHtml(run.run_id)}">Open HTML Report</button>
         </td>
       `;
 

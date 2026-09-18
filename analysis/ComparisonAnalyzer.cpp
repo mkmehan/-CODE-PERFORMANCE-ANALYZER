@@ -51,8 +51,21 @@ ComparisonReport ComparisonAnalyzer::compare_records(
         return report;
     }
 
-    // Verify condition compatibility: every record must share exact input_type and input_size
+    // Filter out unverified records or records with non-positive execution times
+    std::vector<BenchmarkRecord> valid_records;
     for (const auto& rec : records) {
+        if (rec.verified && rec.time_mean_ns > 0.0) {
+            valid_records.push_back(rec);
+        }
+    }
+
+    if (valid_records.empty()) {
+        report.error_message = "Cannot compare: no valid and verified benchmark records available.";
+        return report;
+    }
+
+    // Verify condition compatibility: every record must share exact input_type and input_size
+    for (const auto& rec : valid_records) {
         if (rec.input_type != input_type || rec.input_size != input_size) {
             report.error_message = "Cannot compare: Custom dataset or input condition differs.";
             return report;
@@ -60,7 +73,7 @@ ComparisonReport ComparisonAnalyzer::compare_records(
     }
 
     // Sort by mean time ascending (fastest first)
-    auto sorted_records = records;
+    auto sorted_records = valid_records;
     std::sort(sorted_records.begin(), sorted_records.end(), [](const BenchmarkRecord& a, const BenchmarkRecord& b) {
         return a.time_mean_ns < b.time_mean_ns;
     });

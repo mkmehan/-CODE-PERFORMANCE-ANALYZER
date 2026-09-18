@@ -32,6 +32,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -498,6 +499,7 @@ void run_comparison_tests() {
     r_std.input_type = "Random";
     r_std.input_size = 10000;
     r_std.time_mean_ns = 710000.0; // 710 µs
+    r_std.verified = true;
 
     analysis::BenchmarkRecord r_quick;
     r_quick.algorithm = "quicksort";
@@ -505,6 +507,7 @@ void run_comparison_tests() {
     r_quick.input_type = "Random";
     r_quick.input_size = 10000;
     r_quick.time_mean_ns = 1240000.0; // 1240 µs
+    r_quick.verified = true;
 
     analysis::BenchmarkRecord r_merge;
     r_merge.algorithm = "mergesort";
@@ -512,6 +515,7 @@ void run_comparison_tests() {
     r_merge.input_type = "Random";
     r_merge.input_size = 10000;
     r_merge.time_mean_ns = 1810000.0; // 1810 µs
+    r_merge.verified = true;
 
     analysis::BenchmarkRecord r_heap;
     r_heap.algorithm = "heapsort";
@@ -519,6 +523,7 @@ void run_comparison_tests() {
     r_heap.input_type = "Random";
     r_heap.input_size = 10000;
     r_heap.time_mean_ns = 2100000.0; // 2100 µs
+    r_heap.verified = true;
 
     std::vector<analysis::BenchmarkRecord> records = { r_merge, r_std, r_heap, r_quick };
 
@@ -601,6 +606,7 @@ void run_regression_tests() {
     base_rec.input_type = "Random";
     base_rec.input_size = 1000;
     base_rec.time_mean_ns = 1000.0;
+    base_rec.verified = true;
     baseline_run.results.push_back(base_rec);
 
     // 1. Improved test (time decreased from 1000 -> 900 ns, -10%)
@@ -1023,8 +1029,10 @@ void run_html_report_tests() {
         analysis::BenchmarkRecord rec_c, rec_b;
         rec_c.algorithm = "qs"; rec_c.algorithm_name = "Quick Sort";
         rec_c.input_type = "Random"; rec_c.input_size = 500; rec_c.time_mean_ns = 8000.0;
+        rec_c.verified = true;
         rec_b.algorithm = "qs"; rec_b.algorithm_name = "Quick Sort";
         rec_b.input_type = "Random"; rec_b.input_size = 500; rec_b.time_mean_ns = 10000.0;
+        rec_b.verified = true;
 
         run_curr.results = {rec_c};
         run_base.results = {rec_b};
@@ -1693,6 +1701,7 @@ void run_v4_reliability_and_scalability_tests() {
         base_rec.input_size = 1000;
         base_rec.input_type = "Random";
         base_rec.time_mean_ns = 1000.0;
+        base_rec.verified = true;
         base_run.results.push_back(base_rec);
 
         analysis::BenchmarkRun slow_run;
@@ -1703,12 +1712,171 @@ void run_v4_reliability_and_scalability_tests() {
         slow_rec.input_size = 1000;
         slow_rec.input_type = "Random";
         slow_rec.time_mean_ns = 5000.0; // 400% slower -> severe regression
+        slow_rec.verified = true;
         slow_run.results.push_back(slow_rec);
 
         auto rep = analysis::RegressionAnalyzer::compare_runs(slow_run, base_run, 5.0);
         expect(rep.valid, "Regression comparison is valid");
         expect(rep.has_regressions, "Regression detected for 5x slowdown (CI gating flag true)");
         expect(rep.regressed_count == 1, "Exactly 1 algorithm regressed");
+    }
+
+    // 7. Test: Template 2 ground truth vs std::max_element
+    {
+        std::vector<int> data = {42, 105, 3, 999, -50, 999, 12};
+        auto max_it = std::max_element(data.begin(), data.end());
+        int expected_idx = static_cast<int>(std::distance(data.begin(), max_it));
+        expect(expected_idx == 3, "std::max_element locates first maximum at index 3");
+        expect(data[expected_idx] == 999, "Maximum value is 999");
+    }
+
+    // 8. Test: Template 3 custom sorting verification (sortedness + multiset equality)
+    {
+        std::vector<int> orig = {50, 10, 50, 20, 5, 99, 10, -5};
+        std::vector<int> sorted = orig;
+        std::sort(sorted.begin(), sorted.end());
+        expect(std::is_sorted(sorted.begin(), sorted.end()), "std::sort produces strictly sorted sequence");
+        std::multiset<int> orig_set(orig.begin(), orig.end());
+        std::multiset<int> sorted_set(sorted.begin(), sorted.end());
+        expect(orig_set == sorted_set, "Sorting preserves complete multiset frequency permutation");
+    }
+
+    // 9. Test: Metadata cache percent-encoding with special characters (#18)
+    {
+        const std::string cache_test_dir = "results/test_meta_special_sandbox";
+        std::error_code ec;
+        std::filesystem::remove_all(cache_test_dir, ec);
+
+        analysis::HistoryManager hm(cache_test_dir);
+        analysis::BenchmarkRun r;
+        r.format_version = "4.0";
+        r.run_id = "RUN-SPECIAL-001";
+        r.timestamp = "2026-09-18_12-00-00-000";
+        r.input.type = "Random";
+        r.input.element_count = 500;
+
+        analysis::BenchmarkRecord rec1;
+        rec1.algorithm = "alg|with=pipe&eq";
+        rec1.algorithm_name = "My Alg|Special=Name%100";
+        rec1.input_size = 500;
+        r.results.push_back(rec1);
+
+        std::string saved_path = hm.save_run(r);
+        expect(!saved_path.empty(), "Saved run with special characters in algorithm name");
+
+        // Read the raw .meta file directly to check that '|' and '=' were escaped
+        std::filesystem::path meta_path = std::filesystem::path(cache_test_dir) / "run_RUN-SPECIAL-001.meta";
+        expect(std::filesystem::exists(meta_path), "Meta file exists");
+
+        std::ifstream meta_in(meta_path);
+        std::string meta_line;
+        bool found_alg_line = false;
+        while (std::getline(meta_in, meta_line)) {
+            if (meta_line.find("algorithms=") == 0) {
+                found_alg_line = true;
+                expect(meta_line.find("%7C") != std::string::npos || meta_line.find("%7c") != std::string::npos,
+                       "Metadata algorithm line contains percent-encoded pipe");
+            }
+        }
+        meta_in.close();
+        expect(found_alg_line, "Found algorithms= line in .meta file");
+
+        // Recover via list_runs()
+        auto runs = hm.list_runs();
+        expect(!runs.empty(), "list_runs returns run");
+        if (!runs.empty() && !runs[0].algorithms.empty()) {
+            expect(runs[0].algorithms[0] == "My Alg|Special=Name%100",
+                   "list_runs correctly decoded special characters in algorithm name");
+        }
+
+        std::filesystem::remove_all(cache_test_dir, ec);
+    }
+
+    // 10. Test: Filename content hashing & directory traversal protection
+    {
+        std::string dangerous_name = "../../etc/passwd/../../malicious..name.cpp";
+        std::string content = "int search_algorithm(const int* data, int size) { return 0; }";
+        std::string hashed = server::DashboardServer::make_content_hashed_filename(dangerous_name, content, "custom_alg", ".cpp");
+        expect(hashed.find("..") == std::string::npos, "make_content_hashed_filename strips directory traversal '..'");
+        expect(hashed.find('/') == std::string::npos, "make_content_hashed_filename strips forward slashes");
+        expect(hashed.find('\\') == std::string::npos, "make_content_hashed_filename strips backslashes");
+        expect(hashed.find(".cpp") != std::string::npos, "make_content_hashed_filename preserves extension");
+        expect(hashed.size() > 8, "make_content_hashed_filename includes 8-character hex hash");
+    }
+
+    // 11. Test: Server returns HTTP 400 Bad Request on incomplete HTTP body
+    {
+        server::DashboardServer test_server(8098, "web");
+        bool started = test_server.start();
+        expect(started, "DashboardServer started for truncated body test");
+        if (started) {
+            SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            expect(sock != INVALID_SOCKET, "Socket created for client test");
+            if (sock != INVALID_SOCKET) {
+                sockaddr_in saddr{};
+                saddr.sin_family = AF_INET;
+                saddr.sin_port = htons(static_cast<u_short>(test_server.port()));
+                saddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+                int conn = connect(sock, reinterpret_cast<sockaddr*>(&saddr), sizeof(saddr));
+                expect(conn == 0, "Connected to DashboardServer");
+                if (conn == 0) {
+                    std::string req = "POST /api/validate-file HTTP/1.1\r\n"
+                                      "Host: localhost\r\n"
+                                      "Content-Length: 100\r\n"
+                                      "Content-Type: application/json\r\n\r\n"
+                                      "{\"short\":1}";
+                    send(sock, req.data(), static_cast<int>(req.size()), 0);
+                    shutdown(sock, SD_SEND);
+
+                    char buf[1024];
+                    std::string response;
+                    int r = 0;
+                    while ((r = recv(sock, buf, sizeof(buf) - 1, 0)) > 0) {
+                        response.append(buf, r);
+                    }
+                    expect(response.find("400 Bad Request") != std::string::npos,
+                           "Server returned 400 Bad Request on truncated body");
+                    expect(response.find("Incomplete HTTP body") != std::string::npos,
+                           "Server returned descriptive JSON error message for incomplete body");
+                }
+#ifdef _WIN32
+                closesocket(sock);
+#else
+                close(sock);
+#endif
+            }
+            test_server.stop();
+        }
+    }
+
+    // 12. Test: RegressionAnalyzer excludes unverified / non-positive records
+    {
+        analysis::BenchmarkRun base_run;
+        base_run.run_id = "RUN-BASE-SAFETY";
+        analysis::BenchmarkRecord r_unverified;
+        r_unverified.algorithm = "alg1";
+        r_unverified.algorithm_name = "Alg Unverified";
+        r_unverified.input_size = 1000;
+        r_unverified.input_type = "Random";
+        r_unverified.time_mean_ns = 100.0;
+        r_unverified.verified = false; // Unverified!
+        base_run.results.push_back(r_unverified);
+
+        analysis::BenchmarkRecord r_nonpos;
+        r_nonpos.algorithm = "alg2";
+        r_nonpos.algorithm_name = "Alg NonPositive";
+        r_nonpos.input_size = 1000;
+        r_nonpos.input_type = "Random";
+        r_nonpos.time_mean_ns = 0.0; // Non-positive!
+        r_nonpos.verified = true;
+        base_run.results.push_back(r_nonpos);
+
+        analysis::BenchmarkRun cur_run = base_run;
+        cur_run.run_id = "RUN-CUR-SAFETY";
+
+        auto rep = analysis::RegressionAnalyzer::compare_runs(cur_run, base_run, 5.0);
+        expect(rep.records.empty(), "Unverified and non-positive records are excluded from regression comparisons");
     }
 }
 

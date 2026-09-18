@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <chrono>
 #include <ctime>
+#include <cmath>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -85,19 +86,23 @@ int main(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--dataset" && i + 1 < argc) dataset_path = argv[++i];
-        else if (arg == "--target" && i + 1 < argc) target_value = std::stoi(argv[++i]);
-        else if (arg == "--category" && i + 1 < argc) category = argv[++i];
-        else if (arg == "--interface-mode" && i + 1 < argc) interface_mode = argv[++i];
-        else if (arg == "--iterations" && i + 1 < argc) iterations = std::stoi(argv[++i]);
-        else if (arg == "--warmup" && i + 1 < argc) warmup_runs = std::stoi(argv[++i]);
-        else if (arg == "--affinity" && i + 1 < argc) cpu_affinity = std::stoi(argv[++i]);
-        else if (arg == "--memory" && i + 1 < argc) measure_memory = (std::string(argv[++i]) == "true");
-        else if (arg == "--json-output" && i + 1 < argc) json_output_path = argv[++i];
+        try {
+            if (arg == "--dataset" && i + 1 < argc) dataset_path = argv[++i];
+            else if (arg == "--target" && i + 1 < argc) target_value = std::stoi(argv[++i]);
+            else if (arg == "--category" && i + 1 < argc) category = argv[++i];
+            else if (arg == "--interface-mode" && i + 1 < argc) interface_mode = argv[++i];
+            else if (arg == "--iterations" && i + 1 < argc) iterations = std::stoi(argv[++i]);
+            else if (arg == "--warmup" && i + 1 < argc) warmup_runs = std::stoi(argv[++i]);
+            else if (arg == "--affinity" && i + 1 < argc) cpu_affinity = std::stoi(argv[++i]);
+            else if (arg == "--memory" && i + 1 < argc) measure_memory = (std::string(argv[++i]) == "true");
+            else if (arg == "--json-output" && i + 1 < argc) json_output_path = argv[++i];
+        } catch (...) {}
     }
 
     if (iterations < 1) iterations = 1;
+    if (iterations > 10000) iterations = 10000;
     if (warmup_runs < 0) warmup_runs = 0;
+    if (warmup_runs > 100) warmup_runs = 100;
 
     // 1. Load dataset with strict integer token validation
     std::ifstream infile(dataset_path);
@@ -181,18 +186,18 @@ int main(int argc, char* argv[]) {
         ? "Present-target benchmark (target present in dataset)"
         : "Absent-target negative test (target absent from dataset)";
 
-    // 3. Build 5 consistent prefix subset sizes for empirical complexity analysis
+    // 3. Build 5 consistent subset sizes for empirical complexity analysis with deduplication
     std::vector<size_t> test_sizes;
     if (total_elements >= 5) {
         for (int k = 1; k <= 5; ++k) {
             size_t sz = std::max<size_t>(1, (total_elements * k) / 5);
-            if (test_sizes.empty() || sz > test_sizes.back()) {
-                test_sizes.push_back(sz);
-            }
+            test_sizes.push_back(sz);
         }
     } else {
         test_sizes.push_back(total_elements);
     }
+    std::sort(test_sizes.begin(), test_sizes.end());
+    test_sizes.erase(std::unique(test_sizes.begin(), test_sizes.end()), test_sizes.end());
 
     // 4. Instantiate custom algorithms
     auto algorithms = custom::create_custom_algorithms();
@@ -240,9 +245,28 @@ int main(int argc, char* argv[]) {
     for (size_t s_idx = 0; s_idx < test_sizes.size(); ++s_idx) {
         size_t sz = test_sizes[s_idx];
 
-        // Standard prefix slice of size sz
+        // Determine slice data and target presence
         const int* slice_data = data.data();
-        bool target_in_slice = target_available && (first_expected_index >= 0 && first_expected_index < static_cast<int>(sz));
+        bool target_in_slice = false;
+
+        if (category == "search" && interface_mode != "dataset_only") {
+            if (target_available && first_expected_index >= 0) {
+                double ratio = (total_elements <= 1)
+                    ? 0.0
+                    : static_cast<double>(first_expected_index) / static_cast<double>(total_elements - 1);
+                int target_pos = static_cast<int>(std::round(ratio * static_cast<double>(sz - 1)));
+                int start = first_expected_index - target_pos;
+                start = std::max(0, std::min(start, static_cast<int>(total_elements - sz)));
+                slice_data = data.data() + start;
+                target_in_slice = true;
+            } else {
+                slice_data = data.data();
+                target_in_slice = false;
+            }
+        } else {
+            slice_data = data.data();
+            target_in_slice = false;
+        }
 
         for (size_t a_idx = 0; a_idx < algorithms.size(); ++a_idx) {
             auto& alg = algorithms[a_idx];
@@ -260,10 +284,12 @@ int main(int argc, char* argv[]) {
                     std::vector<int> sort_copy(slice_data, slice_data + sz);
                     alg->sort(sort_copy.data(), sz);
                 }
-                // Verification: ensure array is sorted in ascending order
+                // Verification: ensure array is strictly sorted AND multiset permutation matches
+                std::vector<int> expected_sorted(slice_data, slice_data + sz);
+                std::sort(expected_sorted.begin(), expected_sorted.end());
                 std::vector<int> verify_copy(slice_data, slice_data + sz);
                 alg->sort(verify_copy.data(), sz);
-                is_verified = std::is_sorted(verify_copy.begin(), verify_copy.end());
+                is_verified = (verify_copy == expected_sorted);
                 found_idx = 0;
                 target_found = false;
             } else if (category == "dataset" || interface_mode == "dataset_only") {
@@ -272,9 +298,11 @@ int main(int argc, char* argv[]) {
                     volatile long long sink = alg->execute_dataset(slice_data, sz);
                     (void)sink;
                 }
-                // Verification
+                // Ground-Truth Reference Verification:
+                // Expected semantics: Maximum Element Index Search
+                auto max_it = std::max_element(slice_data, slice_data + sz);
                 long long res_val = alg->execute_dataset(slice_data, sz);
-                is_verified = true;
+                is_verified = (res_val >= 0 && static_cast<size_t>(res_val) < sz && slice_data[res_val] == *max_it);
                 found_idx = static_cast<int>(res_val);
                 target_found = false;
             } else {
@@ -371,14 +399,8 @@ int main(int argc, char* argv[]) {
 
             if (measure_memory) {
                 MemoryPeak peak = mem_sampler.stop();
-                uint64_t peak_inc = (peak.peak_working_set_increase > peak.peak_private_increase)
-                    ? peak.peak_working_set_increase
-                    : peak.peak_private_increase;
-                if (peak_inc == 0) {
-                    peak_inc = peak.peak_private_increase;
-                }
-                max_peak_increase = peak_inc;
-                total_net_change = peak.net_private_change;
+                max_peak_increase = peak.peak_working_set_increase;
+                total_net_change = peak.net_working_set_change;
             }
 
             MeasurementRecord rec;
@@ -548,6 +570,10 @@ int main(int argc, char* argv[]) {
     ss << "      \"optimization\": \"" << escape_json_str(sys.optimization()) << "\"\n";
     ss << "    },\n";
 
+    std::string rec_input_type = (category == "sorting") ? "Sorting Dataset" :
+                                 (category == "dataset" || interface_mode == "dataset_only") ? "Custom Dataset" :
+                                 "Search Dataset";
+
     // Configuration
     ss << "    \"configuration\": {\n";
     ss << "      \"warmup_runs\": " << warmup_runs << ",\n";
@@ -562,12 +588,12 @@ int main(int argc, char* argv[]) {
         ss << (i == 0 ? "" : ", ") << test_sizes[i];
     }
     ss << "],\n";
-    ss << "      \"input_cases\": [\"SearchDataset\"]\n";
+    ss << "      \"input_cases\": [\"" << escape_json_str(rec_input_type) << "\"]\n";
     ss << "    },\n";
 
     // Input metadata
     ss << "    \"input\": {\n";
-    ss << "      \"type\": \"custom_file\",\n";
+    ss << "      \"type\": \"" << escape_json_str(rec_input_type) << "\",\n";
     ss << "      \"file_path\": \"" << escape_json_str(dataset_path) << "\",\n";
     ss << "      \"element_count\": " << total_elements << ",\n"
       << "      \"distinct_count\": " << distinct_elements << ",\n"
@@ -595,7 +621,7 @@ int main(int argc, char* argv[]) {
             ss << "      {\n";
             ss << "        \"algorithm\": \"" << escape_json_str(key) << "\",\n";
             ss << "        \"algorithm_name\": \"" << escape_json_str(r.name) << "\",\n";
-            ss << "        \"input_type\": \"Search Dataset\",\n";
+            ss << "        \"input_type\": \"" << escape_json_str(rec_input_type) << "\",\n";
             ss << "        \"input_size\": " << r.size << ",\n";
             ss << "        \"verified\": " << (r.verified ? "true" : "false") << ",\n";
             ss << "        \"search_result_index\": " << r.search_result_index << ",\n";

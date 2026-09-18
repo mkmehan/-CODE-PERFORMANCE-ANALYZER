@@ -117,19 +117,13 @@ std::string extract_json_string(const std::string& json, const std::string& key,
     return unescape_json_str(json.substr(q1 + 1, q2 - q1 - 1));
 }
 
-std::string sanitize_filename(const std::string& raw) {
-    std::string clean;
-    for (char c : raw) {
-        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-            clean += '_';
-        } else {
-            clean += c;
-        }
+uint32_t fnv1a_32(const std::string& str) {
+    uint32_t hash = 2166136261u;
+    for (char c : str) {
+        hash ^= static_cast<uint8_t>(c);
+        hash *= 16777619u;
     }
-    if (clean.empty() || clean == "." || clean == "..") {
-        clean = "custom_dataset.txt";
-    }
-    return clean;
+    return hash;
 }
 
 
@@ -334,6 +328,42 @@ std::string DashboardServer::url() const {
     return "http://localhost:" + std::to_string(active_port);
 }
 
+std::string DashboardServer::make_content_hashed_filename(const std::string& raw_filename, const std::string& content, const std::string& default_stem, const std::string& default_ext) {
+    std::filesystem::path p(raw_filename);
+    std::string stem = p.stem().string();
+    std::string ext = p.extension().string();
+
+    std::string clean_stem;
+    for (char c : stem) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-') {
+            clean_stem += c;
+        } else {
+            clean_stem += '_';
+        }
+    }
+    while (clean_stem.find("..") != std::string::npos) {
+        clean_stem.erase(clean_stem.find(".."), 2);
+    }
+    if (clean_stem.empty()) {
+        clean_stem = default_stem;
+    }
+
+    std::string clean_ext;
+    for (char c : ext) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '.') {
+            clean_ext += c;
+        }
+    }
+    if (clean_ext.empty()) {
+        clean_ext = default_ext;
+    }
+
+    uint32_t hash_val = fnv1a_32(content);
+    std::ostringstream ss;
+    ss << clean_stem << "_" << std::hex << std::setw(8) << std::setfill('0') << hash_val << clean_ext;
+    return ss.str();
+}
+
 BenchmarkProgress DashboardServer::get_progress() const {
     std::lock_guard<std::mutex> lock(status_mutex);
     return current_progress;
@@ -529,6 +559,18 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
     }
     auto query_map = parse_query(query_str);
 
+    std::string origin_header;
+    size_t orig_pos = headers.find("Origin:");
+    if (orig_pos == std::string::npos) orig_pos = headers.find("origin:");
+    if (orig_pos != std::string::npos) {
+        size_t end_line = headers.find("\r\n", orig_pos);
+        origin_header = (end_line != std::string::npos)
+            ? headers.substr(orig_pos + 7, end_line - (orig_pos + 7))
+            : headers.substr(orig_pos + 7);
+        while (!origin_header.empty() && (origin_header.front() == ' ' || origin_header.front() == '\t')) origin_header.erase(0, 1);
+        while (!origin_header.empty() && (origin_header.back() == ' ' || origin_header.back() == '\t')) origin_header.pop_back();
+    }
+
     size_t cl_pos = headers.find("Content-Length:");
     if (cl_pos == std::string::npos) cl_pos = headers.find("content-length:");
     if (cl_pos != std::string::npos) {
@@ -543,51 +585,60 @@ void DashboardServer::handle_client(uintptr_t sock_ptr) {
                 if (more <= 0) break;
                 body.append(buffer, static_cast<size_t>(more));
             }
+            if (body.size() < content_length) {
+                send_response(sock_ptr, 400, "application/json", "{\"status\": \"error\", \"message\": \"Bad Request: Incomplete HTTP body\"}", origin_header);
+#ifdef _WIN32
+                closesocket(client_sock);
+#else
+                close(client_sock);
+#endif
+                return;
+            }
         } catch (...) {}
     }
 
     if (method == "GET" && path == "/api/status") {
-        send_response(sock_ptr, 200, "application/json", handle_status());
+        send_response(sock_ptr, 200, "application/json", handle_status(), origin_header);
     } else if (method == "GET" && path == "/api/history") {
-        send_response(sock_ptr, 200, "application/json", handle_history());
+        send_response(sock_ptr, 200, "application/json", handle_history(), origin_header);
     } else if (method == "GET" && path == "/api/run") {
-        send_response(sock_ptr, 200, "application/json", handle_run(query_map["id"]));
+        send_response(sock_ptr, 200, "application/json", handle_run(query_map["id"]), origin_header);
     } else if (method == "GET" && path == "/api/compare") {
-        send_response(sock_ptr, 200, "application/json", handle_compare(query_map["id"]));
+        send_response(sock_ptr, 200, "application/json", handle_compare(query_map["id"]), origin_header);
     } else if (method == "GET" && path == "/api/regression") {
-        send_response(sock_ptr, 200, "application/json", handle_regression(query_map["id"]));
+        send_response(sock_ptr, 200, "application/json", handle_regression(query_map["id"]), origin_header);
     } else if (method == "GET" && path == "/api/trend") {
         std::string metric = query_map.count("metric") ? query_map["metric"] : "time";
         std::string dist = query_map.count("dist") ? query_map["dist"] : "";
         std::string mode = query_map.count("mode") ? query_map["mode"] : "";
         std::string run_id = query_map.count("run_id") ? query_map["run_id"] : (query_map.count("id") ? query_map["id"] : "");
         std::string category = query_map.count("category") ? query_map["category"] : "";
-        send_response(sock_ptr, 200, "application/json", handle_trend(metric, dist, mode, run_id, category));
+        send_response(sock_ptr, 200, "application/json", handle_trend(metric, dist, mode, run_id, category), origin_header);
     } else if (method == "POST" && path == "/api/validate-file") {
-        send_response(sock_ptr, 200, "application/json", handle_validate_file(body));
+        send_response(sock_ptr, 200, "application/json", handle_validate_file(body), origin_header);
     } else if (method == "POST" && path == "/api/upload-dataset") {
-        send_response(sock_ptr, 200, "application/json", handle_upload_dataset(body));
+        send_response(sock_ptr, 200, "application/json", handle_upload_dataset(body), origin_header);
     } else if (method == "POST" && path == "/api/benchmark") {
-        send_response(sock_ptr, 200, "application/json", handle_benchmark(body));
+        send_response(sock_ptr, 200, "application/json", handle_benchmark(body), origin_header);
     } else if (method == "POST" && path == "/api/custom-benchmark/start") {
-        send_response(sock_ptr, 200, "application/json", handle_custom_benchmark(body));
+        send_response(sock_ptr, 200, "application/json", handle_custom_benchmark(body), origin_header);
     } else if (method == "POST" && path == "/api/custom-benchmark/detect-interface") {
-        send_response(sock_ptr, 200, "application/json", handle_detect_interface(body));
+        send_response(sock_ptr, 200, "application/json", handle_detect_interface(body), origin_header);
     } else if (method == "POST" && path == "/api/custom-benchmark/detect-target") {
-        send_response(sock_ptr, 200, "application/json", handle_detect_target(body));
+        send_response(sock_ptr, 200, "application/json", handle_detect_target(body), origin_header);
     } else if (method == "POST" && path == "/api/custom-benchmark/upload-algorithm") {
-        send_response(sock_ptr, 200, "application/json", handle_upload_custom_algorithm(body));
+        send_response(sock_ptr, 200, "application/json", handle_upload_custom_algorithm(body), origin_header);
     } else if (method == "GET" && path == "/api/custom-benchmark/samples") {
-        send_response(sock_ptr, 200, "application/json", handle_custom_samples());
+        send_response(sock_ptr, 200, "application/json", handle_custom_samples(), origin_header);
     } else if (method == "POST" && path == "/api/benchmark/cancel") {
-        send_response(sock_ptr, 200, "application/json", handle_cancel());
+        send_response(sock_ptr, 200, "application/json", handle_cancel(), origin_header);
     } else if (method == "POST" && path == "/api/report") {
-        send_response(sock_ptr, 200, "application/json", handle_report(query_map["id"]));
+        send_response(sock_ptr, 200, "application/json", handle_report(query_map["id"]), origin_header);
     } else if (method == "OPTIONS") {
-        send_response(sock_ptr, 204, "text/plain", "");
+        send_response(sock_ptr, 204, "text/plain", "", origin_header);
     } else {
         if (!serve_static_file(sock_ptr, path)) {
-            send_response(sock_ptr, 404, "text/plain", "404 Not Found");
+            send_response(sock_ptr, 404, "text/plain", "404 Not Found", origin_header);
         }
     }
 
@@ -808,7 +859,7 @@ std::string DashboardServer::handle_upload_dataset(const std::string& body) {
         return "{\"valid\": false, \"error_message\": \"Uploaded file content is empty\"}";
     }
 
-    std::string sanitized = sanitize_filename(filename_raw);
+    std::string sanitized = make_content_hashed_filename(filename_raw, content, "dataset", ".txt");
     std::string dir = "datasets";
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
@@ -846,7 +897,16 @@ std::string DashboardServer::handle_benchmark(const std::string& body) {
         if (current_progress.state == EngineState::Running) {
             return "{\"status\": \"busy\", \"message\": \"A benchmark is already running\"}";
         }
+        current_progress.state = EngineState::Running;
+        current_progress.progress_percent = 0;
+        current_progress.current_algorithm = "Initializing...";
+        current_progress.error_message = "";
     }
+
+    auto revert_to_idle = [this]() {
+        std::lock_guard<std::mutex> lock(status_mutex);
+        current_progress.state = EngineState::Idle;
+    };
 
     std::string input_type = extract_json_string(body, "input_type", "Random");
     std::string file_path = extract_json_string(body, "file_path", "");
@@ -865,10 +925,12 @@ std::string DashboardServer::handle_benchmark(const std::string& body) {
 
     if (input_type == "CustomFile") {
         if (file_path.empty()) {
+            revert_to_idle();
             return "{\"status\": \"error\", \"message\": \"File path cannot be empty for CustomFile\"}";
         }
         const ValidationResult val = FileInputLoader::load_and_validate(file_path);
         if (!val.valid) {
+            revert_to_idle();
             return "{\"status\": \"error\", \"message\": \"" + escape_json_str(val.error_message) + "\"}";
         }
         config.is_custom_file = true;
@@ -891,6 +953,7 @@ std::string DashboardServer::handle_benchmark(const std::string& body) {
         } else if (input_type == "AllEqual" || input_type == "All Equal") {
             idc = InputDataCase::AllEqual;
         } else {
+            revert_to_idle();
             return "{\"status\": \"error\", \"message\": \"Unknown or unsupported input_type: " + escape_json_str(input_type) + "\"}";
         }
         config.input_cases = { idc };
@@ -979,6 +1042,13 @@ std::string DashboardServer::handle_detect_interface(const std::string& body) {
     std::string file_path = extract_json_string(body, "file_path", "");
     std::string cat_str = extract_json_string(body, "category", "search");
     std::string iface_mode = extract_json_string(body, "interface_mode", "with_target");
+    if (cat_str == "search:dataset_only") {
+        cat_str = "dataset";
+        iface_mode = "dataset_only";
+    } else if (cat_str == "search:with_target") {
+        cat_str = "search";
+        iface_mode = "with_target";
+    }
     custom::CustomCategory cat = custom::string_to_custom_category(cat_str);
 
     custom::DetectionResult res;
@@ -1012,7 +1082,7 @@ std::string DashboardServer::handle_upload_custom_algorithm(const std::string& b
         return "{\"recognized\": false, \"diagnostic_message\": \"Uploaded file content is empty\"}";
     }
 
-    std::string sanitized = sanitize_filename(filename_raw);
+    std::string sanitized = make_content_hashed_filename(filename_raw, content, "custom_alg", ".cpp");
     std::string dir = "custom/uploads";
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
@@ -1027,6 +1097,13 @@ std::string DashboardServer::handle_upload_custom_algorithm(const std::string& b
 
     std::string cat_str = extract_json_string(body, "category", "search");
     std::string iface_mode = extract_json_string(body, "interface_mode", "with_target");
+    if (cat_str == "search:dataset_only") {
+        cat_str = "dataset";
+        iface_mode = "dataset_only";
+    } else if (cat_str == "search:with_target") {
+        cat_str = "search";
+        iface_mode = "with_target";
+    }
     custom::CustomCategory cat = custom::string_to_custom_category(cat_str);
     auto det = custom::InterfaceDetector::detect(content, cat, iface_mode);
 
@@ -1166,19 +1243,39 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
         if (current_progress.state == EngineState::Running) {
             return "{\"status\": \"busy\", \"message\": \"A benchmark is already running\"}";
         }
+        current_progress.state = EngineState::Running;
+        current_progress.progress_percent = 0;
+        current_progress.current_algorithm = "Initializing custom benchmark...";
+        current_progress.error_message = "";
     }
+
+    auto revert_to_idle = [this]() {
+        std::lock_guard<std::mutex> lock(status_mutex);
+        current_progress.state = EngineState::Idle;
+    };
 
     std::string category = extract_json_string(body, "category", "search");
     std::string interface_mode = extract_json_string(body, "interface_mode", "with_target");
 
+    if (category == "search:dataset_only") {
+        category = "dataset";
+        interface_mode = "dataset_only";
+    } else if (category == "search:with_target") {
+        category = "search";
+        interface_mode = "with_target";
+    } else if (category == "search" && interface_mode == "dataset_only") {
+        category = "dataset";
+    }
+
     if (category != "search" && category != "dataset" && category != "sorting") {
+        revert_to_idle();
         return "{\"status\": \"error\", \"message\": \"Category '" + escape_json_str(category) + "' is currently in Extension Preview. Live execution harness is available for Targeted Search, Dataset Operations, and Custom Sorting.\"}";
     }
 
     custom::CustomBenchmarkConfig cfg;
     cfg.category = category;
-    cfg.interface_mode = interface_mode;
-    cfg.has_target = (interface_mode == "with_target" && category == "search");
+    cfg.interface_mode = (category == "dataset") ? "dataset_only" : interface_mode;
+    cfg.has_target = (cfg.interface_mode == "with_target" && category == "search");
     cfg.dataset_path = extract_json_string(body, "dataset_path", "custom/samples/search_data.txt");
     cfg.target_value = extract_json_int(body, "target_value", extract_json_int(body, "target", 5000));
     cfg.iterations = extract_json_int(body, "iterations", 20);
@@ -1229,13 +1326,16 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
     }
 
     if (alg_a_path.empty() || alg_b_path.empty()) {
+        revert_to_idle();
         return "{\"status\": \"error\", \"message\": \"Please provide both Algorithm A and Algorithm B source files.\"}";
     }
 
     if (!std::filesystem::exists(alg_a_path)) {
+        revert_to_idle();
         return "{\"status\": \"error\", \"message\": \"Algorithm A source file not found: " + escape_json_str(alg_a_path) + "\"}";
     }
     if (!std::filesystem::exists(alg_b_path)) {
+        revert_to_idle();
         return "{\"status\": \"error\", \"message\": \"Algorithm B source file not found: " + escape_json_str(alg_b_path) + "\"}";
     }
 
@@ -1251,6 +1351,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
             alg_a_decl = det.detected_signature;
             if (alg_a_name.empty()) alg_a_name = det.suggested_display_name;
         } else {
+            revert_to_idle();
             return "{\"status\": \"error\", \"message\": \"Interface not recognized in " + escape_json_str(alg_a_path) + ": " + escape_json_str(det.diagnostic_message) + "\"}";
         }
     }
@@ -1266,6 +1367,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
             alg_b_decl = det.detected_signature;
             if (alg_b_name.empty()) alg_b_name = det.suggested_display_name;
         } else {
+            revert_to_idle();
             return "{\"status\": \"error\", \"message\": \"Interface not recognized in " + escape_json_str(alg_b_path) + ": " + escape_json_str(det.diagnostic_message) + "\"}";
         }
     }
@@ -1294,7 +1396,7 @@ std::string DashboardServer::handle_custom_benchmark(const std::string& body) {
         current_progress.state = EngineState::Running;
         current_progress.progress_percent = 10;
         current_progress.current_algorithm = "Compiling custom algorithms...";
-        current_progress.current_input_type = "Custom Search";
+        current_progress.current_input_type = (category == "sorting") ? "Custom Sorting" : ((category == "dataset" || cfg.interface_mode == "dataset_only") ? "Dataset Operations" : "Custom Search");
         current_progress.current_size = 0;
         current_progress.current_iteration = 0;
         current_progress.total_iterations = cfg.iterations;
@@ -1416,19 +1518,35 @@ std::string DashboardServer::get_mime_type(const std::string& path) {
     return "application/octet-stream";
 }
 
-void DashboardServer::send_response(uintptr_t sock_ptr, int status_code, const std::string& content_type, const std::string& body) {
+void DashboardServer::send_response(uintptr_t sock_ptr, int status_code, const std::string& content_type, const std::string& body, const std::string& origin) {
     SOCKET client_sock = static_cast<SOCKET>(sock_ptr);
 
     std::string status_text = "OK";
     if (status_code == 204) status_text = "No Content";
+    else if (status_code == 400) status_text = "Bad Request";
     else if (status_code == 404) status_text = "Not Found";
     else if (status_code == 500) status_text = "Internal Server Error";
+
+    // Validate origin: restrict CORS to local dashboard origins
+    std::string allowed_origin = "http://localhost:8080";
+    if (!origin.empty()) {
+        if (origin.rfind("http://localhost:", 0) == 0 ||
+            origin.rfind("http://127.0.0.1:", 0) == 0 ||
+            origin == "http://localhost" ||
+            origin == "http://127.0.0.1") {
+            allowed_origin = origin;
+        } else {
+            allowed_origin = "null";
+        }
+    }
 
     std::ostringstream ss;
     ss << "HTTP/1.1 " << status_code << " " << status_text << "\r\n";
     ss << "Content-Type: " << content_type << "\r\n";
     ss << "Content-Length: " << body.size() << "\r\n";
-    ss << "Access-Control-Allow-Origin: *\r\n";
+    if (allowed_origin != "null") {
+        ss << "Access-Control-Allow-Origin: " << allowed_origin << "\r\n";
+    }
     ss << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
     ss << "Access-Control-Allow-Headers: Content-Type\r\n";
     ss << "Connection: close\r\n\r\n";

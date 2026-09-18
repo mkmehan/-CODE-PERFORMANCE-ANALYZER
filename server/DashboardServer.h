@@ -63,6 +63,12 @@ public:
 
     // Helper utilities
     static std::map<std::string, std::string> parse_query(const std::string& query_str);
+    static std::string make_content_hashed_filename(
+        const std::string& raw_filename,
+        const std::string& content,
+        const std::string& default_stem = "file",
+        const std::string& default_ext = ".txt"
+    );
 
 private:
     int requested_port;
@@ -111,7 +117,7 @@ private:
 
     // Helper utilities
     static std::string get_mime_type(const std::string& path);
-    static void send_response(uintptr_t client_sock, int status_code, const std::string& content_type, const std::string& body);
+    static void send_response(uintptr_t client_sock, int status_code, const std::string& content_type, const std::string& body, const std::string& origin = "");
 };
 
 } // namespace server

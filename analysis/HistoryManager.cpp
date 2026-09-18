@@ -25,6 +25,35 @@ std::string HistoryManager::sanitize_filename(const std::string& id) const {
 
 namespace {
 
+std::string percent_encode(const std::string& input) {
+    std::ostringstream ss;
+    for (unsigned char c : input) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            ss << c;
+        } else {
+            ss << '%' << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+        }
+    }
+    return ss.str();
+}
+
+std::string percent_decode(const std::string& input) {
+    std::string out;
+    for (size_t i = 0; i < input.size(); ++i) {
+        if (input[i] == '%' && i + 2 < input.size()) {
+            int val = 0;
+            std::istringstream hex_stream(input.substr(i + 1, 2));
+            if (hex_stream >> std::hex >> val) {
+                out += static_cast<char>(val);
+                i += 2;
+                continue;
+            }
+        }
+        out += input[i];
+    }
+    return out;
+}
+
 bool write_meta_cache(const RunMetadata& meta, const std::string& meta_path) {
     std::ofstream out(meta_path, std::ios::trunc);
     if (!out.is_open()) return false;
@@ -40,7 +69,7 @@ bool write_meta_cache(const RunMetadata& meta, const std::string& meta_path) {
     out << "algorithms=";
     for (size_t i = 0; i < meta.algorithms.size(); ++i) {
         if (i > 0) out << "|";
-        out << meta.algorithms[i];
+        out << percent_encode(meta.algorithms[i]);
     }
     out << "\n";
     return true;
@@ -80,7 +109,7 @@ std::optional<RunMetadata> read_meta_cache(const std::string& meta_path, const s
             std::stringstream ss(val);
             std::string item;
             while (std::getline(ss, item, '|')) {
-                if (!item.empty()) meta.algorithms.push_back(item);
+                if (!item.empty()) meta.algorithms.push_back(percent_decode(item));
             }
         }
     }

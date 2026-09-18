@@ -100,10 +100,15 @@ RegressionReport RegressionAnalyzer::compare_runs(
     const double eps = 1e-7;
 
     for (const auto& curr : current_run.results) {
+        if (!curr.verified || curr.time_mean_ns <= 0.0) {
+            continue; // Skip unverified or invalid records
+        }
+
         // Find matching record in baseline
         const BenchmarkRecord* base_match = nullptr;
         for (const auto& base : baseline_run.results) {
-            if (base.algorithm == curr.algorithm &&
+            if (base.verified && base.time_mean_ns > 0.0 &&
+                base.algorithm == curr.algorithm &&
                 base.input_type == curr.input_type &&
                 base.input_size == curr.input_size) {
                 base_match = &base;
@@ -125,11 +130,10 @@ RegressionReport RegressionAnalyzer::compare_runs(
         rec.baseline_memory_bytes = base_match->memory_peak_increase_bytes;
         rec.current_memory_bytes = curr.memory_peak_increase_bytes;
 
-        if (rec.baseline_time_ns > 0.0) {
-            rec.delta_percentage = ((rec.current_time_ns - rec.baseline_time_ns) / rec.baseline_time_ns) * 100.0;
-        } else {
-            rec.delta_percentage = 0.0;
+        if (rec.baseline_time_ns <= 0.0) {
+            continue; // Reject non-positive baseline timing as invalid
         }
+        rec.delta_percentage = ((rec.current_time_ns - rec.baseline_time_ns) / rec.baseline_time_ns) * 100.0;
 
         // Apply tolerance:
         // delta < -tol: Improved (faster)

@@ -55,6 +55,19 @@ std::string format_display_name(const std::string& raw_name) {
     return result;
 }
 
+std::string escape_cpp_string(const std::string& str) {
+    std::string out;
+    for (char c : str) {
+        if (c == '\\') out += "\\\\";
+        else if (c == '"') out += "\\\"";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else if (c == '\t') out += "\\t";
+        else out += c;
+    }
+    return out;
+}
+
 } // namespace
 
 std::string InterfaceDetector::strip_comments_and_strings(const std::string& code) {
@@ -394,7 +407,7 @@ std::string InterfaceDetector::generate_search_adapter(
             ss << "extern \"C\" int search_algorithm(const int*, int, int);\n\n";
             break;
         case SearchInterfaceType::DatasetOnly:
-            ss << "int " << user_func_name << "(const int*, int);\n\n";
+            ss << "long long " << user_func_name << "(const int*, int);\n\n";
             break;
         case SearchInterfaceType::CustomSorting:
             ss << "void " << user_func_name << "(int*, int);\n\n";
@@ -416,7 +429,7 @@ std::string InterfaceDetector::generate_search_adapter(
     }
 
     ss << "public:\n";
-    ss << "    std::string name() const override { return \"" << display_name << "\"; }\n\n";
+    ss << "    std::string name() const override { return \"" << escape_cpp_string(display_name) << "\"; }\n\n";
 
     if (iface_type == SearchInterfaceType::VectorRefTarget ||
         iface_type == SearchInterfaceType::VectorValTarget ||
@@ -450,7 +463,7 @@ std::string InterfaceDetector::generate_search_adapter(
             break;
         case SearchInterfaceType::DatasetOnly:
             ss << "        (void)target;\n";
-            ss << "        return " << user_func_name << "(data, static_cast<int>(size));\n";
+            ss << "        return static_cast<int>(" << user_func_name << "(data, static_cast<int>(size)));\n";
             break;
         case SearchInterfaceType::CustomSorting:
             ss << "        (void)data; (void)size; (void)target;\n";
@@ -462,8 +475,14 @@ std::string InterfaceDetector::generate_search_adapter(
     }
     ss << "    }\n";
     if (iface_type == SearchInterfaceType::CustomSorting) {
+        ss << "    CustomCategory category() const override { return CustomCategory::Sorting; }\n";
         ss << "    void sort(int* data, size_t size) override {\n";
         ss << "        " << user_func_name << "(data, static_cast<int>(size));\n";
+        ss << "    }\n";
+    }
+    if (iface_type == SearchInterfaceType::DatasetOnly) {
+        ss << "    long long execute_dataset(const int* data, size_t size) override {\n";
+        ss << "        return " << user_func_name << "(data, static_cast<int>(size));\n";
         ss << "    }\n";
     }
 

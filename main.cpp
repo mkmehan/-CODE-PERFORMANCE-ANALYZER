@@ -132,7 +132,7 @@ bool parse_seed(const std::string& text, uint32_t& seed) {
 
 void print_usage(const BenchmarkRunner& runner) {
     std::cout
-        << "Code Performance Analyzer v3.0\n\n"
+        << "Code Performance Analyzer v4.0\n\n"
         << "Graphical Mode (Default):\n"
         << "  analyzer.exe                        Launch Graphical Web Dashboard on port 8080\n"
         << "  analyzer.exe --gui [options]        Launch Graphical Web Dashboard\n"
@@ -470,6 +470,10 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 baseline_run = res.run;
+                if (!analysis::RegressionAnalyzer::are_runs_compatible(current_run, baseline_run)) {
+                    std::cerr << "Error: Specified baseline run '" << target << "' is incompatible with current run (category, mode, or dataset differs).\n";
+                    return 1;
+                }
             } else {
                 const auto all_runs = history.list_runs();
                 bool found_compatible = false;
@@ -483,12 +487,8 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 if (!found_compatible) {
-                    const auto prev_opt = history.get_latest_run(current_run.run_id);
-                    if (!prev_opt.has_value()) {
-                        std::cerr << "Error: Need at least 2 historical runs to perform regression analysis.\n";
-                        return 1;
-                    }
-                    baseline_run = *prev_opt;
+                    std::cerr << "Error: No compatible historical baseline run found for regression analysis (category, mode, or dataset differs).\n";
+                    return 1;
                 }
             }
 

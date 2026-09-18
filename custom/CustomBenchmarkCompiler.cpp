@@ -9,6 +9,23 @@
 
 namespace custom {
 
+namespace {
+
+std::string escape_cpp_string(const std::string& str) {
+    std::string out;
+    for (char c : str) {
+        if (c == '\\') out += "\\\\";
+        else if (c == '"') out += "\\\"";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else if (c == '\t') out += "\\t";
+        else out += c;
+    }
+    return out;
+}
+
+} // namespace
+
 std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
     const std::vector<AlgorithmSourceSpec>& algorithms
 ) {
@@ -76,7 +93,7 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
             ss << "    std::vector<int> cached_vec;\n";
         }
         ss << "public:\n";
-        ss << "    std::string name() const override { return \"" << alg.algorithm_name << "\"; }\n\n";
+        ss << "    std::string name() const override { return \"" << escape_cpp_string(alg.algorithm_name) << "\"; }\n\n";
 
         if (alg.interface_type == SearchInterfaceType::VectorRefTarget ||
             alg.interface_type == SearchInterfaceType::VectorValTarget ||
@@ -117,6 +134,7 @@ std::string CustomBenchmarkCompiler::generate_adapters_translation_unit(
         }
         ss << "    }\n";
         if (alg.interface_type == SearchInterfaceType::CustomSorting) {
+            ss << "    CustomCategory category() const override { return CustomCategory::Sorting; }\n";
             ss << "    void sort(int* data, size_t size) override {\n";
             ss << "        " << alg.detected_function << "(data, static_cast<int>(size));\n";
             ss << "    }\n";

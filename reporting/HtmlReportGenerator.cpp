@@ -594,7 +594,7 @@ std::string HtmlReportGenerator::generate_report(
         << "            <th>N</th>\n"
         << "            <th>Mean Time</th>\n"
         << "            <th>Median Time</th>\n"
-        << "            <th>P95 Time</th>\n"
+        << "            <th>Max Time</th>\n"
         << "            <th>Std Dev</th>\n"
         << "            <th>Peak Memory</th>\n"
         << "            <th>Correctness</th>\n"
@@ -612,7 +612,7 @@ std::string HtmlReportGenerator::generate_report(
             << "            <td>" << format_time(rec.time_max_ns) << "</td>\n"
             << "            <td>" << format_time(rec.time_stddev_ns) << "</td>\n"
             << "            <td>" << format_memory(rec.memory_peak_increase_bytes) << "</td>\n"
-            << "            <td><span class=\"badge badge-success\">PASS ✓</span></td>\n"
+            << "            <td><span class=\"" << (rec.verified ? "badge badge-success\">PASS ✓" : "badge badge-danger\">FAIL ✗") << "</span></td>\n"
             << "          </tr>\n";
     }
 
@@ -682,12 +682,19 @@ std::string HtmlReportGenerator::generate_report(
         << "  </div>\n\n";
 
     // ── Executive Conclusion ──────────────────────────────────────────────────
+    std::string throughput_desc = "sorting throughput";
+    if (run.benchmark_category == "search") {
+        throughput_desc = "search throughput";
+    } else if (run.benchmark_category == "matrix" || run.benchmark_category == "graph") {
+        throughput_desc = "computational throughput";
+    }
+
     out << "  <div class=\"card\">\n"
         << "    <div class=\"card-title\">📝 Automated Analysis Conclusion</div>\n"
         << "    <div class=\"conclusion-box\">\n"
         << "      <strong>Performance Summary:</strong> Under the measured test environment and dataset configuration (N = "
         << format_number(run.input.element_count > 0 ? run.input.element_count : (run.results.empty() ? 0 : run.results[0].input_size))
-        << "), <strong>" << escape_html(fastest_name) << "</strong> exhibited the highest sorting throughput, completing in " << fastest_time
+        << "), <strong>" << escape_html(fastest_name) << "</strong> exhibited the highest " << throughput_desc << ", completing in " << fastest_time
         << " and delivering a <strong>" << std::fixed << std::setprecision(2) << speedup_factor << "x speedup</strong> over " << escape_html(slowest_name) << ".<br><br>\n";
 
     if (regression.valid) {
@@ -712,33 +719,17 @@ std::string HtmlReportGenerator::generate_report(
         << "    border: { color: 'rgba(255, 255, 255, 0.1)' }\n"
         << "  };\n\n";
 
-    // 1. Time vs N Chart Data
-    std::vector<double> time_x_labels;
-    for (const auto& s : time_chart.series) {
-        for (const auto& pt : s.points) {
-            if (std::find(time_x_labels.begin(), time_x_labels.end(), pt.x) == time_x_labels.end()) {
-                time_x_labels.push_back(pt.x);
-            }
-        }
-    }
-    std::sort(time_x_labels.begin(), time_x_labels.end());
-
+    // 1. Time vs N Chart Data (continuous numeric scale)
     out << "  // 1. Time vs N Chart\n"
         << "  const timeCtx = document.getElementById('timeChart').getContext('2d');\n"
         << "  const timeChart = new Chart(timeCtx, {\n"
         << "    type: 'line',\n"
         << "    data: {\n"
-        << "      labels: [";
-    for (size_t i = 0; i < time_x_labels.size(); ++i) {
-        out << (i > 0 ? ", " : "") << "'" << static_cast<size_t>(time_x_labels[i]) << "'";
-    }
-    out << "],\n      datasets: [\n";
+        << "      datasets: [\n";
 
     for (size_t s_idx = 0; s_idx < time_chart.series.size(); ++s_idx) {
         const auto& ser = time_chart.series[s_idx];
         std::string color = get_color(s_idx);
-        std::map<double, double> pt_map;
-        for (const auto& pt : ser.points) pt_map[pt.x] = pt.y;
 
         out << "        {\n"
             << "          label: '" << escape_js_str(ser.algorithm_name) << "',\n"
@@ -749,14 +740,10 @@ std::string HtmlReportGenerator::generate_report(
             << "          pointRadius: 4,\n"
             << "          pointHoverRadius: 6,\n"
             << "          data: [";
-        for (size_t i = 0; i < time_x_labels.size(); ++i) {
-            auto it = pt_map.find(time_x_labels[i]);
+        for (size_t i = 0; i < ser.points.size(); ++i) {
             if (i > 0) out << ", ";
-            if (it != pt_map.end()) {
-                out << std::fixed << std::setprecision(2) << it->second;
-            } else {
-                out << "null";
-            }
+            out << "{x: " << static_cast<size_t>(ser.points[i].x) << ", y: "
+                << std::fixed << std::setprecision(2) << ser.points[i].y << "}";
         }
         out << "]\n        }" << (s_idx + 1 < time_chart.series.size() ? "," : "") << "\n";
     }
@@ -766,49 +753,33 @@ std::string HtmlReportGenerator::generate_report(
         << "    options: {\n"
         << "      responsive: true,\n"
         << "      maintainAspectRatio: false,\n"
-        << "      interaction: { mode: 'index', intersect: false },\n"
+        << "      interaction: { mode: 'nearest', intersect: false },\n"
         << "      scales: {\n"
-        << "        x: { title: { display: true, text: 'Input Size (N)', color: '#9ca3af' }, ...chartDarkTheme },\n"
+        << "        x: { type: 'linear', title: { display: true, text: 'Input Size (N)', color: '#9ca3af' }, ...chartDarkTheme },\n"
         << "        y: { title: { display: true, text: 'Mean Time (µs)', color: '#9ca3af' }, ...chartDarkTheme }\n"
         << "      },\n"
         << "      plugins: {\n"
         << "        legend: { labels: { color: '#f3f4f6', boxWidth: 12 } },\n"
         << "        tooltip: {\n"
         << "          callbacks: {\n"
-        << "            label: function(c) { return c.dataset.label + ': ' + c.parsed.y.toFixed(2) + ' µs'; }\n"
+        << "            label: function(c) { return c.dataset.label + ' (N=' + c.parsed.x + '): ' + c.parsed.y.toFixed(2) + ' µs'; }\n"
         << "          }\n"
         << "        }\n"
         << "      }\n"
         << "    }\n"
         << "  });\n\n";
 
-    // 2. Memory vs N Chart Data
-    std::vector<double> mem_x_labels;
-    for (const auto& s : memory_chart.series) {
-        for (const auto& pt : s.points) {
-            if (std::find(mem_x_labels.begin(), mem_x_labels.end(), pt.x) == mem_x_labels.end()) {
-                mem_x_labels.push_back(pt.x);
-            }
-        }
-    }
-    std::sort(mem_x_labels.begin(), mem_x_labels.end());
-
+    // 2. Memory vs N Chart Data (continuous numeric scale)
     out << "  // 2. Memory vs N Chart\n"
         << "  const memCtx = document.getElementById('memoryChart').getContext('2d');\n"
         << "  const memChart = new Chart(memCtx, {\n"
         << "    type: 'line',\n"
         << "    data: {\n"
-        << "      labels: [";
-    for (size_t i = 0; i < mem_x_labels.size(); ++i) {
-        out << (i > 0 ? ", " : "") << "'" << static_cast<size_t>(mem_x_labels[i]) << "'";
-    }
-    out << "],\n      datasets: [\n";
+        << "      datasets: [\n";
 
     for (size_t s_idx = 0; s_idx < memory_chart.series.size(); ++s_idx) {
         const auto& ser = memory_chart.series[s_idx];
         std::string color = get_color(s_idx);
-        std::map<double, double> pt_map;
-        for (const auto& pt : ser.points) pt_map[pt.x] = pt.y;
 
         out << "        {\n"
             << "          label: '" << escape_js_str(ser.algorithm_name) << "',\n"
@@ -818,14 +789,10 @@ std::string HtmlReportGenerator::generate_report(
             << "          tension: 0.25,\n"
             << "          pointRadius: 4,\n"
             << "          data: [";
-        for (size_t i = 0; i < mem_x_labels.size(); ++i) {
-            auto it = pt_map.find(mem_x_labels[i]);
+        for (size_t i = 0; i < ser.points.size(); ++i) {
             if (i > 0) out << ", ";
-            if (it != pt_map.end()) {
-                out << std::fixed << std::setprecision(4) << it->second;
-            } else {
-                out << "null";
-            }
+            out << "{x: " << static_cast<size_t>(ser.points[i].x) << ", y: "
+                << std::fixed << std::setprecision(4) << ser.points[i].y << "}";
         }
         out << "]\n        }" << (s_idx + 1 < memory_chart.series.size() ? "," : "") << "\n";
     }
@@ -835,13 +802,18 @@ std::string HtmlReportGenerator::generate_report(
         << "    options: {\n"
         << "      responsive: true,\n"
         << "      maintainAspectRatio: false,\n"
-        << "      interaction: { mode: 'index', intersect: false },\n"
+        << "      interaction: { mode: 'nearest', intersect: false },\n"
         << "      scales: {\n"
-        << "        x: { title: { display: true, text: 'Input Size (N)', color: '#9ca3af' }, ...chartDarkTheme },\n"
+        << "        x: { type: 'linear', title: { display: true, text: 'Input Size (N)', color: '#9ca3af' }, ...chartDarkTheme },\n"
         << "        y: { title: { display: true, text: 'Peak Memory Delta (MB)', color: '#9ca3af' }, ...chartDarkTheme }\n"
         << "      },\n"
         << "      plugins: {\n"
-        << "        legend: { labels: { color: '#f3f4f6', boxWidth: 12 } }\n"
+        << "        legend: { labels: { color: '#f3f4f6', boxWidth: 12 } },\n"
+        << "        tooltip: {\n"
+        << "          callbacks: {\n"
+        << "            label: function(c) { return c.dataset.label + ' (N=' + c.parsed.x + '): ' + c.parsed.y.toFixed(4) + ' MB'; }\n"
+        << "          }\n"
+        << "        }\n"
         << "      }\n"
         << "    }\n"
         << "  });\n\n";

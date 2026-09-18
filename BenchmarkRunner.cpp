@@ -257,7 +257,7 @@ void print_header(const SystemSnapshot& system, const BenchmarkConfig& config) {
 
     std::cout
         << "\n╔══════════════════════════════════════════════════════════════════════╗\n"
-        << "║                  CODE PERFORMANCE ANALYZER v3.0                     ║\n"
+        << "║                  CODE PERFORMANCE ANALYZER v4.0                     ║\n"
         << "║              Algorithm Benchmarking & Analysis Framework            ║\n"
         << "╚══════════════════════════════════════════════════════════════════════╝\n\n"
         << "SYSTEM INFORMATION\n" << divider << '\n'

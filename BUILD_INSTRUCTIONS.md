@@ -1,4 +1,4 @@
-# Performance Analyzer V3
+# Performance Analyzer V4
 
 ## Build (Windows + MinGW)
 

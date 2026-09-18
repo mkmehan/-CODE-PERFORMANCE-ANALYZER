@@ -1,23 +1,26 @@
 #include <vector>
 
-// Code Performance Analyzer - Full Dataset Operation Contract
+// Code Performance Analyzer - Dataset Operation Contract (Template 2)
 //
 // Required Function Contract:
 //   long long custom_algorithm(const int* data, int size)
+//
+// Benchmark Semantics:
+//   Array Maximum Element Search: Scans array and returns the 0-based index
+//   of the maximum element in data[0..size-1] (first occurrence if duplicates).
 //
 // Parameters:
 //   data   -> Pointer to the array of integers
 //   size   -> Total number of elements in the array
 //
 // Return:
-//   Computed index, aggregate sum, max/min, or 0 on success
+//   0-based index of maximum element (0 <= index < size), or -1 if size <= 0
 //
 long long custom_algorithm(const int* data, int size) {
-    // WRITE YOUR DATASET OPERATION ALGORITHM HERE
-    // Example: Max/Min Search, Sum/Reduction, Count, BST Build/Traversal
-    long long max_val = -2147483647 - 1;
-    int max_idx = -1;
-    for (int i = 0; i < size; ++i) {
+    if (size <= 0) return -1;
+    int max_idx = 0;
+    int max_val = data[0];
+    for (int i = 1; i < size; ++i) {
         if (data[i] > max_val) {
             max_val = data[i];
             max_idx = i;
@@ -25,4 +28,3 @@ long long custom_algorithm(const int* data, int size) {
     }
     return max_idx;
 }
-
